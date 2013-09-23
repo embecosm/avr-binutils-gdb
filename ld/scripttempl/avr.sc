@@ -146,6 +146,8 @@ SECTIONS
     KEEP (*(.fini8))
     *(.fini7)
     KEEP (*(.fini7))
+    *(.fini6a)  /* atexit.  */
+    KEEP (*(.fini6a))
     *(.fini6)  /* C++ destructors.  */
     KEEP (*(.fini6))
     *(.fini5)
