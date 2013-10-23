@@ -1435,6 +1435,7 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
 
   set_gdbarch_breakpoint_from_pc (gdbarch, avr_breakpoint_from_pc);
+  set_gdbarch_decr_pc_after_break (gdbarch, 2);
 
   frame_unwind_append_unwinder (gdbarch, &avr_frame_unwind);
   frame_base_set_default (gdbarch, &avr_frame_base);
