@@ -83,7 +83,7 @@ am33_2.0*-*-linux*)
 
 arm*-wince-pe | arm*-*-mingw32ce*)
 	# Target: ARM based machine running Windows CE (win32)
-	gdb_target_obs="arm-tdep.o arm-wince-tdep.o"
+	gdb_target_obs="arm-tdep.o arm-wince-tdep.o windows-tdep.o"
 	build_gdbserver=yes
 	;;
 arm*-*-linux*)
@@ -464,9 +464,9 @@ powerpc*-*-*)
 	fi
 	;;
 
-s390*-*-*)
+s390*-*-linux*)
 	# Target: S390 running Linux
-	gdb_target_obs="s390-tdep.o solib-svr4.o linux-tdep.o"
+	gdb_target_obs="s390-linux-tdep.o solib-svr4.o linux-tdep.o"
 	build_gdbserver=yes
 	;;
 

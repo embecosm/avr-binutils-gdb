@@ -50,8 +50,8 @@
 
 #include <sys/types.h>
 #include <fcntl.h>
-#include "gdb_string.h"
-#include "gdb_stat.h"
+#include <string.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include "cp-abi.h"
 #include "cp-support.h"
@@ -60,6 +60,7 @@
 #include "solist.h"
 #include "macrotab.h"
 #include "macroscope.h"
+#include "ada-lang.h"
 
 #include "psymtab.h"
 #include "parser-defs.h"
@@ -106,7 +107,7 @@ void _initialize_symtab (void);
 /* */
 
 /* When non-zero, print debugging messages related to symtab creation.  */
-int symtab_create_debug = 0;
+unsigned int symtab_create_debug = 0;
 
 /* Non-zero if a file may be known by two different basenames.
    This is the uncommon case, and significantly slows down gdb.
@@ -142,6 +143,53 @@ multiple_symbols_select_mode (void)
    value_of_this.  */
 
 const struct block *block_found;
+
+/* Return the name of a domain_enum.  */
+
+const char *
+domain_name (domain_enum e)
+{
+  switch (e)
+    {
+    case UNDEF_DOMAIN: return "UNDEF_DOMAIN";
+    case VAR_DOMAIN: return "VAR_DOMAIN";
+    case STRUCT_DOMAIN: return "STRUCT_DOMAIN";
+    case LABEL_DOMAIN: return "LABEL_DOMAIN";
+    case COMMON_BLOCK_DOMAIN: return "COMMON_BLOCK_DOMAIN";
+    default: gdb_assert_not_reached ("bad domain_enum");
+    }
+}
+
+/* Return the name of a search_domain .  */
+
+const char *
+search_domain_name (enum search_domain e)
+{
+  switch (e)
+    {
+    case VARIABLES_DOMAIN: return "VARIABLES_DOMAIN";
+    case FUNCTIONS_DOMAIN: return "FUNCTIONS_DOMAIN";
+    case TYPES_DOMAIN: return "TYPES_DOMAIN";
+    case ALL_DOMAIN: return "ALL_DOMAIN";
+    default: gdb_assert_not_reached ("bad search_domain");
+    }
+}
+
+/* Set the primary field in SYMTAB.  */
+
+void
+set_symtab_primary (struct symtab *symtab, int primary)
+{
+  symtab->primary = primary;
+
+  if (symtab_create_debug && primary)
+    {
+      fprintf_unfiltered (gdb_stdlog,
+			  "Created primary symtab %s for %s.\n",
+			  host_address_to_string (symtab),
+			  symtab_to_filename_for_display (symtab));
+    }
+}
 
 /* See whether FILENAME matches SEARCH_NAME using the rule that we
    advertise to the user.  (The manual's description of linespecs
@@ -561,7 +609,7 @@ create_demangled_names_hash (struct objfile *objfile)
      Choosing a much larger table size wastes memory, and saves only about
      1% in symbol reading.  */
 
-  objfile->demangled_names_hash = htab_create_alloc
+  objfile->per_bfd->demangled_names_hash = htab_create_alloc
     (256, hash_demangled_name_entry, eq_demangled_name_entry,
      NULL, xcalloc, xfree);
 }
@@ -645,6 +693,42 @@ symbol_find_demangled_name (struct general_symbol_info *gsymbol,
      symbols).  Just the mangling standard is not standardized across compilers
      and there is no DW_AT_producer available for inferiors with only the ELF
      symbols to check the mangling kind.  */
+
+  /* Check for Ada symbols last.  See comment below explaining why.  */
+
+  if (gsymbol->language == language_auto)
+   {
+     const char *demangled = ada_decode (mangled);
+
+     if (demangled != mangled && demangled != NULL && demangled[0] != '<')
+       {
+	 /* Set the gsymbol language to Ada, but still return NULL.
+	    Two reasons for that:
+
+	      1. For Ada, we prefer computing the symbol's decoded name
+		 on the fly rather than pre-compute it, in order to save
+		 memory (Ada projects are typically very large).
+
+	      2. There are some areas in the definition of the GNAT
+		 encoding where, with a bit of bad luck, we might be able
+		 to decode a non-Ada symbol, generating an incorrect
+		 demangled name (Eg: names ending with "TB" for instance
+		 are identified as task bodies and so stripped from
+		 the decoded name returned).
+
+		 Returning NULL, here, helps us get a little bit of
+		 the best of both worlds.  Because we're last, we should
+		 not affect any of the other languages that were able to
+		 demangle the symbol before us; we get to correctly tag
+		 Ada symbols as such; and even if we incorrectly tagged
+		 a non-Ada symbol, which should be rare, any routing
+		 through the Ada language should be transparent (Ada
+		 tries to behave much like C/C++ with non-Ada symbols).  */
+	 gsymbol->language = language_ada;
+	 return NULL;
+       }
+   }
+
   return NULL;
 }
 
@@ -656,7 +740,7 @@ symbol_find_demangled_name (struct general_symbol_info *gsymbol,
    objfile), and it will not be copied.
 
    The hash table corresponding to OBJFILE is used, and the memory
-   comes from that objfile's objfile_obstack.  LINKAGE_NAME is copied,
+   comes from the per-BFD storage_obstack.  LINKAGE_NAME is copied,
    so the pointer can be discarded after calling this function.  */
 
 /* We have to be careful when dealing with Java names: when we run
@@ -692,6 +776,7 @@ symbol_set_names (struct general_symbol_info *gsymbol,
   /* The length of lookup_name.  */
   int lookup_len;
   struct demangled_name_entry entry;
+  struct objfile_per_bfd_storage *per_bfd = objfile->per_bfd;
 
   if (gsymbol->language == language_ada)
     {
@@ -707,18 +792,18 @@ symbol_set_names (struct general_symbol_info *gsymbol,
 	gsymbol->name = linkage_name;
       else
 	{
-	  char *name = obstack_alloc (&objfile->objfile_obstack, len + 1);
+	  char *name = obstack_alloc (&per_bfd->storage_obstack, len + 1);
 
 	  memcpy (name, linkage_name, len);
 	  name[len] = '\0';
 	  gsymbol->name = name;
 	}
-      symbol_set_demangled_name (gsymbol, NULL, &objfile->objfile_obstack);
+      symbol_set_demangled_name (gsymbol, NULL, &per_bfd->storage_obstack);
 
       return;
     }
 
-  if (objfile->demangled_names_hash == NULL)
+  if (per_bfd->demangled_names_hash == NULL)
     create_demangled_names_hash (objfile);
 
   /* The stabs reader generally provides names that are not
@@ -758,7 +843,7 @@ symbol_set_names (struct general_symbol_info *gsymbol,
 
   entry.mangled = lookup_name;
   slot = ((struct demangled_name_entry **)
-	  htab_find_slot (objfile->demangled_names_hash,
+	  htab_find_slot (per_bfd->demangled_names_hash,
 			  &entry, INSERT));
 
   /* If this name is not in the hash table, add it.  */
@@ -783,7 +868,7 @@ symbol_set_names (struct general_symbol_info *gsymbol,
 	 us better bcache hit rates for partial symbols.  */
       if (!copy_name && lookup_name == linkage_name)
 	{
-	  *slot = obstack_alloc (&objfile->objfile_obstack,
+	  *slot = obstack_alloc (&per_bfd->storage_obstack,
 				 offsetof (struct demangled_name_entry,
 					   demangled)
 				 + demangled_len + 1);
@@ -796,7 +881,7 @@ symbol_set_names (struct general_symbol_info *gsymbol,
 	  /* If we must copy the mangled name, put it directly after
 	     the demangled name so we can have a single
 	     allocation.  */
-	  *slot = obstack_alloc (&objfile->objfile_obstack,
+	  *slot = obstack_alloc (&per_bfd->storage_obstack,
 				 offsetof (struct demangled_name_entry,
 					   demangled)
 				 + lookup_len + demangled_len + 2);
@@ -817,9 +902,9 @@ symbol_set_names (struct general_symbol_info *gsymbol,
   gsymbol->name = (*slot)->mangled + lookup_len - len;
   if ((*slot)->demangled[0] != '\0')
     symbol_set_demangled_name (gsymbol, (*slot)->demangled,
-			       &objfile->objfile_obstack);
+			       &per_bfd->storage_obstack);
   else
-    symbol_set_demangled_name (gsymbol, NULL, &objfile->objfile_obstack);
+    symbol_set_demangled_name (gsymbol, NULL, &per_bfd->storage_obstack);
 }
 
 /* Return the source code name of a symbol.  In languages where
@@ -3305,7 +3390,7 @@ compare_search_syms (const void *sa, const void *sb)
   struct symbol_search *sym_b = *(struct symbol_search **) sb;
   int c;
 
-  c = strcmp (sym_a->symtab->filename, sym_b->symtab->filename);
+  c = FILENAME_CMP (sym_a->symtab->filename, sym_b->symtab->filename);
   if (c != 0)
     return c;
 
@@ -3314,19 +3399,6 @@ compare_search_syms (const void *sa, const void *sb)
 
   return strcmp (SYMBOL_PRINT_NAME (sym_a->symbol),
 		 SYMBOL_PRINT_NAME (sym_b->symbol));
-}
-
-/* Helper function for sort_search_symbols_remove_dups.
-   Return TRUE if symbols A, B are equal.  */
-
-static int
-search_symbols_equal (const struct symbol_search *a,
-		      const struct symbol_search *b)
-{
-  return (strcmp (a->symtab->filename, b->symtab->filename) == 0
-	  && a->block == b->block
-	  && strcmp (SYMBOL_PRINT_NAME (a->symbol),
-		     SYMBOL_PRINT_NAME (b->symbol)) == 0);
 }
 
 /* Sort the NFOUND symbols in list FOUND and remove duplicates.
@@ -3362,7 +3434,7 @@ sort_search_symbols_remove_dups (struct symbol_search *found, int nfound,
   /* Collapse out the dups.  */
   for (i = 1, j = 1; i < nfound; ++i)
     {
-      if (! search_symbols_equal (symbols[j - 1], symbols[i]))
+      if (compare_search_syms (&symbols[j - 1], &symbols[i]) != 0)
 	symbols[j++] = symbols[i];
       else
 	xfree (symbols[i]);
@@ -5254,13 +5326,15 @@ one base name, and gdb will do file name comparisons more efficiently."),
 			   NULL, NULL,
 			   &setlist, &showlist);
 
-  add_setshow_boolean_cmd ("symtab-create", no_class, &symtab_create_debug,
-			   _("Set debugging of symbol table creation."),
-			   _("Show debugging of symbol table creation."), _("\
-When enabled, debugging messages are printed when building symbol tables."),
-			    NULL,
-			    NULL,
-			    &setdebuglist, &showdebuglist);
+  add_setshow_zuinteger_cmd ("symtab-create", no_class, &symtab_create_debug,
+			     _("Set debugging of symbol table creation."),
+			     _("Show debugging of symbol table creation."), _("\
+When enabled (non-zero), debugging messages are printed when building\n\
+symbol tables.  A value of 1 (one) normally provides enough information.\n\
+A value greater than 1 provides more verbose information."),
+			     NULL,
+			     NULL,
+			     &setdebuglist, &showdebuglist);
 
   observer_attach_executable_changed (symtab_observer_executable_changed);
 }

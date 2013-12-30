@@ -26,8 +26,9 @@
 #include "gdbcmd.h"
 #include "value.h"
 #include "target.h"
+#include "target-dcache.h"
 #include "language.h"
-#include "gdb_string.h"
+#include <string.h>
 #include "inferior.h"
 #include "breakpoint.h"
 #include "tracepoint.h"
@@ -131,12 +132,6 @@ static int traceframe_number;
 
 /* Tracepoint for last traceframe collected.  */
 static int tracepoint_number;
-
-/* Symbol for function for last traceframe collected.  */
-static struct symbol *traceframe_fun;
-
-/* Symtab and line for last traceframe collected.  */
-static struct symtab_and_line traceframe_sal;
 
 /* The traceframe info of the current traceframe.  NULL if we haven't
    yet attempted to fetch it, or if the target does not support
@@ -268,6 +263,8 @@ static void
 set_traceframe_context (struct frame_info *trace_frame)
 {
   CORE_ADDR trace_pc;
+  struct symbol *traceframe_fun;
+  struct symtab_and_line traceframe_sal;
 
   /* Save as globals for internal use.  */
   if (trace_frame != NULL

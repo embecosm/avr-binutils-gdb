@@ -131,6 +131,7 @@
 #include "elf/moxie.h"
 #include "elf/mt.h"
 #include "elf/msp430.h"
+#include "elf/nds32.h"
 #include "elf/nios2.h"
 #include "elf/or32.h"
 #include "elf/pj.h"
@@ -416,7 +417,7 @@ print_symbol (int width, const char *symbol)
       /* Keep the width positive.  This also helps.  */
       width = - width;
       extra_padding = TRUE;
-    }  
+    }
 
   if (do_wide)
     /* Set the remaining width to a very large value.
@@ -626,6 +627,7 @@ guess_is_rela (unsigned int e_machine)
     case EM_MSP430:
     case EM_MSP430_OLD:
     case EM_MT:
+    case EM_NDS32:
     case EM_NIOS32:
     case EM_PPC64:
     case EM_PPC:
@@ -1144,6 +1146,10 @@ dump_relocations (FILE * file,
 	  rtype = elf_msp430_reloc_type (type);
 	  break;
 
+	case EM_NDS32:
+	  rtype = elf_nds32_reloc_type (type);
+	  break;
+
 	case EM_PPC:
 	  rtype = elf_ppc_reloc_type (type);
 	  break;
@@ -1575,7 +1581,7 @@ get_ppc_dynamic_type (unsigned long type)
   switch (type)
     {
     case DT_PPC_GOT:    return "PPC_GOT";
-    case DT_PPC_TLSOPT: return "PPC_TLSOPT";
+    case DT_PPC_OPT:    return "PPC_OPT";
     default:
       return NULL;
     }
@@ -1589,7 +1595,7 @@ get_ppc64_dynamic_type (unsigned long type)
     case DT_PPC64_GLINK:  return "PPC64_GLINK";
     case DT_PPC64_OPD:    return "PPC64_OPD";
     case DT_PPC64_OPDSZ:  return "PPC64_OPDSZ";
-    case DT_PPC64_TLSOPT: return "PPC64_TLSOPT";
+    case DT_PPC64_OPT:    return "PPC64_OPT";
     default:
       return NULL;
     }
@@ -2307,6 +2313,207 @@ decode_ARM_machine_flags (unsigned e_flags, char buf[])
     strcat (buf,_(", <unknown>"));
 }
 
+static void
+decode_NDS32_machine_flags (unsigned e_flags, char buf[], size_t size)
+{
+  unsigned abi;
+  unsigned arch;
+  unsigned config;
+  unsigned version;
+  int has_fpu = 0;
+  int r = 0;
+
+  static const char *ABI_STRINGS[] =
+  {
+    "ABI v0", /* use r5 as return register; only used in N1213HC */
+    "ABI v1", /* use r0 as return register */
+    "ABI v2", /* use r0 as return register and don't reserve 24 bytes for arguments */
+    "ABI v2fp", /* for FPU */
+    "AABI"
+  };
+  static const char *VER_STRINGS[] =
+  {
+    "Andes ELF V1.3 or older",
+    "Andes ELF V1.3.1",
+    "Andes ELF V1.4"
+  };
+  static const char *ARCH_STRINGS[] =
+  {
+    "",
+    "Andes Star v1.0",
+    "Andes Star v2.0",
+    "Andes Star v3.0",
+    "Andes Star v3.0m"
+  };
+
+  abi = EF_NDS_ABI & e_flags;
+  arch = EF_NDS_ARCH & e_flags;
+  config = EF_NDS_INST & e_flags;
+  version = EF_NDS32_ELF_VERSION & e_flags;
+
+  memset (buf, 0, size);
+
+  switch (abi)
+    {
+    case E_NDS_ABI_V0:
+    case E_NDS_ABI_V1:
+    case E_NDS_ABI_V2:
+    case E_NDS_ABI_V2FP:
+    case E_NDS_ABI_AABI:
+      /* In case there are holes in the array.  */
+      r += snprintf (buf + r, size - r, ", %s", ABI_STRINGS[abi >> EF_NDS_ABI_SHIFT]);
+      break;
+
+    default:
+      r += snprintf (buf + r, size - r, ", <unrecognized ABI>");
+      break;
+    }
+
+  switch (version)
+    {
+    case E_NDS32_ELF_VER_1_2:
+    case E_NDS32_ELF_VER_1_3:
+    case E_NDS32_ELF_VER_1_4:
+      r += snprintf (buf + r, size - r, ", %s", VER_STRINGS[version >> EF_NDS32_ELF_VERSION_SHIFT]);
+      break;
+
+    default:
+      r += snprintf (buf + r, size - r, ", <unrecognized ELF version number>");
+      break;
+    }
+
+  if (E_NDS_ABI_V0 == abi)
+    {
+      /* OLD ABI; only used in N1213HC, has performance extension 1.  */
+      r += snprintf (buf + r, size - r, ", Andes Star v1.0, N1213HC, MAC, PERF1");
+      if (arch == E_NDS_ARCH_STAR_V1_0)
+	r += snprintf (buf + r, size -r, ", 16b"); /* has 16-bit instructions */
+      return;
+    }
+
+  switch (arch)
+    {
+    case E_NDS_ARCH_STAR_V1_0:
+    case E_NDS_ARCH_STAR_V2_0:
+    case E_NDS_ARCH_STAR_V3_0:
+    case E_NDS_ARCH_STAR_V3_M:
+      r += snprintf (buf + r, size - r, ", %s", ARCH_STRINGS[arch >> EF_NDS_ARCH_SHIFT]);
+      break;
+
+    default:
+      r += snprintf (buf + r, size - r, ", <unrecognized architecture>");
+      /* ARCH version determines how the e_flags are interpreted.
+	 If it is unknown, we cannot proceed.  */
+      return;
+    }
+
+  /* Newer ABI; Now handle architecture specific flags.  */
+  if (arch == E_NDS_ARCH_STAR_V1_0)
+    {
+      if (config & E_NDS32_HAS_MFUSR_PC_INST)
+	r += snprintf (buf + r, size -r, ", MFUSR_PC");
+
+      if (!(config & E_NDS32_HAS_NO_MAC_INST))
+	r += snprintf (buf + r, size -r, ", MAC");
+
+      if (config & E_NDS32_HAS_DIV_INST)
+	r += snprintf (buf + r, size -r, ", DIV");
+
+      if (config & E_NDS32_HAS_16BIT_INST)
+	r += snprintf (buf + r, size -r, ", 16b");
+    }
+  else
+    {
+      if (config & E_NDS32_HAS_MFUSR_PC_INST)
+	{
+	  if (version <= E_NDS32_ELF_VER_1_3)
+	    r += snprintf (buf + r, size -r, ", [B8]");
+	  else
+	    r += snprintf (buf + r, size -r, ", EX9");
+	}
+
+      if (config & E_NDS32_HAS_MAC_DX_INST)
+	r += snprintf (buf + r, size -r, ", MAC_DX");
+
+      if (config & E_NDS32_HAS_DIV_DX_INST)
+	r += snprintf (buf + r, size -r, ", DIV_DX");
+
+      if (config & E_NDS32_HAS_16BIT_INST)
+	{
+	  if (version <= E_NDS32_ELF_VER_1_3)
+	    r += snprintf (buf + r, size -r, ", 16b");
+	  else
+	    r += snprintf (buf + r, size -r, ", IFC");
+	}
+    }
+
+  if (config & E_NDS32_HAS_EXT_INST)
+    r += snprintf (buf + r, size -r, ", PERF1");
+
+  if (config & E_NDS32_HAS_EXT2_INST)
+    r += snprintf (buf + r, size -r, ", PERF2");
+
+  if (config & E_NDS32_HAS_FPU_INST)
+    {
+      has_fpu = 1;
+      r += snprintf (buf + r, size -r, ", FPU_SP");
+    }
+
+  if (config & E_NDS32_HAS_FPU_DP_INST)
+    {
+      has_fpu = 1;
+      r += snprintf (buf + r, size -r, ", FPU_DP");
+    }
+
+  if (config & E_NDS32_HAS_FPU_MAC_INST)
+    {
+      has_fpu = 1;
+      r += snprintf (buf + r, size -r, ", FPU_MAC");
+    }
+
+  if (has_fpu)
+    {
+      switch ((config & E_NDS32_FPU_REG_CONF) >> E_NDS32_FPU_REG_CONF_SHIFT)
+	{
+	case E_NDS32_FPU_REG_8SP_4DP:
+	  r += snprintf (buf + r, size -r, ", FPU_REG:8/4");
+	  break;
+	case E_NDS32_FPU_REG_16SP_8DP:
+	  r += snprintf (buf + r, size -r, ", FPU_REG:16/8");
+	  break;
+	case E_NDS32_FPU_REG_32SP_16DP:
+	  r += snprintf (buf + r, size -r, ", FPU_REG:32/16");
+	  break;
+	case E_NDS32_FPU_REG_32SP_32DP:
+	  r += snprintf (buf + r, size -r, ", FPU_REG:32/32");
+	  break;
+	}
+    }
+
+  if (config & E_NDS32_HAS_AUDIO_INST)
+    r += snprintf (buf + r, size -r, ", AUDIO");
+
+  if (config & E_NDS32_HAS_STRING_INST)
+    r += snprintf (buf + r, size -r, ", STR");
+
+  if (config & E_NDS32_HAS_REDUCED_REGS)
+    r += snprintf (buf + r, size -r, ", 16REG");
+
+  if (config & E_NDS32_HAS_VIDEO_INST)
+    {
+      if (version <= E_NDS32_ELF_VER_1_3)
+	r += snprintf (buf + r, size -r, ", VIDEO");
+      else
+	r += snprintf (buf + r, size -r, ", SATURATION");
+    }
+
+  if (config & E_NDS32_HAS_ENCRIPT_INST)
+    r += snprintf (buf + r, size -r, ", ENCRP");
+
+  if (config & E_NDS32_HAS_L2C_INST)
+    r += snprintf (buf + r, size -r, ", L2C");
+}
+
 static char *
 get_machine_flags (unsigned e_flags, unsigned e_machine)
 {
@@ -2461,10 +2668,20 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
 	    strcat (buf, _(", relocatable-lib"));
 	  break;
 
+	case EM_PPC64:
+	  if (e_flags & EF_PPC64_ABI)
+	    {
+	      char abi[] = ", abiv0";
+
+	      abi[6] += e_flags & EF_PPC64_ABI;
+	      strcat (buf, abi);
+	    }
+	  break;
+
 	case EM_V800:
 	  if ((e_flags & EF_RH850_ABI) == EF_RH850_ABI)
 	    strcat (buf, ", RH850 ABI");
-	    
+
 	  if (e_flags & EF_V800_850E3)
 	    strcat (buf, ", V3 architecture");
 
@@ -2639,6 +2856,10 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
 	    }
 	  break;
 
+	case EM_NDS32:
+	  decode_NDS32_machine_flags (e_flags, buf, sizeof buf);
+	  break;
+
 	case EM_SH:
 	  switch ((e_flags & EF_SH_MACH_MASK))
 	    {
@@ -2786,14 +3007,14 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
 	  if (e_flags & E_FLAG_RL78_G10)
 	    strcat (buf, ", G10");
 	  break;
-	  
+
 	case EM_RX:
 	  if (e_flags & E_FLAG_RX_64BIT_DOUBLES)
 	    strcat (buf, ", 64-bit doubles");
 	  if (e_flags & E_FLAG_RX_DSP)
 	    strcat (buf, ", dsp");
 	  if (e_flags & E_FLAG_RX_PID)
-	    strcat (buf, ", pid");	  
+	    strcat (buf, ", pid");
 	  if (e_flags & E_FLAG_RX_ABI)
 	    strcat (buf, ", RX ABI");
 	  break;
@@ -4909,6 +5130,8 @@ process_section_headers (FILE * file)
 	      || (do_debug_lines    && const_strneq (name, "line."))
 	      || (do_debug_pubnames && const_strneq (name, "pubnames"))
 	      || (do_debug_pubtypes && const_strneq (name, "pubtypes"))
+	      || (do_debug_pubnames && const_strneq (name, "gnu_pubnames"))
+	      || (do_debug_pubtypes && const_strneq (name, "gnu_pubtypes"))
 	      || (do_debug_aranges  && const_strneq (name, "aranges"))
 	      || (do_debug_ranges   && const_strneq (name, "ranges"))
 	      || (do_debug_frames   && const_strneq (name, "frame"))
@@ -5009,10 +5232,10 @@ process_section_headers (FILE * file)
 	{
 	  print_symbol (-17, SECTION_NAME (section));
 	}
-      
+
       printf (do_wide ? " %-15s " : " %-15.15s ",
 	      get_section_type_name (section->sh_type));
-      
+
       if (is_32bit_elf)
 	{
 	  const char * link_too_big = NULL;
@@ -5180,7 +5403,7 @@ process_section_headers (FILE * file)
   W (write), A (alloc), X (execute), M (merge), S (strings)\n\
   I (info), L (link order), G (group), T (TLS), E (exclude), x (unknown)\n\
   O (extra OS processing required) o (OS specific), p (processor specific)\n"));
-    }	
+    }
 
   return 1;
 }
@@ -6712,7 +6935,7 @@ get_unwind_section_word (struct arm_unw_aux_info *  aux,
 
 	  if (streq (relname, "R_ARM_NONE"))
 	      continue;
-	  
+
 	  if (! streq (relname, "R_ARM_PREL31"))
 	    {
 	      warn (_("Skipping unexpected relocation type %s\n"), relname);
@@ -6722,7 +6945,7 @@ get_unwind_section_word (struct arm_unw_aux_info *  aux,
       else if (elf_header.e_machine == EM_TI_C6000)
 	{
 	  relname = elf_tic6x_reloc_type (ELF32_R_TYPE (rp->r_info));
-	  
+
 	  if (streq (relname, "R_C6000_NONE"))
 	    continue;
 
@@ -6754,8 +6977,8 @@ get_unwind_section_word (struct arm_unw_aux_info *  aux,
 
 static const char *tic6x_unwind_regnames[16] =
 {
-  "A15", "B15", "B14", "B13", "B12", "B11", "B10", "B3", 
-  "A14", "A13", "A12", "A11", "A10", 
+  "A15", "B15", "B14", "B13", "B12", "B11", "B10", "B3",
+  "A14", "A13", "A12", "A11", "A10",
   "[invalid reg 13]", "[invalid reg 14]", "[invalid reg 15]"
 };
 
@@ -7240,9 +7463,9 @@ decode_arm_unwind (struct arm_unw_aux_info *  aux,
   else
     {
       /* ARM EHABI Section 6.3:
-	 
+
 	 An exception-handling table entry for the compact model looks like:
-	 
+
            31 30-28 27-24 23-0
 	   -- ----- ----- ----
             1   0   index Data for personalityRoutine[index]    */
@@ -7426,7 +7649,7 @@ arm_process_unwind (FILE *file)
       sec_type = SHT_C6000_UNWIND;
       break;
 
-    default: 
+    default:
       error (_("Unsupported architecture type %d encountered when processing unwind table"),
 	     elf_header.e_machine);
       return;
@@ -8889,7 +9112,7 @@ process_version_sections (FILE * file)
 			      if (get_data (&evn, file, offset, sizeof (evn), 1,
 					    _("version need")) == NULL)
 				break;
-			      
+
 			      ivn.vn_aux  = BYTE_GET (evn.vn_aux);
 			      ivn.vn_next = BYTE_GET (evn.vn_next);
 
@@ -9201,6 +9424,19 @@ get_ia64_symbol_other (unsigned int other)
 }
 
 static const char *
+get_ppc64_symbol_other (unsigned int other)
+{
+  if (PPC64_LOCAL_ENTRY_OFFSET (other) != 0)
+    {
+      static char buf[32];
+      snprintf (buf, sizeof buf, _("<localentry>: %d"),
+		PPC64_LOCAL_ENTRY_OFFSET (other));
+      return buf;
+    }
+  return NULL;
+}
+
+static const char *
 get_symbol_other (unsigned int other)
 {
   const char * result = NULL;
@@ -9216,6 +9452,9 @@ get_symbol_other (unsigned int other)
       break;
     case EM_IA_64:
       result = get_ia64_symbol_other (other);
+      break;
+    case EM_PPC64:
+      result = get_ppc64_symbol_other (other);
       break;
     default:
       break;
@@ -9319,7 +9558,7 @@ print_dynamic_symbol (bfd_vma si, unsigned long hn)
 
   n = print_vma (si, DEC_5);
   if (n < 5)
-    fputs ("     " + n, stdout);
+    fputs (&"     "[n], stdout);
   printf (" %3lu: ", hn);
   print_vma (psym->st_value, LONG_HEX);
   putchar (' ');
@@ -9858,6 +10097,7 @@ process_symbol_table (FILE * file)
       counts = (unsigned long *) calloc (maxlength + 1, sizeof (*counts));
       if (counts == NULL)
 	{
+	  free (lengths);
 	  error (_("Out of memory\n"));
 	  return 0;
 	}
@@ -9926,6 +10166,7 @@ process_symbol_table (FILE * file)
       counts = (unsigned long *) calloc (maxlength + 1, sizeof (*counts));
       if (counts == NULL)
 	{
+	  free (lengths);
 	  error (_("Out of memory\n"));
 	  return 0;
 	}
@@ -10052,7 +10293,7 @@ target_specific_reloc_handling (Elf_Internal_Rela * reloc,
 	  case 1: /* R_MSP430_32 or R_MSP430_ABS32 */
 	  case 3: /* R_MSP430_16 or R_MSP430_ABS8 */
 	    goto handle_sym_diff;
-	    
+
 	  case 5: /* R_MSP430_16_BYTE */
 	  case 9: /* R_MSP430_8 */
 	    if (uses_msp430x_relocs ())
@@ -10064,7 +10305,7 @@ target_specific_reloc_handling (Elf_Internal_Rela * reloc,
 	    if (! uses_msp430x_relocs ())
 	      break;
 	    goto handle_sym_diff;
-	    
+
 	  handle_sym_diff:
 	    if (saved_sym != NULL)
 	      {
@@ -10231,6 +10472,8 @@ is_32bit_abs_reloc (unsigned int reloc_type)
       return reloc_type == 1; /* R_MSP430_32 or R_MSP320_ABS32.  */
     case EM_MT:
       return reloc_type == 2; /* R_MT_32.  */
+    case EM_NDS32:
+      return reloc_type == 20; /* R_NDS32_RELA.  */
     case EM_ALTERA_NIOS2:
       return reloc_type == 12; /* R_NIOS2_BFD_RELOC_32.  */
     case EM_NIOS32:
@@ -10484,6 +10727,8 @@ is_16bit_abs_reloc (unsigned int reloc_type)
 	return reloc_type == 2; /* R_MSP430_ABS16.  */
     case EM_MSP430_OLD:
       return reloc_type == 5; /* R_MSP430_16_BYTE.  */
+    case EM_NDS32:
+      return reloc_type == 19; /* R_NDS32_RELA.  */
     case EM_ALTERA_NIOS2:
       return reloc_type == 13; /* R_NIOS2_BFD_RELOC_16.  */
     case EM_NIOS32:
@@ -10547,6 +10792,12 @@ is_none_reloc (unsigned int reloc_type)
       return reloc_type == 0;
     case EM_AARCH64:
       return reloc_type == 0 || reloc_type == 256;
+    case EM_NDS32:
+      return (reloc_type == 0       /* R_XTENSA_NONE.  */
+	      || reloc_type == 204  /* R_NDS32_DIFF8.  */
+	      || reloc_type == 205  /* R_NDS32_DIFF16.  */
+	      || reloc_type == 206  /* R_NDS32_DIFF32.  */
+	      || reloc_type == 207  /* R_NDS32_ULEB128.  */);
     case EM_XTENSA_OLD:
     case EM_XTENSA:
       return (reloc_type == 0      /* R_XTENSA_NONE.  */
@@ -11640,7 +11891,7 @@ display_power_gnu_attribute (unsigned char * p,
 	  warn (_("corrupt Tag_GNU_Power_ABI_Struct_Return"));
 	  return p;
 	}
-		   
+
       val = read_uleb128 (p, &len, end);
       p += len;
       printf ("  Tag_GNU_Power_ABI_Struct_Return: ");
@@ -11766,6 +12017,30 @@ display_mips_gnu_attribute (unsigned char * p,
 	}
       return p;
    }
+
+  if (tag == Tag_GNU_MIPS_ABI_MSA)
+    {
+      unsigned int len;
+      int val;
+
+      val = read_uleb128 (p, &len, end);
+      p += len;
+      printf ("  Tag_GNU_MIPS_ABI_MSA: ");
+
+      switch (val)
+	{
+	case Val_GNU_MIPS_ABI_MSA_ANY:
+	  printf (_("Any MSA or not\n"));
+	  break;
+	case Val_GNU_MIPS_ABI_MSA_128:
+	  printf (_("128-bit MSA\n"));
+	  break;
+	default:
+	  printf ("??? (%d)\n", val);
+	  break;
+	}
+      return p;
+    }
 
   return display_tag_value (tag & 1, p, end);
 }
@@ -12045,7 +12320,7 @@ display_msp430x_attribute (unsigned char * p,
 
   tag = read_uleb128 (p, & len, end);
   p += len;
-  
+
   switch (tag)
     {
     case OFBA_MSPABI_Tag_ISA:
@@ -12827,7 +13102,7 @@ process_mips_specific (FILE * file)
 		  _("Type"),
 		  /* Note for translators: "Ndx" = abbreviated form of "Index".  */
 		  _("Ndx"), _("Name"));
-	  
+
 	  sym_width = (is_32bit_elf ? 80 : 160) - 28 - addr_size * 6 - 1;
 	  for (i = gotsym; i < symtabno; i++)
 	    {
@@ -12925,6 +13200,40 @@ process_mips_specific (FILE * file)
     }
 
   return 1;
+}
+
+static int
+process_nds32_specific (FILE * file)
+{
+  Elf_Internal_Shdr *sect = NULL;
+
+  sect = find_section (".nds32_e_flags");
+  if (sect != NULL)
+    {
+      unsigned int *flag;
+
+      printf ("\nNDS32 elf flags section:\n");
+      flag = get_data (NULL, file, sect->sh_offset, 1,
+		       sect->sh_size, _("NDS32 elf flags section"));
+
+      switch ((*flag) & 0x3)
+	{
+	case 0:
+	  printf ("(VEC_SIZE):\tNo entry.\n");
+	  break;
+	case 1:
+	  printf ("(VEC_SIZE):\t4 bytes\n");
+	  break;
+	case 2:
+	  printf ("(VEC_SIZE):\t16 bytes\n");
+	  break;
+	case 3:
+	  printf ("(VEC_SIZE):\treserved\n");
+	  break;
+	}
+    }
+
+  return TRUE;
 }
 
 static int
@@ -13752,6 +14061,9 @@ process_arch_specific (FILE * file)
     case EM_MIPS:
     case EM_MIPS_RS3_LE:
       return process_mips_specific (file);
+      break;
+    case EM_NDS32:
+      return process_nds32_specific (file);
       break;
     case EM_PPC:
       return process_power_specific (file);

@@ -27,10 +27,11 @@
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
-#include "gdb_string.h"
+#include <string.h>
 #include "value.h"
 #include "c-lang.h"
 #include "jv-lang.h"
+#include "varobj.h"
 #include "gdbcore.h"
 #include "block.h"
 #include "demangle.h"
@@ -118,7 +119,8 @@ get_dynamics_objfile (struct gdbarch *gdbarch)
 
       /* Mark it as shared so that it is cleared when the inferior is
 	 re-run.  */
-      dynamics_objfile = allocate_objfile (NULL, OBJF_SHARED);
+      dynamics_objfile = allocate_objfile (NULL, NULL,
+					   OBJF_SHARED | OBJF_NOT_FILENAME);
       dynamics_objfile->per_bfd->gdbarch = gdbarch;
 
       data = XCNEW (struct jv_per_objfile_data);
@@ -1161,6 +1163,7 @@ const struct exp_descriptor exp_descriptor_java =
 const struct language_defn java_language_defn =
 {
   "java",			/* Language name */
+  "Java",
   language_java,
   range_check_off,
   case_sensitive_on,
@@ -1195,6 +1198,7 @@ const struct language_defn java_language_defn =
   default_get_string,
   NULL,				/* la_get_symbol_name_cmp */
   iterate_over_symbols,
+  &java_varobj_ops,
   LANG_MAGIC
 };
 

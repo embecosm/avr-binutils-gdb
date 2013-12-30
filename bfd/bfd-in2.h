@@ -1067,7 +1067,9 @@ unsigned long bfd_calc_gnu_debuglink_crc32
 
 char *bfd_get_debug_link_info (bfd *abfd, unsigned long *crc32_out);
 
-char *bfd_get_alt_debug_link_info (bfd *abfd, unsigned long *crc32_out);
+char *bfd_get_alt_debug_link_info (bfd * abfd,
+    bfd_size_type *buildid_len,
+    bfd_byte **buildid_out);
 
 char *bfd_follow_gnu_debuglink (bfd *abfd, const char *dir);
 
@@ -1944,19 +1946,19 @@ enum bfd_architecture
 #define bfd_mach_i386_i386             (1 << 2)
 #define bfd_mach_x86_64                (1 << 3)
 #define bfd_mach_x64_32                (1 << 4)
-#define bfd_mach_i386_nacl             (1 << 5)
 #define bfd_mach_i386_i386_intel_syntax (bfd_mach_i386_i386 | bfd_mach_i386_intel_syntax)
 #define bfd_mach_x86_64_intel_syntax   (bfd_mach_x86_64 | bfd_mach_i386_intel_syntax)
 #define bfd_mach_x64_32_intel_syntax   (bfd_mach_x64_32 | bfd_mach_i386_intel_syntax)
-#define bfd_mach_i386_i386_nacl        (bfd_mach_i386_i386 | bfd_mach_i386_nacl)
-#define bfd_mach_x86_64_nacl           (bfd_mach_x86_64 | bfd_mach_i386_nacl)
-#define bfd_mach_x64_32_nacl           (bfd_mach_x64_32 | bfd_mach_i386_nacl)
   bfd_arch_l1om,   /* Intel L1OM */
 #define bfd_mach_l1om                  (1 << 5)
 #define bfd_mach_l1om_intel_syntax     (bfd_mach_l1om | bfd_mach_i386_intel_syntax)
   bfd_arch_k1om,   /* Intel K1OM */
 #define bfd_mach_k1om                  (1 << 6)
 #define bfd_mach_k1om_intel_syntax     (bfd_mach_k1om | bfd_mach_i386_intel_syntax)
+#define bfd_mach_i386_nacl             (1 << 7)
+#define bfd_mach_i386_i386_nacl        (bfd_mach_i386_i386 | bfd_mach_i386_nacl)
+#define bfd_mach_x86_64_nacl           (bfd_mach_x86_64 | bfd_mach_i386_nacl)
+#define bfd_mach_x64_32_nacl           (bfd_mach_x64_32 | bfd_mach_i386_nacl)
   bfd_arch_we32k,     /* AT&T WE32xxx */
   bfd_arch_tahoe,     /* CCI/Harris Tahoe */
   bfd_arch_i860,      /* Intel 860 */
@@ -2071,6 +2073,12 @@ enum bfd_architecture
 #define bfd_mach_arm_ep9312    11
 #define bfd_mach_arm_iWMMXt    12
 #define bfd_mach_arm_iWMMXt2   13
+  bfd_arch_nds32,     /* Andes NDS32 */
+#define bfd_mach_n1            1
+#define bfd_mach_n1h           2
+#define bfd_mach_n1h_v2        3
+#define bfd_mach_n1h_v3        4
+#define bfd_mach_n1h_v3m       5
   bfd_arch_ns32k,     /* National Semiconductors ns32000 */
   bfd_arch_w65,       /* WDC 65816 */
   bfd_arch_tic30,     /* Texas Instruments TMS320C30 */
@@ -3123,6 +3131,8 @@ instruction.  */
   BFD_RELOC_X86_64_TLSDESC_CALL,
   BFD_RELOC_X86_64_TLSDESC,
   BFD_RELOC_X86_64_IRELATIVE,
+  BFD_RELOC_X86_64_PC32_BND,
+  BFD_RELOC_X86_64_PLT32_BND,
 
 /* ns32k relocations  */
   BFD_RELOC_NS32K_IMM_8,
@@ -3221,6 +3231,8 @@ instruction.  */
   BFD_RELOC_PPC64_TOC16_LO_DS,
   BFD_RELOC_PPC64_PLTGOT16_DS,
   BFD_RELOC_PPC64_PLTGOT16_LO_DS,
+  BFD_RELOC_PPC64_ADDR16_HIGH,
+  BFD_RELOC_PPC64_ADDR16_HIGHA,
 
 /* PowerPC and PowerPC64 thread-local storage relocations.  */
   BFD_RELOC_PPC_TLS,
@@ -3265,6 +3277,10 @@ instruction.  */
   BFD_RELOC_PPC64_DTPREL16_HIGHERA,
   BFD_RELOC_PPC64_DTPREL16_HIGHEST,
   BFD_RELOC_PPC64_DTPREL16_HIGHESTA,
+  BFD_RELOC_PPC64_TPREL16_HIGH,
+  BFD_RELOC_PPC64_TPREL16_HIGHA,
+  BFD_RELOC_PPC64_DTPREL16_HIGH,
+  BFD_RELOC_PPC64_DTPREL16_HIGHA,
 
 /* IBM 370/390 relocations  */
   BFD_RELOC_I370_D12,
@@ -3785,6 +3801,178 @@ add3, load, and store instructions.  */
   BFD_RELOC_M32R_GOTPC_HI_ULO,
   BFD_RELOC_M32R_GOTPC_HI_SLO,
   BFD_RELOC_M32R_GOTPC_LO,
+
+/* NDS32 relocs.
+This is a 20 bit absolute address.  */
+  BFD_RELOC_NDS32_20,
+
+/* This is a 9-bit pc-relative reloc with the right 1 bit assumed to be 0.  */
+  BFD_RELOC_NDS32_9_PCREL,
+
+/* This is a 9-bit pc-relative reloc with the right 1 bit assumed to be 0.  */
+  BFD_RELOC_NDS32_WORD_9_PCREL,
+
+/* This is an 15-bit reloc with the right 1 bit assumed to be 0.  */
+  BFD_RELOC_NDS32_15_PCREL,
+
+/* This is an 17-bit reloc with the right 1 bit assumed to be 0.  */
+  BFD_RELOC_NDS32_17_PCREL,
+
+/* This is a 25-bit reloc with the right 1 bit assumed to be 0.  */
+  BFD_RELOC_NDS32_25_PCREL,
+
+/* This is a 20-bit reloc containing the high 20 bits of an address
+used with the lower 12 bits  */
+  BFD_RELOC_NDS32_HI20,
+
+/* This is a 12-bit reloc containing the lower 12 bits of an address
+then shift right by 3. This is used with ldi,sdi...  */
+  BFD_RELOC_NDS32_LO12S3,
+
+/* This is a 12-bit reloc containing the lower 12 bits of an address
+then shift left by 2. This is used with lwi,swi...  */
+  BFD_RELOC_NDS32_LO12S2,
+
+/* This is a 12-bit reloc containing the lower 12 bits of an address
+then shift left by 1. This is used with lhi,shi...  */
+  BFD_RELOC_NDS32_LO12S1,
+
+/* This is a 12-bit reloc containing the lower 12 bits of an address
+then shift left by 0. This is used with lbisbi...  */
+  BFD_RELOC_NDS32_LO12S0,
+
+/* This is a 12-bit reloc containing the lower 12 bits of an address
+then shift left by 0. This is only used with branch relaxations  */
+  BFD_RELOC_NDS32_LO12S0_ORI,
+
+/* This is a 15-bit reloc containing the small data area 18-bit signed offset
+and shift left by 3 for use in ldi, sdi...  */
+  BFD_RELOC_NDS32_SDA15S3,
+
+/* This is a 15-bit reloc containing the small data area 17-bit signed offset
+and shift left by 2 for use in lwi, swi...  */
+  BFD_RELOC_NDS32_SDA15S2,
+
+/* This is a 15-bit reloc containing the small data area 16-bit signed offset
+and shift left by 1 for use in lhi, shi...  */
+  BFD_RELOC_NDS32_SDA15S1,
+
+/* This is a 15-bit reloc containing the small data area 15-bit signed offset
+and shift left by 0 for use in lbi, sbi...  */
+  BFD_RELOC_NDS32_SDA15S0,
+
+/* This is a 16-bit reloc containing the small data area 16-bit signed offset
+and shift left by 3  */
+  BFD_RELOC_NDS32_SDA16S3,
+
+/* This is a 17-bit reloc containing the small data area 17-bit signed offset
+and shift left by 2 for use in lwi.gp, swi.gp...  */
+  BFD_RELOC_NDS32_SDA17S2,
+
+/* This is a 18-bit reloc containing the small data area 18-bit signed offset
+and shift left by 1 for use in lhi.gp, shi.gp...  */
+  BFD_RELOC_NDS32_SDA18S1,
+
+/* This is a 19-bit reloc containing the small data area 19-bit signed offset
+and shift left by 0 for use in lbi.gp, sbi.gp...  */
+  BFD_RELOC_NDS32_SDA19S0,
+
+/* for PIC  */
+  BFD_RELOC_NDS32_GOT20,
+  BFD_RELOC_NDS32_9_PLTREL,
+  BFD_RELOC_NDS32_25_PLTREL,
+  BFD_RELOC_NDS32_COPY,
+  BFD_RELOC_NDS32_GLOB_DAT,
+  BFD_RELOC_NDS32_JMP_SLOT,
+  BFD_RELOC_NDS32_RELATIVE,
+  BFD_RELOC_NDS32_GOTOFF,
+  BFD_RELOC_NDS32_GOTOFF_HI20,
+  BFD_RELOC_NDS32_GOTOFF_LO12,
+  BFD_RELOC_NDS32_GOTPC20,
+  BFD_RELOC_NDS32_GOT_HI20,
+  BFD_RELOC_NDS32_GOT_LO12,
+  BFD_RELOC_NDS32_GOTPC_HI20,
+  BFD_RELOC_NDS32_GOTPC_LO12,
+
+/* for relax  */
+  BFD_RELOC_NDS32_INSN16,
+  BFD_RELOC_NDS32_LABEL,
+  BFD_RELOC_NDS32_LONGCALL1,
+  BFD_RELOC_NDS32_LONGCALL2,
+  BFD_RELOC_NDS32_LONGCALL3,
+  BFD_RELOC_NDS32_LONGJUMP1,
+  BFD_RELOC_NDS32_LONGJUMP2,
+  BFD_RELOC_NDS32_LONGJUMP3,
+  BFD_RELOC_NDS32_LOADSTORE,
+  BFD_RELOC_NDS32_9_FIXED,
+  BFD_RELOC_NDS32_15_FIXED,
+  BFD_RELOC_NDS32_17_FIXED,
+  BFD_RELOC_NDS32_25_FIXED,
+
+/* for PIC  */
+  BFD_RELOC_NDS32_PLTREL_HI20,
+  BFD_RELOC_NDS32_PLTREL_LO12,
+  BFD_RELOC_NDS32_PLT_GOTREL_HI20,
+  BFD_RELOC_NDS32_PLT_GOTREL_LO12,
+
+/* for floating point  */
+  BFD_RELOC_NDS32_SDA12S2_DP,
+  BFD_RELOC_NDS32_SDA12S2_SP,
+  BFD_RELOC_NDS32_LO12S2_DP,
+  BFD_RELOC_NDS32_LO12S2_SP,
+
+/* for dwarf2 debug_line.  */
+  BFD_RELOC_NDS32_DWARF2_OP1,
+  BFD_RELOC_NDS32_DWARF2_OP2,
+  BFD_RELOC_NDS32_DWARF2_LEB,
+
+/* for eliminate 16-bit instructions  */
+  BFD_RELOC_NDS32_UPDATE_TA,
+
+/* for PIC object relaxation  */
+  BFD_RELOC_NDS32_PLT_GOTREL_LO20,
+  BFD_RELOC_NDS32_PLT_GOTREL_LO15,
+  BFD_RELOC_NDS32_PLT_GOTREL_LO19,
+  BFD_RELOC_NDS32_GOT_LO15,
+  BFD_RELOC_NDS32_GOT_LO19,
+  BFD_RELOC_NDS32_GOTOFF_LO15,
+  BFD_RELOC_NDS32_GOTOFF_LO19,
+  BFD_RELOC_NDS32_GOT15S2,
+  BFD_RELOC_NDS32_GOT17S2,
+
+/* NDS32 relocs.
+This is a 5 bit absolute address.  */
+  BFD_RELOC_NDS32_5,
+
+/* This is a 10-bit unsigned pc-relative reloc with the right 1 bit assumed to be 0.  */
+  BFD_RELOC_NDS32_10_UPCREL,
+
+/* If fp were omitted, fp can used as another gp.  */
+  BFD_RELOC_NDS32_SDA_FP7U2_RELA,
+
+/* relaxation relative relocation types  */
+  BFD_RELOC_NDS32_RELAX_ENTRY,
+  BFD_RELOC_NDS32_GOT_SUFF,
+  BFD_RELOC_NDS32_GOTOFF_SUFF,
+  BFD_RELOC_NDS32_PLT_GOT_SUFF,
+  BFD_RELOC_NDS32_MULCALL_SUFF,
+  BFD_RELOC_NDS32_PTR,
+  BFD_RELOC_NDS32_PTR_COUNT,
+  BFD_RELOC_NDS32_PTR_RESOLVED,
+  BFD_RELOC_NDS32_PLTBLOCK,
+  BFD_RELOC_NDS32_RELAX_REGION_BEGIN,
+  BFD_RELOC_NDS32_RELAX_REGION_END,
+  BFD_RELOC_NDS32_MINUEND,
+  BFD_RELOC_NDS32_SUBTRAHEND,
+  BFD_RELOC_NDS32_DIFF8,
+  BFD_RELOC_NDS32_DIFF16,
+  BFD_RELOC_NDS32_DIFF32,
+  BFD_RELOC_NDS32_DIFF_ULEB128,
+  BFD_RELOC_NDS32_25_ABS,
+  BFD_RELOC_NDS32_DATA,
+  BFD_RELOC_NDS32_TRAN,
+  BFD_RELOC_NDS32_17IFC_PCREL,
+  BFD_RELOC_NDS32_10IFCU_PCREL,
 
 /* This is a 9-bit reloc  */
   BFD_RELOC_V850_9_PCREL,

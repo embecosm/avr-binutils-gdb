@@ -491,7 +491,7 @@ static int mips_32bitmode = 0;
 /* Whether the processor uses hardware interlocks to protect reads
    from the GPRs after they are loaded from memory, and thus does not
    require nops to be inserted.  This applies to instructions marked
-   INSN_LOAD_MEMORY_DELAY.  These nops are only required at MIPS ISA
+   INSN_LOAD_MEMORY.  These nops are only required at MIPS ISA
    level I and microMIPS mode instructions are always interlocked.  */
 #define gpr_interlocks                                \
   (mips_opts.isa != ISA_MIPS1                         \
@@ -864,6 +864,9 @@ static int mips_fix_vr4130;
 
 /* ...likewise -mfix-24k.  */
 static int mips_fix_24k;
+
+/* ...likewise -mfix-rm7000  */
+static int mips_fix_rm7000;
 
 /* ...likewise -mfix-cn63xxp1 */
 static bfd_boolean mips_fix_cn63xxp1;
@@ -1329,6 +1332,8 @@ enum options
     OPTION_NO_MT,
     OPTION_VIRT,
     OPTION_NO_VIRT,
+    OPTION_MSA,
+    OPTION_NO_MSA,
     OPTION_SMARTMIPS,
     OPTION_NO_SMARTMIPS,
     OPTION_DSPR2,
@@ -1352,6 +1357,8 @@ enum options
     OPTION_MNO_7000_HILO_FIX,
     OPTION_FIX_24K,
     OPTION_NO_FIX_24K,
+    OPTION_FIX_RM7000,
+    OPTION_NO_FIX_RM7000,
     OPTION_FIX_LOONGSON2F_JUMP,
     OPTION_NO_FIX_LOONGSON2F_JUMP,
     OPTION_FIX_LOONGSON2F_NOP,
@@ -1440,6 +1447,8 @@ struct option md_longopts[] =
   {"mno-mcu", no_argument, NULL, OPTION_NO_MCU},
   {"mvirt", no_argument, NULL, OPTION_VIRT},
   {"mno-virt", no_argument, NULL, OPTION_NO_VIRT},
+  {"mmsa", no_argument, NULL, OPTION_MSA},
+  {"mno-msa", no_argument, NULL, OPTION_NO_MSA},
 
   /* Old-style architecture options.  Don't add more of these.  */
   {"m4650", no_argument, NULL, OPTION_M4650},
@@ -1465,6 +1474,8 @@ struct option md_longopts[] =
   {"mno-fix-vr4130", no_argument, NULL, OPTION_NO_FIX_VR4130},
   {"mfix-24k",    no_argument, NULL, OPTION_FIX_24K},
   {"mno-fix-24k", no_argument, NULL, OPTION_NO_FIX_24K},
+  {"mfix-rm7000",    no_argument, NULL, OPTION_FIX_RM7000},
+  {"mno-fix-rm7000", no_argument, NULL, OPTION_NO_FIX_RM7000},
   {"mfix-cn63xxp1", no_argument, NULL, OPTION_FIX_CN63XXP1},
   {"mno-fix-cn63xxp1", no_argument, NULL, OPTION_NO_FIX_CN63XXP1},
 
@@ -1586,6 +1597,10 @@ static const struct mips_ase mips_ases[] = {
 
   { "virt", ASE_VIRT, ASE_VIRT64,
     OPTION_VIRT, OPTION_NO_VIRT,
+    2, 2, 2, 2 },
+
+  { "msa", ASE_MSA, ASE_MSA64,
+    OPTION_MSA, OPTION_NO_MSA,
     2, 2, 2, 2 }
 };
 
@@ -2347,7 +2362,7 @@ struct regname {
 };
 
 #define RNUM_MASK	0x00000ff
-#define RTYPE_MASK	0x0efff00
+#define RTYPE_MASK	0x0ffff00
 #define RTYPE_NUM	0x0000100
 #define RTYPE_FPU	0x0000200
 #define RTYPE_FCC	0x0000400
@@ -2363,6 +2378,7 @@ struct regname {
 #define RTYPE_R5900_Q	0x0100000
 #define RTYPE_R5900_R	0x0200000
 #define RTYPE_R5900_ACC	0x0400000
+#define RTYPE_MSA	0x0800000
 #define RWARN		0x8000000
 
 #define GENERIC_REGISTER_NUMBERS \
@@ -2747,8 +2763,11 @@ enum mips_operand_token_type {
   /* A 4-bit XYZW channel mask.  */
   OT_CHANNELS,
 
-  /* An element of a vector, e.g. $v0[1].  */
-  OT_REG_ELEMENT,
+  /* A constant vector index, e.g. [1].  */
+  OT_INTEGER_INDEX,
+
+  /* A register vector index, e.g. [$2].  */
+  OT_REG_INDEX,
 
   /* A continuous range of registers, e.g. $s0-$s4.  */
   OT_REG_RANGE,
@@ -2777,17 +2796,14 @@ struct mips_operand_token
   enum mips_operand_token_type type;
   union
   {
-    /* The register symbol value for an OT_REG.  */
+    /* The register symbol value for an OT_REG or OT_REG_INDEX.  */
     unsigned int regno;
 
     /* The 4-bit channel mask for an OT_CHANNEL_SUFFIX.  */
     unsigned int channels;
 
-    /* The register symbol value and index for an OT_REG_ELEMENT.  */
-    struct {
-      unsigned int regno;
-      addressT index;
-    } reg_element;
+    /* The integer value of an OT_INTEGER_INDEX.  */
+    addressT index;
 
     /* The two register symbol values involved in an OT_REG_RANGE.  */
     struct {
@@ -2948,20 +2964,32 @@ mips_parse_argument_token (char *s, char float_format)
 	  mips_add_token (&token, OT_REG_RANGE);
 	  return s;
 	}
-      else if (*s == '[')
-	{
-	  /* A vector element.  */
-	  expressionS element;
 
+      /* Add the register itself.  */
+      token.u.regno = regno1;
+      mips_add_token (&token, OT_REG);
+
+      /* Check for a vector index.  */
+      if (*s == '[')
+	{
 	  ++s;
 	  SKIP_SPACE_TABS (s);
-	  my_getExpression (&element, s);
-	  if (element.X_op != O_constant)
+	  if (mips_parse_register (&s, &token.u.regno, NULL))
+	    mips_add_token (&token, OT_REG_INDEX);
+	  else
 	    {
-	      set_insn_error (0, _("vector element must be constant"));
-	      return 0;
+	      expressionS element;
+
+	      my_getExpression (&element, s);
+	      if (element.X_op != O_constant)
+		{
+		  set_insn_error (0, _("vector element must be constant"));
+		  return 0;
+		}
+	      s = expr_end;
+	      token.u.index = element.X_add_number;
+	      mips_add_token (&token, OT_INTEGER_INDEX);
 	    }
-	  s = expr_end;
 	  SKIP_SPACE_TABS (s);
 	  if (*s != ']')
 	    {
@@ -2969,16 +2997,7 @@ mips_parse_argument_token (char *s, char float_format)
 	      return 0;
 	    }
 	  ++s;
-
-	  token.u.reg_element.regno = regno1;
-	  token.u.reg_element.index = element.X_add_number;
-	  mips_add_token (&token, OT_REG_ELEMENT);
-	  return s;
 	}
-
-      /* Looks like just a plain register.  */
-      token.u.regno = regno1;
-      mips_add_token (&token, OT_REG);
       return s;
     }
 
@@ -3460,6 +3479,10 @@ md_begin (void)
       symbol_table_insert (symbol_new (regname, reg_section,
 				       RTYPE_VI | i, &zero_address_frag));
 
+      /* MSA register.  */
+      snprintf (regname, sizeof (regname) - 1, "$w%d", i);
+      symbol_table_insert (symbol_new (regname, reg_section,
+				       RTYPE_MSA | i, &zero_address_frag));
     }
 
   obstack_init (&mips_operand_tokens);
@@ -4005,6 +4028,7 @@ operand_reg_mask (const struct mips_cl_insn *insn,
     case OP_PC:
     case OP_VU0_SUFFIX:
     case OP_VU0_MATCH_SUFFIX:
+    case OP_IMM_INDEX:
       abort ();
 
     case OP_REG:
@@ -4050,6 +4074,11 @@ operand_reg_mask (const struct mips_cl_insn *insn,
       if ((vsel & 0x18) == 0x18)
 	return 0;
       return 1 << (uval & 31);
+
+    case OP_REG_INDEX:
+      if (!(type_mask & (1 << OP_REG_GP)))
+	return 0;
+      return 1 << insn_extract_operand (insn, operand);
     }
   abort ();
 }
@@ -4139,7 +4168,8 @@ fpr_read_mask (const struct mips_cl_insn *ip)
   unsigned long pinfo;
   unsigned int mask;
 
-  mask = insn_reg_mask (ip, (1 << OP_REG_FP) | (1 << OP_REG_VEC),
+  mask = insn_reg_mask (ip, ((1 << OP_REG_FP) | (1 << OP_REG_VEC)
+			     | (1 << OP_REG_MSA)),
 			insn_read_mask (ip->insn_mo));
   pinfo = ip->insn_mo->pinfo;
   /* Conservatively treat all operands to an FP_D instruction are doubles.
@@ -4157,7 +4187,8 @@ fpr_write_mask (const struct mips_cl_insn *ip)
   unsigned long pinfo;
   unsigned int mask;
 
-  mask = insn_reg_mask (ip, (1 << OP_REG_FP) | (1 << OP_REG_VEC),
+  mask = insn_reg_mask (ip, ((1 << OP_REG_FP) | (1 << OP_REG_VEC)
+			     | (1 << OP_REG_MSA)),
 			insn_write_mask (ip->insn_mo));
   pinfo = ip->insn_mo->pinfo;
   /* Conservatively treat all operands to an FP_D instruction are doubles.
@@ -4365,7 +4396,7 @@ convert_reg_type (const struct mips_opcode *opcode,
 	  && (opcode->pinfo & (INSN_COPROC_MOVE_DELAY
 			       | INSN_COPROC_MEMORY_DELAY
 			       | INSN_LOAD_COPROC_DELAY
-			       | INSN_LOAD_MEMORY_DELAY
+			       | INSN_LOAD_MEMORY
 			       | INSN_STORE_MEMORY)))
 	return RTYPE_FPU | RTYPE_VEC;
       return RTYPE_FPU;
@@ -4408,6 +4439,12 @@ convert_reg_type (const struct mips_opcode *opcode,
 
     case OP_REG_R5900_ACC:
       return RTYPE_R5900_ACC;
+
+    case OP_REG_MSA:
+      return RTYPE_MSA;
+
+    case OP_REG_MSA_CTRL:
+      return RTYPE_NUM;
     }
   abort ();
 }
@@ -5078,7 +5115,7 @@ match_mdmx_imm_reg_operand (struct mips_arg_info *arg,
   uval = mips_extract_operand (operand, opcode->match);
   is_qh = (uval != 0);
 
-  if (arg->token->type == OT_REG || arg->token->type == OT_REG_ELEMENT)
+  if (arg->token->type == OT_REG)
     {
       if ((opcode->membership & INSN_5400)
 	  && strcmp (opcode->name, "rzu.ob") == 0)
@@ -5088,20 +5125,21 @@ match_mdmx_imm_reg_operand (struct mips_arg_info *arg,
 	  return FALSE;
 	}
 
+      if (!match_regno (arg, OP_REG_VEC, arg->token->u.regno, &regno))
+	return FALSE;
+      ++arg->token;
+
       /* Check whether this is a vector register or a broadcast of
 	 a single element.  */
-      if (arg->token->type == OT_REG_ELEMENT)
+      if (arg->token->type == OT_INTEGER_INDEX)
 	{
-	  if (!match_regno (arg, OP_REG_VEC, arg->token->u.reg_element.regno,
-			    &regno))
-	    return FALSE;
-	  if (arg->token->u.reg_element.index > (is_qh ? 3 : 7))
+	  if (arg->token->u.index > (is_qh ? 3 : 7))
 	    {
 	      set_insn_error (arg->argnum, _("invalid element selector"));
 	      return FALSE;
 	    }
-	  else
-	    uval |= arg->token->u.reg_element.index << (is_qh ? 2 : 1) << 5;
+	  uval |= arg->token->u.index << (is_qh ? 2 : 1) << 5;
+	  ++arg->token;
 	}
       else
 	{
@@ -5115,15 +5153,12 @@ match_mdmx_imm_reg_operand (struct mips_arg_info *arg,
 	      return FALSE;
 	    }
 
-	  if (!match_regno (arg, OP_REG_VEC, arg->token->u.regno, &regno))
-	    return FALSE;
 	  if (is_qh)
 	    uval |= MDMX_FMTSEL_VEC_QH << 5;
 	  else
 	    uval |= MDMX_FMTSEL_VEC_OB << 5;
 	}
       uval |= regno;
-      ++arg->token;
     }
   else
     {
@@ -5143,6 +5178,47 @@ match_mdmx_imm_reg_operand (struct mips_arg_info *arg,
 	uval |= MDMX_FMTSEL_IMM_OB << 5;
     }
   insn_insert_operand (arg->insn, operand, uval);
+  return TRUE;
+}
+
+/* OP_IMM_INDEX matcher.  */
+
+static bfd_boolean
+match_imm_index_operand (struct mips_arg_info *arg,
+			 const struct mips_operand *operand)
+{
+  unsigned int max_val;
+
+  if (arg->token->type != OT_INTEGER_INDEX)
+    return FALSE;
+
+  max_val = (1 << operand->size) - 1;
+  if (arg->token->u.index > max_val)
+    {
+      match_out_of_range (arg);
+      return FALSE;
+    }
+  insn_insert_operand (arg->insn, operand, arg->token->u.index);
+  ++arg->token;
+  return TRUE;
+}
+
+/* OP_REG_INDEX matcher.  */
+
+static bfd_boolean
+match_reg_index_operand (struct mips_arg_info *arg,
+			 const struct mips_operand *operand)
+{
+  unsigned int regno;
+
+  if (arg->token->type != OT_REG_INDEX)
+    return FALSE;
+
+  if (!match_regno (arg, OP_REG_GP, arg->token->u.regno, &regno))
+    return FALSE;
+
+  insn_insert_operand (arg->insn, operand, regno);
+  ++arg->token;
   return TRUE;
 }
 
@@ -5426,6 +5502,12 @@ match_operand (struct mips_arg_info *arg,
 
     case OP_VU0_MATCH_SUFFIX:
       return match_vu0_suffix_operand (arg, operand, TRUE);
+
+    case OP_IMM_INDEX:
+      return match_imm_index_operand (arg, operand);
+
+    case OP_REG_INDEX:
+      return match_reg_index_operand (arg, operand);
     }
   abort ();
 }
@@ -5454,7 +5536,7 @@ reg_needs_delay (unsigned int reg)
 
   prev_pinfo = history[0].insn_mo->pinfo;
   if (!mips_opts.noreorder
-      && (((prev_pinfo & INSN_LOAD_MEMORY_DELAY) && !gpr_interlocks)
+      && (((prev_pinfo & INSN_LOAD_MEMORY) && !gpr_interlocks)
 	  || ((prev_pinfo & INSN_LOAD_COPROC_DELAY) && !cop_interlocks))
       && (gpr_write_mask (&history[0]) & (1 << reg)))
     return TRUE;
@@ -5484,8 +5566,10 @@ classify_vr4120_insn (const char *name)
   return NUM_FIX_VR4120_CLASSES;
 }
 
-#define INSN_ERET  0x42000018
-#define INSN_DERET 0x4200001f
+#define INSN_ERET	0x42000018
+#define INSN_DERET	0x4200001f
+#define INSN_DMULT	0x1c
+#define INSN_DMULTU	0x1d
 
 /* Return the number of instructions that must separate INSN1 and INSN2,
    where INSN1 is the earlier instruction.  Return the worst-case value
@@ -5536,6 +5620,18 @@ insns_between (const struct mips_cl_insn *insn1,
 	}
     }
 
+  /* If we're working around PMC RM7000 errata, there must be three
+     nops between a dmult and a load instruction.  */
+  if (mips_fix_rm7000 && !mips_opts.micromips)
+    {
+      if ((insn1->insn_opcode & insn1->insn_mo->mask) == INSN_DMULT
+	  || (insn1->insn_opcode & insn1->insn_mo->mask) == INSN_DMULTU)
+	{
+	  if (pinfo2 & INSN_LOAD_MEMORY)
+	   return 3;
+	}
+    }
+
   /* If working around VR4120 errata, check for combinations that need
      a single intervening instruction.  */
   if (mips_fix_vr4120 && !mips_opts.micromips)
@@ -5558,7 +5654,7 @@ insns_between (const struct mips_cl_insn *insn1,
       /* Check for GPR or coprocessor load delays.  All such delays
 	 are on the RT register.  */
       /* Itbl support may require additional care here.  */
-      if ((!gpr_interlocks && (pinfo1 & INSN_LOAD_MEMORY_DELAY))
+      if ((!gpr_interlocks && (pinfo1 & INSN_LOAD_MEMORY))
 	  || (!cop_interlocks && (pinfo1 & INSN_LOAD_COPROC_DELAY)))
 	{
 	  if (insn2 == NULL || (gpr_read_mask (insn2) & gpr_write_mask (insn1)))
@@ -5997,6 +6093,7 @@ can_swap_branch_p (struct mips_cl_insn *ip, expressionS *address_expr,
 {
   unsigned long pinfo, pinfo2, prev_pinfo, prev_pinfo2;
   unsigned int gpr_read, gpr_write, prev_gpr_read, prev_gpr_write;
+  unsigned int fpr_read, prev_fpr_write;
 
   /* -O2 and above is required for this optimization.  */
   if (mips_optimize < 2)
@@ -6069,6 +6166,11 @@ can_swap_branch_p (struct mips_cl_insn *ip, expressionS *address_expr,
   gpr_read = gpr_read_mask (ip);
   prev_gpr_write = gpr_write_mask (&history[0]);
   if (gpr_read & prev_gpr_write)
+    return FALSE;
+
+  fpr_read = fpr_read_mask (ip);
+  prev_fpr_write = fpr_write_mask (&history[0]);
+  if (fpr_read & prev_fpr_write)
     return FALSE;
 
   /* If the branch writes a register that the previous
@@ -13511,6 +13613,14 @@ md_parse_option (int c, char *arg)
       mips_fix_24k = 0;
       break;
 
+    case OPTION_FIX_RM7000:
+      mips_fix_rm7000 = 1;
+      break;
+
+    case OPTION_NO_FIX_RM7000:
+      mips_fix_rm7000 = 0;
+      break;
+
     case OPTION_FIX_LOONGSON2F_JUMP:
       mips_fix_loongson2f_jump = TRUE;
       break;
@@ -16539,11 +16649,21 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT asec, fragS *fragp)
 	      switch ((insn >> 28) & 0xf)
 		{
 		case 4:
-		  /* bc[0-3][tf]l? instructions can have the condition
-		     reversed by tweaking a single TF bit, and their
-		     opcodes all have 0x4???????.  */
-		  gas_assert ((insn & 0xf3e00000) == 0x41000000);
-		  insn ^= 0x00010000;
+		  if ((insn & 0xff000000) == 0x47000000
+		      || (insn & 0xff600000) == 0x45600000)
+		    {
+		      /* BZ.df/BNZ.df, BZ.V/BNZ.V can have the condition
+			 reversed by tweaking bit 23.  */
+		      insn ^= 0x00800000;
+		    }
+		  else
+		    {
+		      /* bc[0-3][tf]l? instructions can have the condition
+			 reversed by tweaking a single TF bit, and their
+			 opcodes all have 0x4???????.  */
+		      gas_assert ((insn & 0xf3e00000) == 0x41000000);
+		      insn ^= 0x00010000;
+		    }
 		  break;
 
 		case 0:
@@ -16810,6 +16930,11 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT asec, fragS *fragp)
 		   || (insn & 0xffe30000) == 0x42800000		/* bc2f  */
 		   || (insn & 0xffe30000) == 0x42a00000)	/* bc2t  */
 	    insn ^= 0x00200000;
+	  else if ((insn & 0xff000000) == 0x83000000		/* BZ.df
+								   BNZ.df  */
+		    || (insn & 0xff600000) == 0x81600000)	/* BZ.V
+								   BNZ.V */
+	    insn ^= 0x00800000;
 	  else
 	    abort ();
 
@@ -18020,6 +18145,9 @@ MIPS options:\n\
   fprintf (stream, _("\
 -mmcu			generate MCU instructions\n\
 -mno-mcu		do not generate MCU instructions\n"));
+  fprintf (stream, _("\
+-mmsa			generate MSA instructions\n\
+-mno-msa		do not generate MSA instructions\n"));
   fprintf (stream, _("\
 -mvirt			generate Virtualization instructions\n\
 -mno-virt		do not generate Virtualization instructions\n"));

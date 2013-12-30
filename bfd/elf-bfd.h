@@ -419,6 +419,7 @@ enum elf_target_id
   MICROBLAZE_ELF_DATA,
   MIPS_ELF_DATA,
   MN10300_ELF_DATA,
+  NDS32_ELF_DATA,
   NIOS2_ELF_DATA,
   PPC32_ELF_DATA,
   PPC64_ELF_DATA,
@@ -2040,7 +2041,7 @@ extern bfd_reloc_status_type bfd_elf_perform_complex_relocation
 extern bfd_boolean _bfd_elf_setup_sections
   (bfd *);
 
-extern void _bfd_elf_set_osabi (bfd * , struct bfd_link_info *);
+extern void _bfd_elf_post_process_headers (bfd * , struct bfd_link_info *);
 
 extern const bfd_target *bfd_elf32_object_p
   (bfd *);
@@ -2414,7 +2415,7 @@ extern asection _bfd_elf_large_com_section;
 #define RELOC_FOR_GLOBAL_SYMBOL(info, input_bfd, input_section, rel,	\
 				r_symndx, symtab_hdr, sym_hashes,	\
 				h, sec, relocation,			\
-				unresolved_reloc, warned)		\
+				unresolved_reloc, warned, ignored)	\
   do									\
     {									\
       /* It seems this can happen with erroneous or unsupported		\
@@ -2429,6 +2430,7 @@ extern asection _bfd_elf_large_com_section;
 	h = (struct elf_link_hash_entry *) h->root.u.i.link;		\
 									\
       warned = FALSE;							\
+      ignored = FALSE;							\
       unresolved_reloc = FALSE;						\
       relocation = 0;							\
       if (h->root.type == bfd_link_hash_defined				\
@@ -2451,7 +2453,7 @@ extern asection _bfd_elf_large_com_section;
 	;								\
       else if (info->unresolved_syms_in_objects == RM_IGNORE		\
 	       && ELF_ST_VISIBILITY (h->other) == STV_DEFAULT)		\
-	;								\
+	ignored = TRUE;							\
       else if (!info->relocatable)					\
 	{								\
 	  bfd_boolean err;						\
@@ -2467,6 +2469,7 @@ extern asection _bfd_elf_large_com_section;
 	}								\
       (void) unresolved_reloc;						\
       (void) warned;							\
+      (void) ignored;							\
     }									\
   while (0)
 

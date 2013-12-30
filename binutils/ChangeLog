@@ -1,3 +1,143 @@
+2013-12-20  Nick Clifton  <nickc@redhat.com>
+
+	PR binutils/16218
+	* dwarf.c (read_and_display_attr_value): Only print a tab
+	character if it preceeds further text.
+
+2013-12-19  Tom Tromey  <tromey@redhat.com>
+
+	* dwarf.c (fetch_indirect_string): Don't bias by section address.
+	(fetch_indexed_string): Likewise.
+	(process_debug_info): Likewise.
+	(display_debug_loc): Likewise.
+	(display_debug_ranges): Likewise.
+
+2013-12-13  Kuan-Lin Chen  <kuanlinchentw@gmail.com>
+	    Wei-Cheng Wang  <cole945@gmail.com>
+
+	* readelf.c: Include elf/nds32.h
+	(guess_is_rela): Add case for EM_NDS32.
+	(dump_relocations): Add case for EM_NDS32.
+	(decode_NDS32_machine_flags): New.
+	(get_machine_flags): Add case for EM_NDS32.
+	(is_32bit_abs_reloc): Likewise.
+	(is_16bit_abs_reloc): Likewise.
+	(process_nds32_specific): New.
+	(process_arch_specific): Add case for EM_NDS32.
+	* NEWS: Announce Andes nds32 support.
+	* MAINTAINERS: Add nds32 maintainers.
+
+2013-12-10  Roland McGrath  <mcgrathr@google.com>
+
+	* Makefile.am (install-exec-local): Prefix libtool invocation with
+	$(INSTALL_PROGRAM_ENV).
+	* Makefile.in: Regenerate.
+
+2013-11-22  Cory Fields  <cory@coryfields.com>
+
+	* windres.c (define_resource): Use zero for timestamp, making
+	output deterministic. time.h include is no longer needed.
+	* resres.c (res_append_resource): Likewise.
+
+2013-11-13  Martin Mitas  <mity@morous.org>
+
+	* rescoff.c (write_coff_file): Use 64-bit alignment for resource
+	data.
+	(coff_res_to_bin): Likewise.
+
+2013-11-07  Doug Evans  <dje@google.com>
+
+	Add pretty-printing of .debug_gnu_pubnames, .debug_gnu_pubtypes.
+	* dwarf.c (get_gdb_index_symbol_kind_name): New function.
+	(display_debug_pubnames_worker): Renamed from display_debug_pubnames.
+	Add support for .debug_gnu_pubnames, .debug_gnu_pubtypes.
+	(display_debug_pubnames, display_debug_pubnames_gnu): New functions.
+	(display_gdb_index): Redo printing of symbol kind.
+	(debug_displays): Add .debug_gnu_pubnames, .debug_gnu_pubtypes.
+	* dwarf.h (dwarf_section_display_enum): Add gnu_pubnames, gnu_pubtypes.
+	* readelf.c (process_section_headers): Add gnu_pubnames, gnu_pubtypes.
+
+2013-11-07  Roland McGrath  <mcgrathr@google.com>
+
+	* objdump.c (dump_dwarf): Grok bfd_mach_x86_64_nacl and
+	bfd_mach_x64_32_nacl as equivalent to bfd_mach_x86_64.
+
+2013-10-30  Alan Modra  <amodra@gmail.com>
+
+	* readelf.c (get_ppc_dynamic_type): Replace PPC_TLSOPT with PPC_OPT.
+	(get_ppc64_dynamic_type): Replace PPC64_TLSOPT with PPC64_OPT.
+
+2013-10-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* readelf.c (get_ppc64_symbol_other): New function.
+	(get_symbol_other): Use it for EM_PPC64.
+
+2013-10-30  Alan Modra  <amodra@gmail.com>
+
+	* readelf.c (get_machine_flags): Display ABI version for EM_PPC64.
+
+2013-10-24  Nick Clifton  <nickc@redhat.com>
+
+	* nm.c (display_rel_file): Treat bfd_error_no_symbols as
+	non-fatal.
+
+2013-10-14  Chao-ying Fu  <Chao-ying.Fu@imgtec.com>
+
+	* readelf.c (display_mips_gnu_attribute): Support Tag_GNU_MIPS_ABI_MSA.
+	* doc/binutils.texi: Document -Mmsa disassembler option.
+
+2013-10-14  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* readelf.c (decode_arm_unwind): Don't initialize `addr'.
+
+2013-10-14  Nick Clifton  <nickc@redhat.com>
+
+	* readelf.c (decode_arm_unwind): Initialise addr structure.
+	(process_symbol_table): Free lengths.
+	* srcconv.c (wr_sc): Free info.
+
+2013-10-11  Roland McGrath  <mcgrathr@google.com>
+
+	* winduni.c (languages): Use \345 (octal syntax) rather than
+	literal non-ASCII/non-UTF8 character in string literal.
+
+	* readelf.c (print_dynamic_symbol): Use array subscript syntax
+	rather than addition syntax with string literal.
+
+2013-10-09  Nick Clifton  <nickc@redhat.com>
+
+	PR binutils/16023
+	* debug.c (debug_type_samep): Add missing break statement.
+
+	PR binutils/16024
+	* objdump.c (usage): Mark as a no-return function.
+	(main): Add comment explaining why a break statement is not
+	needed.
+
+	* dwarf.c (add64): New function.
+	(read_and_display_attr_value): Add CU offset in to the value
+	displayed for a DW_AT_ref8 attribute.
+
+2013-10-01  Cory Fields  <cory@coryfields.com>
+
+	* arsup.c (ar_save): Respect the deterministic setting when
+	reading from an mri script.
+	* ar.c (main): Set the default deterministic mode when reading
+	from an mri script.
+
+2013-10-01  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* dwarf.c (SAFE_BYTE_GET): Fix argument check.
+
+2013-09-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf.c (display_debug_frames): Pass offset_size to
+	print_dwarf_vma for cie_id.
+
+2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* configure: Regenerate.
+
 2013-09-18  Tristan Gingold  <gingold@adacore.com>
 
 	* NEWS: Add marker for 2.24.

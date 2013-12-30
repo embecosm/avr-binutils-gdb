@@ -31,7 +31,7 @@
 #include "target.h"
 
 #include "gdb_assert.h"
-#include "gdb_string.h"
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/ttrace.h>
 #include <signal.h>
@@ -642,9 +642,6 @@ inf_ttrace_him (struct target_ops *ops, int pid)
 
   push_target (ops);
 
-  /* START_INFERIOR_TRAPS_EXPECTED is defined in inferior.h, and will
-     be 1 or 2 depending on whether we're starting without or with a
-     shell.  */
   startup_inferior (START_INFERIOR_TRAPS_EXPECTED);
 
   /* On some targets, there must be some explicit actions taken after
@@ -801,7 +798,7 @@ inf_ttrace_attach (struct target_ops *ops, char *args, int from_tty)
 }
 
 static void
-inf_ttrace_detach (struct target_ops *ops, char *args, int from_tty)
+inf_ttrace_detach (struct target_ops *ops, const char *args, int from_tty)
 {
   pid_t pid = ptid_get_pid (inferior_ptid);
   int sig = 0;

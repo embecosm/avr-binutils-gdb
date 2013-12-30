@@ -24,7 +24,7 @@
    Avoid placing any object file format specific code in this file.  */
 
 #include "defs.h"
-#include "gdb_string.h"
+#include <string.h>
 #include "bfd.h"
 #include "gdb_obstack.h"
 #include "symtab.h"
@@ -4732,7 +4732,7 @@ scan_file_globals (struct objfile *objfile)
 	    complaint (&symfile_complaints,
 		       _("%s: common block `%s' from "
 			 "global_sym_chain unresolved"),
-		       objfile->name, SYMBOL_PRINT_NAME (prev));
+		       objfile_name (objfile), SYMBOL_PRINT_NAME (prev));
 	}
     }
   memset (global_sym_chain, 0, sizeof (global_sym_chain));

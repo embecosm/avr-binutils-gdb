@@ -37,6 +37,7 @@ struct uploaded_tp;
 struct static_tracepoint_marker;
 struct traceframe_info;
 struct expression;
+struct dcache_struct;
 
 /* This include file defines the interface between the main part
    of the debugger, and the part which is target-specific, or
@@ -144,6 +145,9 @@ enum target_object
      if it is not in a region marked as such, since it is known to be
      "normal" RAM.  */
   TARGET_OBJECT_STACK_MEMORY,
+  /* Memory known to be part of the target code.   This is cached even
+     if it is not in a region marked as such.  */
+  TARGET_OBJECT_CODE_MEMORY,
   /* Kernel Unwind Table.  See "ia64-tdep.c".  */
   TARGET_OBJECT_UNWIND_TABLE,
   /* Transfer auxilliary vector.  */
@@ -234,16 +238,26 @@ enum trace_find_type
 typedef struct static_tracepoint_marker *static_tracepoint_marker_p;
 DEF_VEC_P(static_tracepoint_marker_p);
 
+typedef LONGEST
+  target_xfer_partial_ftype (struct target_ops *ops,
+			     enum target_object object,
+			     const char *annex,
+			     gdb_byte *readbuf,
+			     const gdb_byte *writebuf,
+			     ULONGEST offset,
+			     LONGEST len);
+
 /* Request that OPS transfer up to LEN 8-bit bytes of the target's
    OBJECT.  The OFFSET, for a seekable object, specifies the
    starting point.  The ANNEX can be used to provide additional
    data-specific information to the target.
 
-   Return the number of bytes actually transfered, or -1 if the
-   transfer is not supported or otherwise fails.  Return of a positive
-   value less than LEN indicates that no further transfer is possible.
-   Unlike the raw to_xfer_partial interface, callers of these
-   functions do not need to retry partial transfers.  */
+   Return the number of bytes actually transfered, or a negative error
+   code (an 'enum target_xfer_error' value) if the transfer is not
+   supported or otherwise fails.  Return of a positive value less than
+   LEN indicates that no further transfer is possible.  Unlike the raw
+   to_xfer_partial interface, callers of these functions do not need
+   to retry partial transfers.  */
 
 extern LONGEST target_read (struct target_ops *ops,
 			    enum target_object object,
@@ -314,12 +328,7 @@ extern char *target_read_stralloc (struct target_ops *ops,
 				   const char *annex);
 
 /* See target_ops->to_xfer_partial.  */
-
-extern LONGEST target_xfer_partial (struct target_ops *ops,
-				    enum target_object object,
-				    const char *annex,
-				    void *readbuf, const void *writebuf,
-				    ULONGEST offset, LONGEST len);
+extern target_xfer_partial_ftype target_xfer_partial;
 
 /* Wrappers to target read/write that perform memory transfers.  They
    throw an error if the memory transfer fails.
@@ -358,7 +367,7 @@ struct target_ops
     void (*to_close) (void);
     void (*to_attach) (struct target_ops *ops, char *, int);
     void (*to_post_attach) (int);
-    void (*to_detach) (struct target_ops *ops, char *, int);
+    void (*to_detach) (struct target_ops *ops, const char *, int);
     void (*to_disconnect) (struct target_ops *, char *, int);
     void (*to_resume) (struct target_ops *, ptid_t, int, enum gdb_signal);
     ptid_t (*to_wait) (struct target_ops *,
@@ -948,7 +957,7 @@ void target_attach (char *, int);
    typed by the user (e.g. a signal to send the process).  FROM_TTY
    says whether to be verbose or not.  */
 
-extern void target_detach (char *, int);
+extern void target_detach (const char *, int);
 
 /* Disconnect from the current target without resuming it (leaving it
    waiting for a debugger).  */
@@ -1041,15 +1050,17 @@ int target_supports_disable_randomization (void);
 #define target_can_run_breakpoint_commands() \
   (*current_target.to_can_run_breakpoint_commands) ()
 
-/* Invalidate all target dcaches.  */
-extern void target_dcache_invalidate (void);
-
 extern int target_read_string (CORE_ADDR, char **, int, int *);
 
 extern int target_read_memory (CORE_ADDR memaddr, gdb_byte *myaddr,
 			       ssize_t len);
 
+extern int target_read_raw_memory (CORE_ADDR memaddr, gdb_byte *myaddr,
+				   ssize_t len);
+
 extern int target_read_stack (CORE_ADDR memaddr, gdb_byte *myaddr, ssize_t len);
+
+extern int target_read_code (CORE_ADDR memaddr, gdb_byte *myaddr, ssize_t len);
 
 extern int target_write_memory (CORE_ADDR memaddr, const gdb_byte *myaddr,
 				ssize_t len);
@@ -1117,13 +1128,13 @@ int target_write_memory_blocks (VEC(memory_write_request_s) *requests,
      (*current_target.to_files_info) (&current_target)
 
 /* Insert a breakpoint at address BP_TGT->placed_address in the target
-   machine.  Result is 0 for success, or an errno value.  */
+   machine.  Result is 0 for success, non-zero for error.  */
 
 extern int target_insert_breakpoint (struct gdbarch *gdbarch,
 				     struct bp_target_info *bp_tgt);
 
 /* Remove a breakpoint at address BP_TGT->placed_address in the target
-   machine.  Result is 0 for success, or an errno value.  */
+   machine.  Result is 0 for success, non-zero for error.  */
 
 extern int target_remove_breakpoint (struct gdbarch *gdbarch,
 				     struct bp_target_info *bp_tgt);

@@ -220,7 +220,7 @@ som_solib_create_inferior_hook (int from_tty)
     goto keep_going;
 
   anaddr = SYMBOL_VALUE_ADDRESS (msymbol);
-  store_unsigned_integer (buf, 4, byte_order, PIDGET (inferior_ptid));
+  store_unsigned_integer (buf, 4, byte_order, ptid_get_pid (inferior_ptid));
   status = target_write_memory (anaddr, buf, 4);
   if (status != 0)
     {
@@ -569,7 +569,7 @@ link_map_start (void)
 static int
 match_main (const char *name)
 {
-  return strcmp (name, symfile_objfile->name) == 0;
+  return strcmp (name, objfile_name (symfile_objfile)) == 0;
 }
 
 static struct so_list *
@@ -839,7 +839,7 @@ som_solib_section_offsets (struct objfile *objfile,
     {
       /* Oh what a pain!  We need the offsets before so_list->objfile
          is valid.  The BFDs will never match.  Make a best guess.  */
-      if (strstr (objfile->name, so_list->so_name))
+      if (strstr (objfile_name (objfile), so_list->so_name))
 	{
 	  asection *private_section;
 	  struct obj_section *sect;

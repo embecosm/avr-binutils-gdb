@@ -273,6 +273,11 @@ extern void set_value_lazy (struct value *value, int val);
 extern int value_stack (struct value *);
 extern void set_value_stack (struct value *value, int val);
 
+/* Throw an error complaining that the value has been optimized
+   out.  */
+
+extern void error_value_optimized_out (void);
+
 /* value_contents() and value_contents_raw() both return the address
    of the gdb buffer used to hold a copy of the contents of the lval.
    value_contents() is used when the contents of the buffer are needed
@@ -431,6 +436,14 @@ extern int value_bits_synthetic_pointer (const struct value *value,
 extern int value_bytes_available (const struct value *value,
 				  int offset, int length);
 
+/* Given a value, determine whether the contents bits starting at
+   OFFSET and extending for LENGTH bits are available.  This returns
+   nonzero if all bits in the given range are available, zero if any
+   bit is unavailable.  */
+
+extern int value_bits_available (const struct value *value,
+				 int offset, int length);
+
 /* Like value_bytes_available, but return false if any byte in the
    whole object is unavailable.  */
 extern int value_entirely_available (struct value *value);
@@ -444,6 +457,12 @@ extern int value_entirely_unavailable (struct value *value);
 
 extern void mark_value_bytes_unavailable (struct value *value,
 					  int offset, int length);
+
+/* Mark VALUE's content bits starting at OFFSET and extending for
+   LENGTH bits as unavailable.  */
+
+extern void mark_value_bits_unavailable (struct value *value,
+					 int offset, int length);
 
 /* Compare LENGTH bytes of VAL1's contents starting at OFFSET1 with
    LENGTH bytes of VAL2's contents starting at OFFSET2.

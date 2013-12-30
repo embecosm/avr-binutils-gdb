@@ -26,7 +26,7 @@
 #include "bfd.h"
 #include "gdb_obstack.h"
 
-#include "gdb_string.h"
+#include <string.h>
 #include <ctype.h>
 
 #include "coff/internal.h"	/* Internal format of COFF symbols in BFD */
@@ -738,7 +738,7 @@ coff_symfile_read (struct objfile *objfile, int symfile_flags)
 	  bfd *abfd = symfile_bfd_open (debugfile);
 
 	  make_cleanup_bfd_unref (abfd);
-	  symbol_file_add_separate (abfd, symfile_flags, objfile);
+	  symbol_file_add_separate (abfd, debugfile, symfile_flags, objfile);
 	}
     }
 
@@ -819,7 +819,7 @@ coff_symtab_read (long symtab_offset, unsigned int nsyms,
   /* Position to read the symbol table.  */
   val = bfd_seek (objfile->obfd, (long) symtab_offset, 0);
   if (val < 0)
-    perror_with_name (objfile->name);
+    perror_with_name (objfile_name (objfile));
 
   coffread_objfile = objfile;
   nlist_bfd_global = objfile->obfd;
@@ -1229,14 +1229,14 @@ read_one_sym (struct coff_symbol *cs,
   cs->c_symnum = symnum;
   bytes = bfd_bread (temp_sym, local_symesz, nlist_bfd_global);
   if (bytes != local_symesz)
-    error (_("%s: error reading symbols"), coffread_objfile->name);
+    error (_("%s: error reading symbols"), objfile_name (coffread_objfile));
   bfd_coff_swap_sym_in (symfile_bfd, temp_sym, (char *) sym);
   cs->c_naux = sym->n_numaux & 0xff;
   if (cs->c_naux >= 1)
     {
       bytes  = bfd_bread (temp_aux, local_auxesz, nlist_bfd_global);
       if (bytes != local_auxesz)
-	error (_("%s: error reading symbols"), coffread_objfile->name);
+	error (_("%s: error reading symbols"), objfile_name (coffread_objfile));
       bfd_coff_swap_aux_in (symfile_bfd, temp_aux,
 			    sym->n_type, sym->n_sclass,
 			    0, cs->c_naux, (char *) aux);
@@ -1246,7 +1246,8 @@ read_one_sym (struct coff_symbol *cs,
 	{
 	  bytes = bfd_bread (temp_aux, local_auxesz, nlist_bfd_global);
 	  if (bytes != local_auxesz)
-	    error (_("%s: error reading symbols"), coffread_objfile->name);
+	    error (_("%s: error reading symbols"),
+		   objfile_name (coffread_objfile));
 	}
     }
   cs->c_name = getsymname (sym);
@@ -2249,7 +2250,6 @@ coff_read_enum_type (int index, int length, int lastsym,
 
 static const struct sym_fns coff_sym_fns =
 {
-  bfd_target_coff_flavour,
   coff_new_init,		/* sym_new_init: init anything gbl to
 				   entire symtab */
   coff_symfile_init,		/* sym_init: read initial info, setup
@@ -2282,7 +2282,7 @@ coff_free_info (struct objfile *objfile, void *arg)
 void
 _initialize_coffread (void)
 {
-  add_symtab_fns (&coff_sym_fns);
+  add_symtab_fns (bfd_target_coff_flavour, &coff_sym_fns);
 
   coff_objfile_data_key = register_objfile_data_with_cleanup (NULL,
 							      coff_free_info);

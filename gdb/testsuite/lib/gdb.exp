@@ -1716,6 +1716,32 @@ proc with_test_prefix { prefix body } {
   }
 }
 
+# Run tests in BODY with GDB prompt and variable $gdb_prompt set to
+# PROMPT.  When BODY is finished, restore GDB prompt and variable
+# $gdb_prompt.
+# Returns the result of BODY.
+
+proc with_gdb_prompt { prompt body } {
+    global gdb_prompt
+
+    set saved $gdb_prompt
+
+    set gdb_prompt $prompt
+    gdb_test_no_output "set prompt $prompt " ""
+
+    set code [catch {uplevel 1 $body} result]
+
+    set gdb_prompt $saved
+    gdb_test_no_output "set prompt $saved " ""
+
+    if {$code == 1} {
+	global errorInfo errorCode
+	return -code $code -errorinfo $errorInfo -errorcode $errorCode $result
+    } else {
+	return -code $code $result
+    }
+}
+
 # Return 1 if _Complex types are supported, otherwise, return 0.
 
 gdb_caching_proc support_complex_tests {
@@ -1725,13 +1751,14 @@ gdb_caching_proc support_complex_tests {
     set src [standard_temp_file complex[pid].c]
     set exe [standard_temp_file complex[pid].x]
 
-    set f [open $src "w"]
-    puts $f "int main() {"
-    puts $f "_Complex float cf;"
-    puts $f "_Complex double cd;"
-    puts $f "_Complex long double cld;"
-    puts $f "  return 0; }"
-    close $f
+    gdb_produce_source $src {
+	int main() {
+	    _Complex float cf;
+	    _Complex double cd;
+	    _Complex long double cld;
+	    return 0;
+	}
+    }
 
     verbose "compiling testfile $src" 2
     set compile_flags {debug nowarnings quiet}
@@ -1796,6 +1823,55 @@ proc supports_reverse {} {
     return 0
 }
 
+# Return 1 if target is ELF.
+gdb_caching_proc is_elf_target {
+    set me "is_elf_target"
+
+    set src [standard_temp_file is_elf_target[pid].c]
+    set obj [standard_temp_file is_elf_target[pid].o]
+
+    gdb_produce_source $src {
+	int foo () {return 0;}
+    }
+
+    verbose "$me:  compiling testfile $src" 2
+    set lines [gdb_compile $src $obj object {quiet}]
+
+    file delete $src
+
+    if ![string match "" $lines] then {
+	verbose "$me:  testfile compilation failed, returning 0" 2
+	return 0
+    }
+
+    set fp_obj [open $obj "r"]
+    fconfigure $fp_obj -translation binary
+    set data [read $fp_obj]
+    close $fp_obj
+
+    file delete $obj
+
+    set ELFMAG "\u007FELF"
+
+    if {[string compare -length 4 $data $ELFMAG] != 0} {
+	verbose "$me:  returning 0" 2
+	return 0
+    }
+
+    verbose "$me:  returning 1" 2
+    return 1
+}
+
+# Produce source file NAME and write SOURCES into it.
+
+proc gdb_produce_source { name sources } {
+    set index 0
+    set f [open $name "w"]
+
+    puts $f $sources
+    close $f
+}
+
 # Return 1 if target is ILP32.
 # This cannot be decided simply from looking at the target string,
 # as it might depend on externally passed compiler options like -m64.
@@ -1805,11 +1881,11 @@ gdb_caching_proc is_ilp32_target {
     set src [standard_temp_file ilp32[pid].c]
     set obj [standard_temp_file ilp32[pid].o]
 
-    set f [open $src "w"]
-    puts $f "int dummy\[sizeof (int) == 4"
-    puts $f "           && sizeof (void *) == 4"
-    puts $f "           && sizeof (long) == 4 ? 1 : -1\];"
-    close $f
+    gdb_produce_source $src {
+	int dummy[sizeof (int) == 4
+		  && sizeof (void *) == 4
+		  && sizeof (long) == 4 ? 1 : -1];
+    }
 
     verbose "$me:  compiling testfile $src" 2
     set lines [gdb_compile $src $obj object {quiet}]
@@ -1834,11 +1910,11 @@ gdb_caching_proc is_lp64_target {
     set src [standard_temp_file lp64[pid].c]
     set obj [standard_temp_file lp64[pid].o]
 
-    set f [open $src "w"]
-    puts $f "int dummy\[sizeof (int) == 4"
-    puts $f "           && sizeof (void *) == 8"
-    puts $f "           && sizeof (long) == 8 ? 1 : -1\];"
-    close $f
+    gdb_produce_source $src {
+	int dummy[sizeof (int) == 4
+		  && sizeof (void *) == 8
+		  && sizeof (long) == 8 ? 1 : -1];
+    }
 
     verbose "$me:  compiling testfile $src" 2
     set lines [gdb_compile $src $obj object {quiet}]
@@ -1863,10 +1939,10 @@ gdb_caching_proc is_64_target {
     set src [standard_temp_file is64[pid].c]
     set obj [standard_temp_file is64[pid].o]
 
-    set f [open $src "w"]
-    puts $f "int function(void) { return 3; }"
-    puts $f "int dummy\[sizeof (&function) == 8 ? 1 : -1\];"
-    close $f
+    gdb_produce_source $src {
+	int function(void) { return 3; }
+	int dummy[sizeof (&function) == 8 ? 1 : -1];
+    }
 
     verbose "$me:  compiling testfile $src" 2
     set lines [gdb_compile $src $obj object {quiet}]
@@ -1895,12 +1971,12 @@ gdb_caching_proc is_amd64_regs_target {
     set src [standard_temp_file reg64[pid].s]
     set obj [standard_temp_file reg64[pid].o]
 
-    set f [open $src "w"]
+    set list {}
     foreach reg \
-            {rax rbx rcx rdx rsi rdi rbp rsp r8 r9 r10 r11 r12 r13 r14 r15} {
-	puts $f "\tincq %$reg"
-    }
-    close $f
+	{rax rbx rcx rdx rsi rdi rbp rsp r8 r9 r10 r11 r12 r13 r14 r15} {
+	    lappend list "\tincq %$reg"
+	}
+    gdb_produce_source $src [join $list \n]
 
     verbose "$me:  compiling testfile $src" 2
     set lines [gdb_compile $src $obj object {quiet}]
@@ -1971,15 +2047,16 @@ gdb_caching_proc skip_altivec_tests {
     set src [standard_temp_file vmx[pid].c]
     set exe [standard_temp_file vmx[pid].x]
 
-    set f [open $src "w"]
-    puts $f "int main() {"
-    puts $f "#ifdef __MACH__"
-    puts $f "  asm volatile (\"vor v0,v0,v0\");"
-    puts $f "#else"
-    puts $f "  asm volatile (\"vor 0,0,0\");"
-    puts $f "#endif"
-    puts $f "  return 0; }"
-    close $f
+    gdb_produce_source $src {
+	int main() {
+	    #ifdef __MACH__
+	    asm volatile ("vor v0,v0,v0");
+	    #else
+	    asm volatile ("vor 0,0,0");
+	    #endif
+	    return 0;
+	}
+    }
 
     verbose "$me:  compiling testfile $src" 2
     set lines [gdb_compile $src $exe executable $compile_flags]
@@ -2051,16 +2128,17 @@ gdb_caching_proc skip_vsx_tests {
     set src [standard_temp_file vsx[pid].c]
     set exe [standard_temp_file vsx[pid].x]
 
-    set f [open $src "w"]
-    puts $f "int main() {"
-    puts $f "  double a\[2\] = { 1.0, 2.0 };"
-    puts $f "#ifdef __MACH__"
-    puts $f "  asm volatile (\"lxvd2x v0,v0,%\[addr\]\" : : \[addr\] \"r\" (a));"
-    puts $f "#else"
-    puts $f "  asm volatile (\"lxvd2x 0,0,%\[addr\]\" : : \[addr\] \"r\" (a));"
-    puts $f "#endif"
-    puts $f "  return 0; }"
-    close $f
+    gdb_produce_source $src {
+	int main() {
+	    double a[2] = { 1.0, 2.0 };
+	    #ifdef __MACH__
+	    asm volatile ("lxvd2x v0,v0,%[addr]" : : [addr] "r" (a));
+	    #else
+	    asm volatile ("lxvd2x 0,0,%[addr]" : : [addr] "r" (a));
+	    #endif
+	    return 0;
+	}
+    }
 
     verbose "$me:  compiling testfile $src" 2
     set lines [gdb_compile $src $exe executable $compile_flags]
@@ -2117,9 +2195,9 @@ gdb_caching_proc skip_btrace_tests {
     set src [standard_temp_file btrace[pid].c]
     set exe [standard_temp_file btrace[pid].x]
 
-    set f [open $src "w"]
-    puts $f "int main(void) { return 0; }"
-    close $f
+    gdb_produce_source $src {
+	int main(void) { return 0; }
+    }
 
     verbose "$me:  compiling testfile $src" 2
     set compile_flags {debug nowarnings quiet}
@@ -2406,6 +2484,7 @@ proc get_compiler_info {{arg ""}} {
 
     # Run $ifile through the right preprocessor.
     # Toggle gdb.log to keep the compiler output out of the log.
+    set saved_log [log_file -info]
     log_file
     if [is_remote host] {
 	# We have to use -E and -o together, despite the comments
@@ -2418,7 +2497,7 @@ proc get_compiler_info {{arg ""}} {
     } else {
 	set cppout [ gdb_compile "${ifile}" "" preprocess [list "$arg" quiet] ]
     }
-    log_file -a "$outdir/$tool.log" 
+    eval log_file $saved_log
 
     # Eval the output.
     set unknown 0
@@ -2730,11 +2809,18 @@ proc gdb_compile_pthreads {source dest type options} {
     }
 }
 
-# Build a shared library from SOURCES.  You must use get_compiler_info
-# first.
+# Build a shared library from SOURCES.
 
 proc gdb_compile_shlib {sources dest options} {
     set obj_options $options
+
+    set info_options ""
+    if { [lsearch -exact $options "c++"] >= 0 } {
+	set info_options "c++"
+    }
+    if [get_compiler_info ${info_options}] {
+       return -1
+    }
 
     switch -glob [test_compiler_info] {
         "xlc-*" {
@@ -3183,7 +3269,7 @@ proc gdb_gcore_cmd {core test} {
 	    verbose -log "'gcore' command undefined in gdb_gcore_cmd"
 	}
 
-	-re "Can't create a corefile\[\r\n\]+$gdb_prompt $" {
+	-re "(?:Can't create a corefile|Target does not support core file generation\\.)\[\r\n\]+$gdb_prompt $" {
 	    unsupported $test
 	}
     }
@@ -3201,32 +3287,32 @@ proc gdb_gcore_cmd {core test} {
 proc gdb_core_cmd { core test } {
     global gdb_prompt
 
-    gdb_test_multiple "core $core" "re-load generated corefile" {
+    gdb_test_multiple "core $core" "$test" {
 	-re "\\\[Thread debugging using \[^ \r\n\]* enabled\\\]\r\n" {
 	    exp_continue
 	}
 	-re " is not a core dump:.*\r\n$gdb_prompt $" {
-	    fail "re-load generated corefile (bad file format)"
+	    fail "$test (bad file format)"
 	    return -1
 	}
 	-re ": No such file or directory.*\r\n$gdb_prompt $" {
-	    fail "re-load generated corefile (file not found)"
+	    fail "$test (file not found)"
 	    return -1
 	}
 	-re "Couldn't find .* registers in core file.*\r\n$gdb_prompt $" {
-	    fail "re-load generated corefile (incomplete note section)"
+	    fail "$test (incomplete note section)"
 	    return 0
 	}
 	-re "Core was generated by .*\r\n$gdb_prompt $" {
-	    pass "re-load generated corefile"
+	    pass "$test"
 	    return 1
 	}
 	-re ".*$gdb_prompt $" {
-	    fail "re-load generated corefile"
+	    fail "$test"
 	    return -1
 	}
 	timeout {
-	    fail "re-load generated corefile (timeout)"
+	    fail "$test (timeout)"
 	    return -1
 	}
     }
@@ -3599,7 +3685,7 @@ proc gdb_init { args } {
     setenv TERM "vt100"
 
     # Some tests (for example gdb.base/maint.exp) shell out from gdb to use
-    # grep.  Clear GREP_OPTIONS to make the behavoiur predictable, 
+    # grep.  Clear GREP_OPTIONS to make the behavior predictable,
     # especially having color output turned on can cause tests to fail.
     setenv GREP_OPTIONS ""
 
@@ -3612,7 +3698,22 @@ proc gdb_init { args } {
 }
 
 proc gdb_finish { } {
+    global gdbserver_reconnect_p
+    global gdb_prompt
     global cleanfiles
+
+    # Give persistent gdbserver a chance to terminate before GDB is killed.
+    if {[info exists gdbserver_reconnect_p] && $gdbserver_reconnect_p} {
+	send_gdb "kill\n";
+	gdb_expect 10 {
+	    -re "y or n" {
+		send_gdb "y\n";
+		exp_continue;
+	    }
+	    -re "$gdb_prompt $" {
+	    }
+	}
+    }
 
     # Exit first, so that the files are no longer in use.
     gdb_exit
@@ -3806,11 +3907,8 @@ proc gdb_get_line_number { text { file "" } } {
     return $found
 }
 
-# gdb_continue_to_end:
-#	The case where the target uses stubs has to be handled specially. If a
-#       stub is used, we set a breakpoint at exit because we cannot rely on
-#       exit() behavior of a remote target.
-# 
+# Continue the program until it ends.
+#
 # MSSG is the error message that gets printed.  If not given, a
 #	default is used.
 # COMMAND is the command to invoke.  If not given, "continue" is
@@ -3833,7 +3931,19 @@ proc gdb_continue_to_end {{mssg ""} {command continue} {allow_extra 0}} {
   } else {
       set extra ""
   }
-  if $use_gdb_stub {
+
+  # By default, we don't rely on exit() behavior of remote stubs --
+  # it's common for exit() to be implemented as a simple infinite
+  # loop, or a forced crash/reset.  For native targets, by default, we
+  # assume process exit is reported as such.  If a non-reliable target
+  # is used, we set a breakpoint at exit, and continue to that.
+  if { [target_info exists exit_is_reliable] } {
+      set exit_is_reliable [target_info exit_is_reliable]
+  } else {
+      set exit_is_reliable [expr ! $use_gdb_stub]
+  }
+
+  if { ! $exit_is_reliable } {
     if {![gdb_breakpoint "exit"]} {
       return 0
     }
@@ -3944,7 +4054,7 @@ gdb_caching_proc gdb_skip_xml_test {
 # Return "" if no build-id found.
 proc build_id_debug_filename_get { exec } {
     set tmp [standard_output_file "${exec}-tmp"]
-    set objcopy_program [transform objcopy]
+    set objcopy_program [gdb_find_objcopy]
 
     set result [catch "exec $objcopy_program -j .note.gnu.build-id -O binary $exec $tmp" output]
     verbose "result is $result"
@@ -3982,7 +4092,7 @@ proc gdb_gnu_strip_debug { dest args } {
     set debug_file "${dest}.debug"
 
     set strip_to_file_program [transform strip]
-    set objcopy_program [transform objcopy]
+    set objcopy_program [gdb_find_objcopy]
 
     set debug_link [file tail $debug_file]
     set stripped_file "${dest}.stripped"
@@ -4128,8 +4238,6 @@ proc build_executable_from_specs {testname executable options args} {
     if [get_compiler_info ${info_options}] {
         return -1
     }
-
-    set binfile [standard_output_file $executable]
 
     set func gdb_compile
     set func_index [lsearch -regexp $options {^(pthreads|shlib|shlib_pthreads)$}]
@@ -4308,6 +4416,25 @@ proc set_remotetimeout { timeout } {
 	    verbose "Set remotetimeout to $timeout\n"
 	}
     }
+}
+
+# ROOT and FULL are file names.  Returns the relative path from ROOT
+# to FULL.  Note that FULL must be in a subdirectory of ROOT.
+# For example, given ROOT = /usr/bin and FULL = /usr/bin/ls, this
+# will return "ls".
+
+proc relative_filename {root full} {
+    set root_split [file split $root]
+    set full_split [file split $full]
+
+    set len [llength $root_split]
+
+    if {[eval file join $root_split]
+	!= [eval file join [lrange $full_split 0 [expr {$len - 1}]]]} {
+	error "$full not a subdir of $root"
+    }
+
+    return [eval file join [lrange $full_split $len end]]
 }
 
 # Log gdb command line and script if requested.

@@ -50,7 +50,7 @@
 #include "user-regs.h"
 #include <ctype.h>
 #include "elf/common.h"
-#include "gdb_string.h"
+#include <string.h>
 
 extern int arm_apcs_32;
 
@@ -1113,10 +1113,13 @@ arm_linux_displaced_step_copy_insn (struct gdbarch *gdbarch,
   return dsc;
 }
 
+/* Implementation of `gdbarch_stap_is_single_operand', as defined in
+   gdbarch.h.  */
+
 static int
 arm_stap_is_single_operand (struct gdbarch *gdbarch, const char *s)
 {
-  return (*s == '#' /* Literal number.  */
+  return (*s == '#' || *s == '$' || isdigit (*s) /* Literal number.  */
 	  || *s == '[' /* Register indirection or
 			  displacement.  */
 	  || isalpha (*s)); /* Register value.  */
@@ -1183,8 +1186,8 @@ arm_stap_parse_special_token (struct gdbarch *gdbarch,
 
       ++tmp;
       tmp = skip_spaces_const (tmp);
-      if (*tmp++ != '#')
-	return 0;
+      if (*tmp == '#' || *tmp == '$')
+	++tmp;
 
       if (*tmp == '-')
 	{
@@ -1235,6 +1238,12 @@ static void
 arm_linux_init_abi (struct gdbarch_info info,
 		    struct gdbarch *gdbarch)
 {
+  static const char *const stap_integer_prefixes[] = { "#", "$", "", NULL };
+  static const char *const stap_register_prefixes[] = { "r", NULL };
+  static const char *const stap_register_indirection_prefixes[] = { "[",
+								    NULL };
+  static const char *const stap_register_indirection_suffixes[] = { "]",
+								    NULL };
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
 
   linux_init_abi (info, gdbarch);
@@ -1334,10 +1343,12 @@ arm_linux_init_abi (struct gdbarch_info info,
   set_gdbarch_process_record (gdbarch, arm_process_record);
 
   /* SystemTap functions.  */
-  set_gdbarch_stap_integer_prefix (gdbarch, "#");
-  set_gdbarch_stap_register_prefix (gdbarch, "r");
-  set_gdbarch_stap_register_indirection_prefix (gdbarch, "[");
-  set_gdbarch_stap_register_indirection_suffix (gdbarch, "]");
+  set_gdbarch_stap_integer_prefixes (gdbarch, stap_integer_prefixes);
+  set_gdbarch_stap_register_prefixes (gdbarch, stap_register_prefixes);
+  set_gdbarch_stap_register_indirection_prefixes (gdbarch,
+					  stap_register_indirection_prefixes);
+  set_gdbarch_stap_register_indirection_suffixes (gdbarch,
+					  stap_register_indirection_suffixes);
   set_gdbarch_stap_gdb_register_prefix (gdbarch, "r");
   set_gdbarch_stap_is_single_operand (gdbarch, arm_stap_is_single_operand);
   set_gdbarch_stap_parse_special_token (gdbarch,

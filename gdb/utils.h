@@ -64,7 +64,7 @@ struct timeval get_prompt_for_continue_wait_time (void);
 
 extern int parse_pid_to_attach (char *args);
 
-extern int parse_escape (struct gdbarch *, char **);
+extern int parse_escape (struct gdbarch *, const char **);
 
 char **gdb_buildargv (const char *);
 
@@ -127,6 +127,10 @@ extern struct cleanup *make_bpstat_clear_actions_cleanup (void);
 /* Path utilities.  */
 
 extern char *gdb_realpath (const char *);
+
+extern char *gdb_realpath_keepfile (const char *);
+
+extern char *gdb_abspath (const char *);
 
 extern int gdb_filename_fnmatch (const char *pattern, const char *string,
 				 int flags);
@@ -284,6 +288,8 @@ extern void fprintf_symbol_filtered (struct ui_file *, const char *,
 extern void throw_perror_with_name (enum errors errcode, const char *string)
   ATTRIBUTE_NORETURN;
 extern void perror_with_name (const char *) ATTRIBUTE_NORETURN;
+
+extern void perror_warning_with_name (const char *string);
 
 extern void print_sys_errmsg (const char *, int);
 

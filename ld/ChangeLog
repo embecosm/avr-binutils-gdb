@@ -1,3 +1,178 @@
+2013-12-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* emulparams/elf_k1om.sh (IREL_IN_PLT): Define.
+	* emulparams/elf_l1om.sh (IREL_IN_PLT): Likewise.
+
+2013-12-13  Kuan-Lin Chen  <kuanlinchentw@gmail.com>
+	    Wei-Cheng Wang  <cole945@gmail.com>
+	    Hui-Wen Ni  <sabrinanitw@gmail.com>
+
+	* Makefile.am (ALL_EMULATION_SOURCES): Add nds32 target.
+	* Makefile.in: Regenerate.
+	* configure.tgt: Add case for nds32*le-*-elf*, nds32*be-*-elf*,
+	nds32*le-*-linux-gnu*, and nds32*be-*-linux-gnu*.
+	* emulparams/nds32belf.sh: New file for nds32.
+	* emulparams/nds32belf_linux.sh: Likewise.
+	* emulparams/nds32belf16m.sh: Likewise.
+	* emulparams/nds32elf.sh: Likewise.
+	* emulparams/nds32elf_linux.sh: Likewise.
+	* emulparams/nds32elf16m.sh: Likewise.
+	* emultempl/nds32elf.em: Likewise.
+	* scripttempl/nds32elf.sc}: Likewise.
+	* gen-doc.texi: Set NDS32.
+	* ld.texinfo: Set NDS32.
+	* NEWS: Announce Andes nds32 support.
+
+2013-12-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ld.texinfo: Remove shared object from -Ttext-segment.
+
+2013-12-10  Roland McGrath  <mcgrathr@google.com>
+
+	* Makefile.am (install-exec-local): Prefix libtool invocation with
+	$(INSTALL_PROGRAM_ENV).
+	* Makefile.in: Regenerate.
+
+2013-12-07  Mike Frysinger  <vapier@gentoo.org>
+
+	* ChangeLog-2008: Remove +x file mode.
+	* emulparams/bfin.sh: Likewise.
+	* emulparams/elf32bmipn32.sh: Likewise.
+	* emulparams/elf32fr30.sh: Likewise.
+	* emulparams/elf32frv.sh: Likewise.
+	* emulparams/elf32iq10.sh: Likewise.
+	* emulparams/elf32iq2000.sh: Likewise.
+	* emulparams/elf32mep.sh: Likewise.
+	* emulparams/elf32openrisc.sh: Likewise.
+	* emulparams/elf64bmip.sh: Likewise.
+	* emulparams/elf64hppa.sh: Likewise.
+	* emulparams/i386beos.sh: Likewise.
+
+2013-11-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR ld/16259
+	* Makefile.am (HOSTING_SLIBS): New.
+	* configure.host (HOSTING_SLIBS): New.  Used for PIE.
+	* configure.in (HOSTING_SLIBS): New AC_SUBST.
+	* Makefile.in: Regenerated.
+	* configure: Likewise.
+
+2013-11-22  Cory Fields  <cory@coryfields.com>
+
+	* pe-dll.c (fill_edata): Only use a real timestamp if
+	--insert-timestamp was used.
+	* emultempl/pe.em: Add the --insert-timestamp option.
+	* emultempl/pep.em: Likewise for 64bit.
+	* ld.texinfo: Document the --insert-timestamp option.
+
+2013-11-22  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* scripttempl/avr.sc: Set .data section's LMA to next available
+	address in text region.
+
+2013-11-21  Andrew Pinski  <apinski@cavium.com>
+
+	* Makefile.am (ALL_64_EMULATION_SOURCES): Add eaarch64linux32.c
+	and eaarch64linux32b.c
+	(eaarch64linux32.c): New target.
+	(eaarch64linux32b.c): Likewise.
+	* Makefile.in: Regenerate.
+	* configure.tgt (aarch64_be-*-linux*): Add
+	aarch64linux32 and aarch64linux32b to targ_extra_libpath.
+	(aarch64-*-linux*): Likewise.
+	* emulparams/aarch64elf32.sh (SEPARATE_GOTPLT): Change to 12 (3 words).
+	* emulparams/aarch64linux32.sh: New file.
+	* emulparams/aarch64linux32b.sh: New file.
+
+2013-11-21  Andrew Pinski  <apinski@cavium.com>
+
+	* configure.tgt (aarch64_be-*-linux*): Split out the linux targets
+	into targ_extra_libpath.
+	(aarch64-*-linux*): Likewise.
+
+2013-11-21  Nick Clifton  <nickc@redhat.com>
+
+	PR ld/16192
+	* pe-dll.c (pe_create_runtime_relocator_reference): Zero the
+	newly allocated idata5 block.
+
+2013-11-20  Nick Clifton  <nickc@redhat.com>
+
+	* scripttempl/elf32msp430.sc (.data): Set the based on the next
+	free location in the text memory region, not a computation based
+	upon the size of the text section.  Orphaned sections or other
+	linker scripts might insert new sections between the .text section
+	and the .data section.
+	* scripttempl/elf32msp430_3.sc (.data): Likewise.
+
+2013-11-19  Roland McGrath  <mcgrathr@google.com>
+	    Alan Modra  <amodra@gmail.com>
+
+	* emultempl/elf32.em (gld${EMULATION_NAME}_before_allocation):
+	Don't use bfd_elf_record_link_assignment to mark __ehdr_start
+	hidden.  Instead, just do it directly here, and only if it was
+	referenced but not defined.
+
+2013-11-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* emulparams/nios2linux.sh: New emulation file.
+	* configure.tgt: Add nios2*-*-linux* emulation case.
+	* Makefile.am (enios2linux.c): New emulation entry.
+	* Makefile.in: Regenerate.
+
+2013-10-14  Nick Clifton  <nickc@redhat.com>
+
+	* emultempl/aix.em (_read_file): Close file at end of function.
+
+2013-10-10  Roland McGrath  <mcgrathr@google.com>
+
+	* ldmisc.c (vfinfo): Use Boolean ? "" : ":" in place of ":" + Boolean.
+	It silences some compilers' warnings and is much less bizarre to read.
+
+2013-10-09  Roland McGrath  <mcgrathr@google.com>
+
+	* emultempl/elf32.em (id_note_section_size): Use ATTRIBUTE_UNUSED
+	rather than a dummy assignment for unused parameter.
+	* plugin.c (get_input_file, release_input_file): Likewise.
+
+2013-10-09  Nick Clifton  <nickc@redhat.com>
+
+	PR ld/16028
+	* ldmain.c (add_keepsyms_file): Close file at end of function.
+
+2013-10-03  Will Newton  <will.newton@linaro.org>
+
+	* emulparams/aarch64elf.sh: Add IREL_IN_PLT.
+	* emulparams/aarch64elf32.sh: Likewise.
+
+2013-09-30  Nick Clifton  <nickc@redhat.com>
+
+	* emulparams/msp430all.sh: Update ARCH names.
+
+2013-09-24  Alan Modra  <amodra@gmail.com>
+
+	* emulparams/elf32ppccommon.sh (LIBPATH_SUFFIX): Provide 32-bit
+	and cross-endian values.
+	* emulparams/elf64ppc.sh: Source elf32ppccomon.sh.  Delete duplicate,
+	and unset unwanted variables.
+
+2013-09-24  Alan Modra  <amodra@gmail.com>
+
+	* genscripts.sh (LIB_PATH): Don't exclude libdir or tooldir when
+	sysrooted.  Also, don't always add tooldir when non-sysrooted.
+	Instead add both when native and tooldir also when TOOL_DIR is
+	defined.  Always prepend '=' to paths when sysrooted.  Always
+	put paths with LIBPATH_SUFFIX first in search order.
+
+2013-09-20  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* Makefile.am (enios2elf.c): Change tdir_nios2 to tdir_nios2elf.
+	* Makefile.in: Regenerate.
+
+2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* configure: Regenerate.
+
 2013-09-18  Tristan Gingold  <gingold@adacore.com>
 
 	* NEWS: Add marker for 2.24.

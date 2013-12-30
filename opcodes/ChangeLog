@@ -1,3 +1,237 @@
+2013-12-17  Kuan-Lin Chen  <kuanlinchentw@gmail.com>
+
+	* nds32-dis.c (sr_map): Add system register table for disassembling.
+	(usr_map): Fix typo.
+	* nds32-asm.c (keyword_sr): Add embedded debug registers.
+
+2013-12-17  Michael Zolotukhin  <michael.v.zolotukhin@gmail.com>
+
+	* i386-dis.c (MOD_FF_REG_3): New.
+	(MOD_FF_REG_5): Likewise.
+	(mod_table): Add MOD_FF_REG_3 and MOD_FF_REG_5.
+	(reg_table): Use MOD_FF_REG_3 and MOD_FF_REG_5.
+
+2013-12-16  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* mips-dis.c: Add mips_cp1_names pointer.
+	(mips_cp1_names_numeric): New array.
+	(mips_cp1_names_mips3264): New array.
+	(mips_arch_choice): Add cp1_names.
+	(mips_arch_choices): Add relevant cp1 register name array to each of
+	the elements.
+	(set_default_mips_dis_options): Add support for setting up the
+	mips_cp1_names pointer.
+	(parse_mips_dis_option): Add support for the cp1-names command line
+	variable.  Also setup the mips_cp1_names pointer.
+	(print_reg): Print out name of the cp1 register.
+
+2013-12-16  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* micromips-opc.c (decode_micromips_operand): Reduced range of +o, +u,
+	+v and +w.
+	(micromips_opcodes): Reduced element index range for sldi, splati,
+	copy_s, copy_u, insert and insve instructions.
+	* opcodes/mips-opc.c (decode_mips_operand): Reduced range of +o, +u,
+	+v and +w.
+	(mips_builtin_opcodes): Reduced element index range for sldi, splati,
+	copy_s, copy_u, insert and insve instructions.
+
+2013-12-13  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* nds32-dis.c (mnemonic_96): Fix typo.
+
+2013-12-13  Kuan-Lin Chen  <kuanlinchentw@gmail.com>
+	    Wei-Cheng Wang  <cole945@gmail.com>
+
+	* Makefile.am (TARGET_LIBOPCODES_CFILES): Add nds32-asm.c
+	and nds32-dis.c.
+	* Makefile.in: Regenerate.
+	* configure.in: Add case for bfd_nds32_arch.
+	* configure: Regenerate.
+	* disassemble.c (ARCH_nds32): Define.
+	* nds32-asm.c: New file for nds32.
+	* nds32-asm.h: New file for nds32.
+	* nds32-dis.c: New file for nds32.
+	* nds32-opc.h: New file for nds32.
+
+2013-12-05  Nick Clifton  <nickc@redhat.com>
+
+	* s390-mkopc.c (dumpTable): Provide a format string to printf so
+	that compiling with -Werror=format-security does not produce an
+	error.
+
+2013-11-20  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-opc.c (aarch64_pstatefields): Update.
+
+2013-11-19  Catherine Moore  <clm@codesourcery.com>
+
+	* micromips-opc.c (LM): Define.
+	(micromips_opcodes): Add LM to load instructions.
+	* mips-opc.c (prefe): Add LM attribute.
+
+2013-11-18  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	Revert
+
+	2013-11-15  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-opc.c (CPENT): New define.
+	(F_READONLY, F_WRITEONLY): Likewise.
+	(aarch64_sys_regs): Add trace unit registers.
+	(aarch64_sys_reg_readonly_p): New function.
+	(aarch64_sys_reg_writeonly_p): Ditto.
+
+2013-11-15  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-opc.c (CPENT): New define.
+	(F_READONLY, F_WRITEONLY): Likewise.
+	(aarch64_sys_regs): Add trace unit registers.
+	(aarch64_sys_reg_readonly_p): New function.
+	(aarch64_sys_reg_writeonly_p): Ditto.
+
+2013-11-15  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* mips-opc.c (mips_builtin_opcodes): Add RD_2 to "mfcr" and
+	"mtcr".
+
+2013-11-11  Catherine Moore  <clm@codesourcery.com>
+
+	* mips-dis.c (print_insn_mips): Use
+	INSN_LOAD_MEMORY instead of INSN_LOAD_MEMORY_DELAY.
+	(print_insn_micromips): Likewise.
+	* mips-opc.c (LDD): Remove.
+	(CLD): Include INSN_LOAD_MEMORY.
+	(LM): New.
+	(mips_builtin_opcodes): Use LM instead of LDD.
+        Add LM to load instructions.
+
+2013-11-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR gas/16140
+	* i386-gen.c (cpu_flag_init): Remove CpuNop from CPU_K6_2_FLAGS.
+	* i386-init.h: Regenerated.
+
+2013-11-05  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-opc.c (F_DEPRECATED): New macro.
+	(aarch64_sys_regs): Update; flag "spsr_svc" and "spsr_hyp" with
+	F_DEPRECATED.
+	(aarch64_print_operand): Call aarch64_sys_reg_deprecated_p on
+	AARCH64_OPND_SYSREG.
+
+2013-11-05  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-dis.c (convert_ubfm_to_lsl): Check for cond != '111x'.
+	(convert_from_csel): Likewise.
+	* aarch64-opc.c (operand_general_constraint_met_p): Handle
+	AARCH64_OPND_CLASS_COND and AARCH64_OPND_COND1.
+	(aarch64_print_operand): Handle AARCH64_OPND_COND1.
+	* aarch64-tbl.h (aarch64_opcode_table): Use COND1 instead of
+	COND for cinc, cset, cinv, csetm and cneg.
+	(AARCH64_OPERANDS): Add entry for AARCH64_OPND_COND1.
+	* aarch64-asm-2.c: Re-generated.
+	* aarch64-dis-2.c: Ditto.
+	* aarch64-opc-2.c: Ditto.
+
+2013-11-05  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-opc.c (set_syntax_error): New function.
+	(operand_general_constraint_met_p): Replace set_other_error
+	with set_syntax_error.
+
+2013-10-30  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* s390-dis.c (init_disasm): Default to full 'zarch' opcode
+	availability even for 31-bit programs.
+
+2013-10-15  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* arm-dis.c (neon_opcodes): Adjust print string for vshll.
+
+2013-10-14  Chao-ying Fu  <Chao-ying.Fu@imgtec.com>
+
+	* micromips-opc.c (decode_micromips_operand): Add +T, +U, +V, +W,
+	+d, +e, +h, +k, +l, +n, +o, +u, +v, +w, +x,
+	+~, +!, +@, +#, +$, +%, +^, +&, +*, +|.
+	(MSA): New define.
+	(MSA64): New define.
+	(micromips_opcodes): Add MSA instructions.
+	* mips-dis.c (msa_control_names): New array.
+	(mips_abi_choice): Add ASE_MSA to mips32r2.
+	Remove ASE_MDMX from mips64r2.
+	Add ASE_MSA and ASE_MSA64 to mips64r2.
+	(parse_mips_dis_option): Handle -Mmsa.
+	(print_reg): Handle cases for OP_REG_MSA and OP_REG_MSA_CTRL.
+	(print_insn_arg): Handle cases for OP_IMM_INDEX and OP_REG_INDEX.
+	(print_mips_disassembler_options): Print -Mmsa.
+	* mips-opc.c (decode_mips_operand): Add +T, +U, +V, +W, +d, +e, +h, +k,
+	+l, +n, +o, +u, +v, +w, +~, +!, +@, +#, +$, +%, +^, +&, +*, +|.
+	(MSA): New define.
+	(MSA64): New define.
+	(mips_builtin_op): Add MSA instructions.
+
+2013-10-13  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* nios2-opc.c (nios2_builtin_reg): Use "sstatus" rather than "ba"
+	as the primary name of r30.
+
+2013-10-12  Jan Beulich <jbeulich@suse.com>
+
+	* i386-dis.c (intel_operand_size): Move v_bnd_mode alongside the
+	default case.
+	(OP_E_register): Move v_bnd_mode alongside m_mode.
+	* i386-opc.tbl (bndcl, bndcu, bndcn): Split 32- and 64-bit variants.
+	Drop Reg16 and Disp16. Add NoRex64.
+	(bndmk, bndmov, bndldx, bndstx): Drop Disp16.
+	* i386-tbl.h: Re-generate.
+
+2013-10-10  Sean Keys <skeys@ipdatasys.com>
+
+	* xgate-opc.c (xgate_opcode): Remove short_hand field from opcode
+	table.
+	* xgate-dis.c (print_insn): Refactor to work with table change.
+
+2013-10-10  Roland McGrath  <mcgrathr@google.com>
+
+	* i386-dis.c (oappend_maybe_intel): New function.
+	(OP_ST, OP_STi, append_seg, OP_I, OP_I64, OP_sI, OP_ESreg): Use it.
+	(OP_C, OP_T, CMP_Fixup, OP_EX_VexImmW): Likewise.
+	(VCMP_Fixup, VPCMP_Fixup, PCLMUL_Fixup): Likewise.
+
+	* cr16-opc.c (REG): Cast NAME to 'reg' enum type to suppress
+	possible compiler warnings when the union's initializer is
+	actually meant for the 'preg' enum typed member.
+	* crx-opc.c (REG): Likewise.
+
+	* v850-dis.c (v850_cacheop_codes, v850_prefop_codes):
+	Remove duplicate const qualifier.
+
+2013-10-08  Jan Beulich <jbeulich@suse.com>
+
+	* i386-opc.tbl (invlpg): Use Anysize instead of Unspecified.
+	(clflush): Use Anysize instead of Byte|Unspecified.
+	(prefetch*): Likewise.
+	* i386-tbl.h: Re-generate.
+
+2013-10-07  Chao-ying Fu  <Chao-ying.Fu@imgtec.com>
+
+	* micromips-opc.c (micromips_opcodes): Fix dmfgc0 and dmtgc0.
+
+2013-09-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* i386-opc.tbl: Add Size64 to movq/vmovq with Reg64 operand.
+	* i386-init.h: Regenerated.
+
+2013-09-30  Saravanan Ekanathan <saravanan.ekanathan@amd.com>
+
+	* i386-gen.c (cpu_flag_init): Add CPU_BDVER4_FLAGS.
+	* i386-init.h: Regenerated.
+
+2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* configure: Regenerate.
+
 2013-09-17  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
 
 	* s390-opc.txt (clih): Make the immediate unsigned.

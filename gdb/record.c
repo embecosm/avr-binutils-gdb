@@ -141,7 +141,7 @@ record_disconnect (struct target_ops *t, char *args, int from_tty)
 /* See record.h.  */
 
 void
-record_detach (struct target_ops *t, char *args, int from_tty)
+record_detach (struct target_ops *t, const char *args, int from_tty)
 {
   gdb_assert (t->to_stratum == record_stratum);
 
@@ -300,7 +300,7 @@ cmd_record_save (char *args, int from_tty)
     {
       /* Default recfile name is "gdb_record.PID".  */
       xsnprintf (recfilename_buffer, sizeof (recfilename_buffer),
-                "gdb_record.%d", PIDGET (inferior_ptid));
+                "gdb_record.%d", ptid_get_pid (inferior_ptid));
       recfilename = recfilename_buffer;
     }
 

@@ -18,7 +18,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "defs.h"
-#include "gdb_string.h"
+#include <string.h>
 #include "frame.h"
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -1151,8 +1151,8 @@ sym_info (char *arg, int from_tty)
 	   a pagination request inside printf_filtered.  */
 	old_chain = make_cleanup (xfree, loc_string);
 
-	gdb_assert (osect->objfile && osect->objfile->name);
-	obj_name = osect->objfile->name;
+	gdb_assert (osect->objfile && objfile_name (osect->objfile));
+	obj_name = objfile_name (osect->objfile);
 
 	if (MULTI_OBJFILE_P ())
 	  if (pc_in_unmapped_range (addr, osect))
@@ -1383,7 +1383,7 @@ address_info (char *exp, int from_tty)
 	      printf_filtered (_("a thread-local variable at offset %s "
 				 "in the thread-local storage for `%s'"),
 			       paddress (gdbarch, load_addr),
-			       section->objfile->name);
+			       objfile_name (section->objfile));
 	    else
 	      {
 		printf_filtered (_("static storage at address "));
@@ -1940,21 +1940,24 @@ disable_display_command (char *args, int from_tty)
    an item by re-parsing .exp_string field in the new execution context.  */
 
 static void
-clear_dangling_display_expressions (struct so_list *solib)
+clear_dangling_display_expressions (struct objfile *objfile)
 {
-  struct objfile *objfile = solib->objfile;
   struct display *d;
+  struct program_space *pspace;
 
   /* With no symbol file we cannot have a block or expression from it.  */
   if (objfile == NULL)
     return;
+  pspace = objfile->pspace;
   if (objfile->separate_debug_objfile_backlink)
-    objfile = objfile->separate_debug_objfile_backlink;
-  gdb_assert (objfile->pspace == solib->pspace);
+    {
+      objfile = objfile->separate_debug_objfile_backlink;
+      gdb_assert (objfile->pspace == pspace);
+    }
 
   for (d = display_chain; d != NULL; d = d->next)
     {
-      if (d->pspace != solib->pspace)
+      if (d->pspace != pspace)
 	continue;
 
       if (lookup_objfile_from_block (d->block) == objfile
@@ -2458,6 +2461,7 @@ static void
 printf_command (char *arg, int from_tty)
 {
   ui_printf (arg, gdb_stdout);
+  gdb_flush (gdb_stdout);
 }
 
 /* Implement the "eval" command.  */
@@ -2486,7 +2490,7 @@ _initialize_printcmd (void)
 
   current_display_number = -1;
 
-  observer_attach_solib_unloaded (clear_dangling_display_expressions);
+  observer_attach_free_objfile (clear_dangling_display_expressions);
 
   add_info ("address", address_info,
 	    _("Describe where symbol SYM is stored."));

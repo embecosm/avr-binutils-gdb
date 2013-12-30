@@ -20,7 +20,7 @@
 #include "defs.h"
 #include "arch-utils.h"
 #include <signal.h>
-#include "gdb_string.h"
+#include <string.h>
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "frame.h"
@@ -147,6 +147,10 @@ enum stop_stack_kind stop_stack_dummy;
 
 int stopped_by_random_signal;
 
+/* See inferior.h.  */
+
+int startup_with_shell = 1;
+
 
 /* Accessor routines.  */
 
@@ -255,7 +259,7 @@ construct_inferior_arguments (int argc, char **argv)
 {
   char *result;
 
-  if (STARTUP_WITH_SHELL)
+  if (startup_with_shell)
     {
 #ifdef __MINGW32__
       /* This holds all the characters considered special to the
@@ -2024,21 +2028,13 @@ default_print_one_register_info (struct ui_file *file,
 				 struct value *val)
 {
   struct type *regtype = value_type (val);
+  int print_raw_format;
 
   fputs_filtered (name, file);
   print_spaces_filtered (15 - strlen (name), file);
 
-  if (!value_entirely_available (val))
-    {
-      fprintf_filtered (file, "*value not available*\n");
-      return;
-    }
-  else if (value_optimized_out (val))
-    {
-      val_print_optimized_out (file);
-      fprintf_filtered (file, "\n");
-      return;
-    }
+  print_raw_format = (value_entirely_available (val)
+		      && !value_optimized_out (val));
 
   /* If virtual format is floating, print it that way, and in raw
      hex.  */
@@ -2058,9 +2054,12 @@ default_print_one_register_info (struct ui_file *file,
 		 value_embedded_offset (val), 0,
 		 file, 0, val, &opts, current_language);
 
-      fprintf_filtered (file, "\t(raw ");
-      print_hex_chars (file, valaddr, TYPE_LENGTH (regtype), byte_order);
-      fprintf_filtered (file, ")");
+      if (print_raw_format)
+	{
+	  fprintf_filtered (file, "\t(raw ");
+	  print_hex_chars (file, valaddr, TYPE_LENGTH (regtype), byte_order);
+	  fprintf_filtered (file, ")");
+	}
     }
   else
     {
@@ -2075,7 +2074,7 @@ default_print_one_register_info (struct ui_file *file,
 		 file, 0, val, &opts, current_language);
       /* If not a vector register, print it also according to its
 	 natural format.  */
-      if (TYPE_VECTOR (regtype) == 0)
+      if (print_raw_format && TYPE_VECTOR (regtype) == 0)
 	{
 	  get_user_print_options (&opts);
 	  opts.deref_ref = 1;
@@ -2142,7 +2141,7 @@ default_print_registers_info (struct gdbarch *gdbarch,
 
       default_print_one_register_info (file,
 				       gdbarch_register_name (gdbarch, i),
-				       get_frame_register_value (frame, i));
+				       value_of_register (i, frame));
     }
 }
 
@@ -2408,7 +2407,7 @@ attach_command_post_wait (char *args, int from_tty, int async_exec)
   exec_file = (char *) get_exec_file (0);
   if (!exec_file)
     {
-      exec_file = target_pid_to_exec_file (PIDGET (inferior_ptid));
+      exec_file = target_pid_to_exec_file (ptid_get_pid (inferior_ptid));
       if (exec_file)
 	{
 	  /* It's possible we don't have a full path, but rather just a
@@ -2433,7 +2432,7 @@ attach_command_post_wait (char *args, int from_tty, int async_exec)
     }
 
   /* Take any necessary post-attaching actions for this platform.  */
-  target_post_attach (PIDGET (inferior_ptid));
+  target_post_attach (ptid_get_pid (inferior_ptid));
 
   post_create_inferior (&current_target, from_tty);
 

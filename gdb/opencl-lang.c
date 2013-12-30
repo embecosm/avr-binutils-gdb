@@ -19,13 +19,14 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "defs.h"
-#include "gdb_string.h"
+#include <string.h>
 #include "gdbtypes.h"
 #include "symtab.h"
 #include "expression.h"
 #include "parser-defs.h"
 #include "symtab.h"
 #include "language.h"
+#include "varobj.h"
 #include "c-lang.h"
 #include "gdb_assert.h"
 
@@ -1102,6 +1103,7 @@ const struct exp_descriptor exp_descriptor_opencl =
 const struct language_defn opencl_language_defn =
 {
   "opencl",			/* Language name */
+  "OpenCL C",
   language_opencl,
   range_check_off,
   case_sensitive_on,
@@ -1137,6 +1139,7 @@ const struct language_defn opencl_language_defn =
   c_get_string,
   NULL,				/* la_get_symbol_name_cmp */
   iterate_over_symbols,
+  &default_varobj_ops,
   LANG_MAGIC
 };
 

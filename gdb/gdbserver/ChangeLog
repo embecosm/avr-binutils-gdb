@@ -1,3 +1,131 @@
+2013-12-18  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* linux-aarch64-low.c (aarch64_linux_set_debug_regs): Set
+	iov.iov_len with the real length in use.
+
+2013-12-13  Joel Brobecker  <brobecker@adacore.com>
+
+	* Makefile.in (safe-ctype.o, lbasename.o): New rules.
+	* configure.srv: Add safe-ctype.o and lbasename.o to srv_tgtobj
+	for all targets that use win32-low.c.
+	* win32-low.c (win32_ensure_ntdll_loaded): New function.
+	(do_initial_child_stuff): Add call to win32_ensure_ntdll_loaded.
+
+2013-12-13  Pedro Alves  <palves@redhat.com>
+
+	* target.c (mywait): Set OURSTATUS->KIND to TARGET_WAITKIND_STOPPED
+	if equal to TARGET_WAITKIND_LOADED.
+	* win32-low.c (cached_status): New static global.
+	(win32_wait): Add declaration.
+	(do_initial_child_stuff): Flush all initial pending debug events
+	up to the initial breakpoint.
+	(win32_wait): If CACHED_STATUS was set, return that instead
+	of doing a real wait.  Remove the code resuming the execution
+	of the inferior after receiving a TARGET_WAITKIND_LOADED event
+	during the initial phase.  Also remove the code changing
+	OURSTATUS->KIND from TARGET_WAITKIND_LOADED to
+	TARGET_WAITKIND_STOPPED.
+
+2013-12-11  Yao Qi  <yao@codesourcery.com>
+
+	* notif.c (handle_notif_ack): Return 0 if no notification
+	matches.
+
+2013-11-20  Doug Evans  <dje@google.com>
+
+	* linux-low.c (linux_set_resume_request): Fix comment.
+
+2013-11-20  Doug Evans  <dje@google.com>
+
+	* linux-low.c (resume_status_pending_p): Tweak comment.
+
+2013-11-20  Walfred Tedeschi  <walfred.tedeschi@intel.com>
+
+	* Makefile.in: Add i386-mpx.c, i386-mpx-linux.c, amd64-mpx.c,
+	amd64-mpx-linux.c, x32-mpx.c and x32-mpx-linux.c generation.
+	* configure.srv (srv_i386_regobj): Add i386-mpx.o.
+	(srv_i386_linux_regobj): Add i386-mpx-linux.o.
+	(srv_amd64_regobj): Add amd64-mpx.o.
+	(srv_amd64_linux_regobj): Add amd64-mpx-linux.o.
+	(srv_i386_32bit_xmlfiles): Add i386/32bit-mpx.xml.
+	(srv_i386_64bit_xmlfiles): Add i386/64bit-mpx.xml.
+	* i387-fp.c (num_pl_bnd_register) Added constant.
+	(num_pl_bnd_cfg_registers) Added constant.
+	(struct i387_xsave) Added reserved area and MPX fields.
+	(i387_cache_to_xsave, i387_xsave_to_cache) Add MPX.
+	* linux-x86-low.c (init_registers_i386_mpx_linux): Declare new
+	function.
+	(tdesc_i386_mpx_linux): Add MPX amd64 target.
+	(init_registers_amd64_mpx_linux): Declare new function.
+	(tdesc_amd64_mpx_linux): Add MPX amd64 target.
+	(x86_64_regmap): Add MPX registers.
+	(x86_linux_read_description): Add MPX case.
+	(initialize_low_arch): Initialize MPX targets.
+
+2013-11-18  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuild.
+	* configure.ac: Don't check for stdlib.h.
+	* gdbreplay.c: Unconditionally include stdlib.h.
+
+2013-11-18  Tom Tromey  <tromey@redhat.com>
+
+	* config.in: Rebuild.
+	* configure: Rebuild.
+	* configure.ac: Don't use AC_HEADER_DIRENT.
+
+2013-11-18  Tom Tromey  <tromey@redhat.com>
+
+	* server.h: Don't check HAVE_STRING_H.
+	* gdbreplay.c: Don't check HAVE_STRING_H.
+	* configure: Rebuild.
+
+2013-11-18  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in (gdbreplay$(EXEEXT)): Depend on and link against
+	LIBGNU.
+
+2013-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* configure, config.in: Rebuild.
+	* configure.ac: Remove unused configury.
+
+2013-11-08  Tom Tromey  <tromey@redhat.com>
+
+	* acinclude.m4: Include common.m4, codeset.m4.
+	* configure, config.in: Rebuild.
+	* configure.ac: Use GDB_AC_COMMON.
+
+2013-11-06  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* linux-s390-low.c (HWCAP_S390_TE): New define.
+	(s390_arch_setup): Consider the TE field in the HWCAP for
+	determining 'have_regset_tdb'.
+
+2013-10-16  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	PR gdb/16014
+	* tracepoint.c (download_tracepoint_1): Remove unnecessary double
+	call to sizeof.
+
+2013-10-02  Pedro Alves  <palves@redhat.com>
+
+	* server.c (process_serial_event): Don't output "GDBserver
+	exiting" if GDB is connected through stdio.
+	* target.c (mywait): Likewise, be silent if GDB is connected
+	through stdio.
+
+2013-10-01  Joel Brobecker  <brobecker@adacore.com>
+
+	* lynx-low.c (lynx_add_threads_after_attach): New function.
+	(lynx_attach): Remove call to add_thread.  Add call to
+	lynx_add_threads_after_attach instead.
+
+2013-09-28  Mike Frysinger  <vapier@gentoo.org>
+
+	* configure.ac (AC_CHECK_HEADERS): Add sys/syscall.h
+	* config.in, configure: Regenerated.
+
 2013-09-18  Yao Qi  <yao@codesourcery.com>
 
 	PR server/15959

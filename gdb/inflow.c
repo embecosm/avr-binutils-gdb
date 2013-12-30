@@ -26,7 +26,7 @@
 #include "gdbthread.h"
 #include "observer.h"
 
-#include "gdb_string.h"
+#include <string.h>
 #include <signal.h>
 #include <fcntl.h>
 #include "gdb_select.h"
@@ -264,7 +264,7 @@ terminal_init_inferior (void)
      (and the non-threaded child_terminal_init_inferior can just pass in
      inferior_ptid to the same routine).  */
   /* We assume INFERIOR_PID is also the child's process group.  */
-  terminal_init_inferior_with_pgrp (PIDGET (inferior_ptid));
+  terminal_init_inferior_with_pgrp (ptid_get_pid (inferior_ptid));
 #endif /* PROCESS_GROUP_TYPE */
 }
 
@@ -487,15 +487,11 @@ static const struct inferior_data *inflow_inferior_data;
 static void
 inflow_inferior_data_cleanup (struct inferior *inf, void *arg)
 {
-  struct terminal_info *info;
+  struct terminal_info *info = arg;
 
-  info = inferior_data (inf, inflow_inferior_data);
-  if (info != NULL)
-    {
-      xfree (info->run_terminal);
-      xfree (info->ttystate);
-      xfree (info);
-    }
+  xfree (info->run_terminal);
+  xfree (info->ttystate);
+  xfree (info);
 }
 
 /* Get the current svr4 data.  If none is found yet, add it now.  This
@@ -769,7 +765,7 @@ static void
 pass_signal (int signo)
 {
 #ifndef _WIN32
-  kill (PIDGET (inferior_ptid), SIGINT);
+  kill (ptid_get_pid (inferior_ptid), SIGINT);
 #endif
 }
 

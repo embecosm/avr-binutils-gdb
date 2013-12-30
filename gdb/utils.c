@@ -21,7 +21,7 @@
 #include "dyn-string.h"
 #include "gdb_assert.h"
 #include <ctype.h>
-#include "gdb_string.h"
+#include <string.h>
 #include "gdb_wait.h"
 #include "event-top.h"
 #include "exceptions.h"
@@ -38,11 +38,6 @@
 
 #ifdef __GO32__
 #include <pc.h>
-#endif
-
-/* SunOS's curses.h has a '#define reg register' in it.  Thank you Sun.  */
-#ifdef reg
-#undef reg
 #endif
 
 #include <signal.h>
@@ -957,6 +952,26 @@ add_internal_problem_command (struct internal_problem *problem)
   xfree (show_doc);
 }
 
+/* Return a newly allocated string, containing the PREFIX followed
+   by the system error message for errno (separated by a colon).
+
+   The result must be deallocated after use.  */
+
+static char *
+perror_string (const char *prefix)
+{
+  char *err;
+  char *combined;
+
+  err = safe_strerror (errno);
+  combined = (char *) xmalloc (strlen (err) + strlen (prefix) + 3);
+  strcpy (combined, prefix);
+  strcat (combined, ": ");
+  strcat (combined, err);
+
+  return combined;
+}
+
 /* Print the system error message for errno, and also mention STRING
    as the file name for which the error was encountered.  Use ERRCODE
    for the thrown exception.  Then return to command level.  */
@@ -964,14 +979,10 @@ add_internal_problem_command (struct internal_problem *problem)
 void
 throw_perror_with_name (enum errors errcode, const char *string)
 {
-  char *err;
   char *combined;
 
-  err = safe_strerror (errno);
-  combined = (char *) alloca (strlen (err) + strlen (string) + 3);
-  strcpy (combined, string);
-  strcat (combined, ": ");
-  strcat (combined, err);
+  combined = perror_string (string);
+  make_cleanup (xfree, combined);
 
   /* I understand setting these is a matter of taste.  Still, some people
      may clear errno but not know about bfd_error.  Doing this here is not
@@ -988,6 +999,19 @@ void
 perror_with_name (const char *string)
 {
   throw_perror_with_name (GENERIC_ERROR, string);
+}
+
+/* Same as perror_with_name except that it prints a warning instead
+   of throwing an error.  */
+
+void
+perror_warning_with_name (const char *string)
+{
+  char *combined;
+
+  combined = perror_string (string);
+  warning (_("%s"), combined);
+  xfree (combined);
 }
 
 /* Print the system error message for ERRCODE, and also mention STRING
@@ -1412,7 +1436,7 @@ host_char_to_target (struct gdbarch *gdbarch, int c, int *target_c)
    after the zeros.  A value of 0 does not mean end of string.  */
 
 int
-parse_escape (struct gdbarch *gdbarch, char **string_ptr)
+parse_escape (struct gdbarch *gdbarch, const char **string_ptr)
 {
   int target_char = -2;	/* Initialize to avoid GCC warnings.  */
   int c = *(*string_ptr)++;
@@ -3202,6 +3226,78 @@ gdb_realpath (const char *filename)
 
   /* This system is a lost cause, just dup the buffer.  */
   return xstrdup (filename);
+}
+
+/* Return a copy of FILENAME, with its directory prefix canonicalized
+   by gdb_realpath.  */
+
+char *
+gdb_realpath_keepfile (const char *filename)
+{
+  const char *base_name = lbasename (filename);
+  char *dir_name;
+  char *real_path;
+  char *result;
+
+  /* Extract the basename of filename, and return immediately 
+     a copy of filename if it does not contain any directory prefix.  */
+  if (base_name == filename)
+    return xstrdup (filename);
+
+  dir_name = alloca ((size_t) (base_name - filename + 2));
+  /* Allocate enough space to store the dir_name + plus one extra
+     character sometimes needed under Windows (see below), and
+     then the closing \000 character.  */
+  strncpy (dir_name, filename, base_name - filename);
+  dir_name[base_name - filename] = '\000';
+
+#ifdef HAVE_DOS_BASED_FILE_SYSTEM
+  /* We need to be careful when filename is of the form 'd:foo', which
+     is equivalent of d:./foo, which is totally different from d:/foo.  */
+  if (strlen (dir_name) == 2 && isalpha (dir_name[0]) && dir_name[1] == ':')
+    {
+      dir_name[2] = '.';
+      dir_name[3] = '\000';
+    }
+#endif
+
+  /* Canonicalize the directory prefix, and build the resulting
+     filename.  If the dirname realpath already contains an ending
+     directory separator, avoid doubling it.  */
+  real_path = gdb_realpath (dir_name);
+  if (IS_DIR_SEPARATOR (real_path[strlen (real_path) - 1]))
+    result = concat (real_path, base_name, (char *) NULL);
+  else
+    result = concat (real_path, SLASH_STRING, base_name, (char *) NULL);
+
+  xfree (real_path);
+  return result;
+}
+
+/* Return PATH in absolute form, performing tilde-expansion if necessary.
+   PATH cannot be NULL or the empty string.
+   This does not resolve symlinks however, use gdb_realpath for that.
+   Space for the result is allocated with malloc.
+   If the path is already absolute, it is strdup'd.
+   If there is a problem computing the absolute path, the path is returned
+   unchanged (still strdup'd).  */
+
+char *
+gdb_abspath (const char *path)
+{
+  gdb_assert (path != NULL && path[0] != '\0');
+
+  if (path[0] == '~')
+    return tilde_expand (path);
+
+  if (IS_ABSOLUTE_PATH (path))
+    return xstrdup (path);
+
+  /* Beware the // my son, the Emacs barfs, the botch that catch...  */
+  return concat (current_directory,
+	    IS_DIR_SEPARATOR (current_directory[strlen (current_directory) - 1])
+		 ? "" : SLASH_STRING,
+		 path, (char *) NULL);
 }
 
 ULONGEST

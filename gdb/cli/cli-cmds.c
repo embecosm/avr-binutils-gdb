@@ -27,7 +27,7 @@
 #include "target.h"	/* For baud_rate, remote_debug and remote_timeout.  */
 #include "gdb_wait.h"	/* For shell escape implementation.  */
 #include "gdb_regex.h"	/* Used by apropos_command.  */
-#include "gdb_string.h"
+#include <string.h>
 #include "gdb_vfork.h"
 #include "linespec.h"
 #include "expression.h"
@@ -525,27 +525,15 @@ source_script_from_stream (FILE *stream, const char *file)
   if (script_ext_mode != script_ext_off
       && strlen (file) > 3 && !strcmp (&file[strlen (file) - 3], ".py"))
     {
-      volatile struct gdb_exception e;
-
-      TRY_CATCH (e, RETURN_MASK_ERROR)
+      if (have_python ())
+	source_python_script (stream, file);
+      else if (script_ext_mode == script_ext_soft)
 	{
-	  source_python_script (stream, file);
+	  /* Fallback to GDB script mode.  */
+	  script_from_file (stream, file);
 	}
-      if (e.reason < 0)
-	{
-	  /* Should we fallback to ye olde GDB script mode?  */
-	  if (script_ext_mode == script_ext_soft
-	      && e.reason == RETURN_ERROR && e.error == UNSUPPORTED_ERROR)
-	    {
-	      fseek (stream, 0, SEEK_SET);
-	      script_from_file (stream, (char*) file);
-	    }
-	  else
-	    {
-	      /* Nope, just punt.  */
-	      throw_exception (e);
-	    }
-	}
+      else
+	error (_("Python scripting is not supported in this copy of GDB."));
     }
   else
     script_from_file (stream, file);
@@ -571,11 +559,14 @@ source_script_with_search (const char *file, int from_tty, int search_path)
       /* The script wasn't found, or was otherwise inaccessible.
          If the source command was invoked interactively, throw an
 	 error.  Otherwise (e.g. if it was invoked by a script),
-	 silently ignore the error.  */
+	 just emit a warning, rather than cause an error.  */
       if (from_tty)
 	perror_with_name (file);
       else
-	return;
+	{
+	  perror_warning_with_name (file);
+	  return;
+	}
     }
 
   old_cleanups = make_cleanup (xfree, full_path);
@@ -666,7 +657,7 @@ source_command (char *args, int from_tty)
 static void
 echo_command (char *text, int from_tty)
 {
-  char *p = text;
+  const char *p = text;
   int c;
 
   if (text)
@@ -814,9 +805,8 @@ edit_command (char *arg, int from_tty)
 	  struct gdbarch *gdbarch;
 
           if (sal.symtab == 0)
-	    /* FIXME-32x64--assumes sal.pc fits in long.  */
 	    error (_("No source file for address %s."),
-		   hex_string ((unsigned long) sal.pc));
+		   paddress (get_current_arch (), sal.pc));
 
 	  gdbarch = get_objfile_arch (sal.symtab->objfile);
           sym = find_pc_function (sal.pc);
@@ -979,9 +969,8 @@ list_command (char *arg, int from_tty)
       struct gdbarch *gdbarch;
 
       if (sal.symtab == 0)
-	/* FIXME-32x64--assumes sal.pc fits in long.  */
 	error (_("No source file for address %s."),
-	       hex_string ((unsigned long) sal.pc));
+	       paddress (get_current_arch (), sal.pc));
 
       gdbarch = get_objfile_arch (sal.symtab->objfile);
       sym = find_pc_function (sal.pc);
@@ -1582,14 +1571,6 @@ show_history_expansion_p (struct ui_file *file, int from_tty,
 }
 
 static void
-show_baud_rate (struct ui_file *file, int from_tty,
-		struct cmd_list_element *c, const char *value)
-{
-  fprintf_filtered (file, _("Baud rate for remote serial I/O is %s.\n"),
-		    value);
-}
-
-static void
 show_remote_debug (struct ui_file *file, int from_tty,
 		   struct cmd_list_element *c, const char *value)
 {
@@ -1747,17 +1728,6 @@ the previous command number shown."),
 
   add_cmd ("configuration", no_set_class, show_configuration,
 	   _("Show how GDB was configured at build time."), &showlist);
-
-  /* If target is open when baud changes, it doesn't take effect until
-     the next open (I think, not sure).  */
-  add_setshow_zinteger_cmd ("remotebaud", no_class, &baud_rate, _("\
-Set baud rate for remote serial I/O."), _("\
-Show baud rate for remote serial I/O."), _("\
-This value is used to set the speed of the serial port when debugging\n\
-using remote targets."),
-			    NULL,
-			    show_baud_rate,
-			    &setlist, &showlist);
 
   add_setshow_zinteger_cmd ("remote", no_class, &remote_debug, _("\
 Set debugging of remote protocol."), _("\

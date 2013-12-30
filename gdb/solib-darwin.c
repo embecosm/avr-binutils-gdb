@@ -88,10 +88,7 @@ static const struct program_space_data *solib_darwin_pspace_data;
 static void
 darwin_pspace_data_cleanup (struct program_space *pspace, void *arg)
 {
-  struct darwin_info *info;
-
-  info = program_space_data (pspace, solib_darwin_pspace_data);
-  xfree (info);
+  xfree (arg);
 }
 
 /* Get the current darwin data.  If none is found yet, add it now.  This
@@ -619,6 +616,16 @@ darwin_bfd_open (char *pathname)
       make_cleanup_bfd_unref (abfd);
       error (_("`%s': not a shared-library: %s"),
 	     bfd_get_filename (abfd), bfd_errmsg (bfd_get_error ()));
+    }
+
+  /* The current filename for fat-binary BFDs is a name generated
+     by BFD, usually a string containing the name of the architecture.
+     Reset its value to the actual filename.  */
+    {
+      char *data = bfd_alloc (res, strlen (pathname) + 1);
+
+      strcpy (data, pathname);
+      res->filename = data;
     }
 
   gdb_bfd_unref (abfd);

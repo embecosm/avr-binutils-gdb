@@ -185,6 +185,13 @@ struct objfile_per_bfd_storage
      differ from this e.g. with respect to register types and names.  */
 
   struct gdbarch *gdbarch;
+
+  /* Hash table for mapping symbol names to demangled names.  Each
+     entry in the hash table is actually two consecutive strings,
+     both null-terminated; the first one is a mangled or linkage
+     name, and the second is the demangled name or just a zero byte
+     if the name doesn't demangle.  */
+  struct htab *demangled_names_hash;
 };
 
 /* Master structure for keeping track of each file from which
@@ -205,11 +212,13 @@ struct objfile
 
     struct objfile *next;
 
-    /* The object file's name, tilde-expanded and absolute.  This
-       pointer is never NULL.  This does not have to be freed; it is
+    /* The object file's original name as specified by the user,
+       made absolute, and tilde-expanded.  However, it is not canonicalized
+       (i.e., it has not been passed through gdb_realpath).
+       This pointer is never NULL.  This does not have to be freed; it is
        guaranteed to have a lifetime at least as long as the objfile.  */
 
-    char *name;
+    char *original_name;
 
     CORE_ADDR addr_low;
 
@@ -269,13 +278,6 @@ struct objfile
        will not change.  */
 
     struct psymbol_bcache *psymbol_cache; /* Byte cache for partial syms.  */
-
-    /* Hash table for mapping symbol names to demangled names.  Each
-       entry in the hash table is actually two consecutive strings,
-       both null-terminated; the first one is a mangled or linkage
-       name, and the second is the demangled name or just a zero byte
-       if the name doesn't demangle.  */
-    struct htab *demangled_names_hash;
 
     /* Vectors of all partial symbols read in from file.  The actual data
        is stored in the objfile_obstack.  */
@@ -429,14 +431,14 @@ struct objfile
 
 #define OBJF_MAINLINE (1 << 5)
 
-/* The object file that contains the runtime common minimal symbols
-   for SunOS4.  Note that this objfile has no associated BFD.  */
+/* ORIGINAL_NAME and OBFD->FILENAME correspond to text description unrelated to
+   filesystem names.  It can be for example "<image in memory>".  */
 
-extern struct objfile *rt_common_objfile;
+#define OBJF_NOT_FILENAME (1 << 6)
 
 /* Declarations for functions defined in objfiles.c */
 
-extern struct objfile *allocate_objfile (bfd *, int);
+extern struct objfile *allocate_objfile (bfd *, const char *name, int);
 
 extern struct gdbarch *get_objfile_arch (struct objfile *);
 
@@ -452,8 +454,6 @@ extern struct objfile *objfile_separate_debug_iterate (const struct objfile *,
                                                        const struct objfile *);
 
 extern void put_objfile_before (struct objfile *, struct objfile *);
-
-extern void objfile_to_front (struct objfile *);
 
 extern void add_separate_debug_objfile (struct objfile *, struct objfile *);
 
@@ -480,7 +480,12 @@ extern int have_partial_symbols (void);
 
 extern int have_full_symbols (void);
 
+extern void objfile_set_sym_fns (struct objfile *objfile,
+				 const struct sym_fns *sf);
+
 extern void objfiles_changed (void);
+
+extern int is_addr_in_objfile (CORE_ADDR addr, const struct objfile *objfile);
 
 /* This operation deletes all objfile entries that represent solibs that
    weren't explicitly loaded by the user, via e.g., the add-symbol-file
@@ -677,5 +682,7 @@ extern void default_iterate_over_objfiles_in_search_order
 /* Reset the per-BFD storage area on OBJ.  */
 
 void set_objfile_per_bfd (struct objfile *obj);
+
+const char *objfile_name (const struct objfile *objfile);
 
 #endif /* !defined (OBJFILES_H) */

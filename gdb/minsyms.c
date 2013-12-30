@@ -38,7 +38,7 @@
 
 #include "defs.h"
 #include <ctype.h>
-#include "gdb_string.h"
+#include <string.h>
 #include "symtab.h"
 #include "bfd.h"
 #include "filenames.h"
@@ -843,8 +843,6 @@ lookup_minimal_symbol_and_objfile (const char *name)
 /* Return leading symbol character for a BFD.  If BFD is NULL,
    return the leading symbol character from the main objfile.  */
 
-static int get_symbol_leading_char (bfd *);
-
 static int
 get_symbol_leading_char (bfd *abfd)
 {
@@ -1187,7 +1185,7 @@ install_minimal_symbols (struct objfile *objfile)
 	{
 	  fprintf_unfiltered (gdb_stdlog,
 			      "Installing %d minimal symbols of objfile %s.\n",
-			      msym_count, objfile->name);
+			      msym_count, objfile_name (objfile));
 	}
 
       /* Allocate enough space in the obstack, into which we will gather the

@@ -418,6 +418,10 @@ typedef enum domain_enum_tag
 
   STRUCT_DOMAIN,
 
+  /* MODULE_DOMAIN is used in Fortran to hold module type names.  */
+
+  MODULE_DOMAIN,
+
   /* LABEL_DOMAIN may be used for names of labels (for gotos).  */
 
   LABEL_DOMAIN,
@@ -426,6 +430,8 @@ typedef enum domain_enum_tag
      They also always use LOC_COMMON_BLOCK.  */
   COMMON_BLOCK_DOMAIN
 } domain_enum;
+
+extern const char *domain_name (domain_enum);
 
 /* Searching domains, used for `search_symbols'.  Element numbers are
    hardcoded in GDB, check all enum uses before changing it.  */
@@ -445,6 +451,8 @@ enum search_domain
   /* Any type.  */
   ALL_DOMAIN = 3
 };
+
+extern const char *search_domain_name (enum search_domain);
 
 /* An address-class says where to find the value of a symbol.  */
 
@@ -871,11 +879,11 @@ struct symtab
 
   /* Name of this source file.  This pointer is never NULL.  */
 
-  char *filename;
+  const char *filename;
 
   /* Directory in which it was compiled, or NULL if we don't know.  */
 
-  char *dirname;
+  const char *dirname;
 
   /* Total number of lines found in source file.  */
 
@@ -936,6 +944,9 @@ struct symtab
 #define BLOCKVECTOR(symtab)	(symtab)->blockvector
 #define LINETABLE(symtab)	(symtab)->linetable
 #define SYMTAB_PSPACE(symtab)	(symtab)->objfile->pspace
+
+/* Call this to set the "primary" field in struct symtab.  */
+extern void set_symtab_primary (struct symtab *, int primary);
 
 typedef struct symtab *symtab_ptr;
 DEF_VEC_P (symtab_ptr);
@@ -1331,7 +1342,7 @@ void fixup_section (struct general_symbol_info *ginfo,
 
 struct objfile *lookup_objfile_from_block (const struct block *block);
 
-extern int symtab_create_debug;
+extern unsigned int symtab_create_debug;
 
 extern int basenames_may_differ;
 

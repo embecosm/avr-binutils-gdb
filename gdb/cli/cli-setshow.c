@@ -19,7 +19,7 @@
 #include "readline/tilde.h"
 #include "value.h"
 #include <ctype.h>
-#include "gdb_string.h"
+#include <string.h>
 #include "arch-utils.h"
 #include "observer.h"
 
@@ -160,7 +160,7 @@ do_set_command (char *arg, int from_tty, struct cmd_list_element *c)
     case var_string:
       {
 	char *new;
-	char *p;
+	const char *p;
 	char *q;
 	int ch;
 

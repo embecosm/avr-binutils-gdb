@@ -49,7 +49,7 @@ create_thread_object (struct thread_info *tp)
     return NULL;
 
   thread_obj->thread = tp;
-  thread_obj->inf_obj = find_inferior_object (PIDGET (tp->ptid));
+  thread_obj->inf_obj = find_inferior_object (ptid_get_pid (tp->ptid));
 
   return thread_obj;
 }
@@ -95,7 +95,7 @@ thpy_set_name (PyObject *self, PyObject *newvalue, void *ignore)
 
   if (newvalue == NULL)
     {
-      PyErr_SetString (PyExc_TypeError, 
+      PyErr_SetString (PyExc_TypeError,
 		       _("Cannot delete `name' attribute."));
       return -1;
     }

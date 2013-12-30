@@ -48,9 +48,7 @@
    included, so it's ok to blank out gstdint.h.  */
 #define GCC_GENERATED_STDINT_H 1
 
-#ifdef HAVE_STDDEF_H
 #include <stddef.h>
-#endif
 
 #include <unistd.h>
 
@@ -310,8 +308,6 @@ extern void print_transfer_performance (struct ui_file *stream,
 /* From top.c */
 
 typedef void initialize_file_ftype (void);
-
-extern char *skip_quoted (char *);
 
 extern char *gdb_readline (char *);
 
@@ -608,13 +604,7 @@ enum gdb_osabi
 
 /* From other system libraries */
 
-#ifdef HAVE_STDDEF_H
-#include <stddef.h>
-#endif
-
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
 
 
 #ifndef atof
@@ -752,18 +742,6 @@ extern int (*deprecated_ui_load_progress_hook) (const char *section,
 /* Inhibit window interface if non-zero.  */
 
 extern int use_windows;
-
-/* Provide default definitions of PIDGET, TIDGET, and MERGEPID.
-   The name ``TIDGET'' is a historical accident.  Many uses of TIDGET
-   in the code actually refer to a lightweight process id, i.e,
-   something that can be considered a process id in its own right for
-   certain purposes.  */
-
-#ifndef PIDGET
-#define PIDGET(PTID) (ptid_get_pid (PTID))
-#define TIDGET(PTID) (ptid_get_lwp (PTID))
-#define MERGEPID(PID, TID) ptid_build (PID, TID, 0)
-#endif
 
 /* If this definition isn't overridden by the header files, assume
    that isatty and fileno exist on this system.  */

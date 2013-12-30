@@ -1,6 +1,6 @@
 /* Print i386 instructions for GDB, the GNU debugger.
    Copyright 1988, 1989, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013
    Free Software Foundation, Inc.
 
    This file is part of the GNU opcodes library.
@@ -715,6 +715,8 @@ enum
   MOD_8D = 0,
   MOD_C6_REG_7,
   MOD_C7_REG_7,
+  MOD_FF_REG_3,
+  MOD_FF_REG_5,
   MOD_0F01_REG_0,
   MOD_0F01_REG_1,
   MOD_0F01_REG_2,
@@ -3229,9 +3231,9 @@ static const struct dis386 reg_table[][8] = {
     { "incQ",	{ Evh1 } },
     { "decQ",	{ Evh1 } },
     { "call{T|}", { indirEv, BND } },
-    { "Jcall{T|}", { indirEp } },
+    { MOD_TABLE (MOD_FF_REG_3) },
     { "jmp{T|}", { indirEv, BND } },
-    { "Jjmp{T|}", { indirEp } },
+    { MOD_TABLE (MOD_FF_REG_5) },
     { "pushU",	{ stackEv } },
     { Bad_Opcode },
   },
@@ -11050,6 +11052,14 @@ static const struct dis386 mod_table[][2] = {
     { RM_TABLE (RM_C7_REG_7) },
   },
   {
+    /* MOD_FF_REG_3 */
+    { "Jcall{T|}", { indirEp } },
+  },
+  {
+    /* MOD_FF_REG_5 */
+    { "Jjmp{T|}", { indirEp } },
+  },
+  {
     /* MOD_0F01_REG_0 */
     { X86_64_TABLE (X86_64_0F01_REG_0) },
     { RM_TABLE (RM_0F01_REG_0) },
@@ -13095,17 +13105,25 @@ dofloat (int sizeflag)
     }
 }
 
+/* Like oappend (below), but S is a string starting with '%'.
+   In Intel syntax, the '%' is elided.  */
+static void
+oappend_maybe_intel (const char *s)
+{
+  oappend (s + intel_syntax);
+}
+
 static void
 OP_ST (int bytemode ATTRIBUTE_UNUSED, int sizeflag ATTRIBUTE_UNUSED)
 {
-  oappend ("%st" + intel_syntax);
+  oappend_maybe_intel ("%st");
 }
 
 static void
 OP_STi (int bytemode ATTRIBUTE_UNUSED, int sizeflag ATTRIBUTE_UNUSED)
 {
   sprintf (scratchbuf, "%%st(%d)", modrm.rm);
-  oappend (scratchbuf + intel_syntax);
+  oappend_maybe_intel (scratchbuf);
 }
 
 /* Capital letters in template are macros.  */
@@ -13629,32 +13647,32 @@ append_seg (void)
   if (prefixes & PREFIX_CS)
     {
       used_prefixes |= PREFIX_CS;
-      oappend ("%cs:" + intel_syntax);
+      oappend_maybe_intel ("%cs:");
     }
   if (prefixes & PREFIX_DS)
     {
       used_prefixes |= PREFIX_DS;
-      oappend ("%ds:" + intel_syntax);
+      oappend_maybe_intel ("%ds:");
     }
   if (prefixes & PREFIX_SS)
     {
       used_prefixes |= PREFIX_SS;
-      oappend ("%ss:" + intel_syntax);
+      oappend_maybe_intel ("%ss:");
     }
   if (prefixes & PREFIX_ES)
     {
       used_prefixes |= PREFIX_ES;
-      oappend ("%es:" + intel_syntax);
+      oappend_maybe_intel ("%es:");
     }
   if (prefixes & PREFIX_FS)
     {
       used_prefixes |= PREFIX_FS;
-      oappend ("%fs:" + intel_syntax);
+      oappend_maybe_intel ("%fs:");
     }
   if (prefixes & PREFIX_GS)
     {
       used_prefixes |= PREFIX_GS;
-      oappend ("%gs:" + intel_syntax);
+      oappend_maybe_intel ("%gs:");
     }
 }
 
@@ -13800,7 +13818,6 @@ intel_operand_size (int bytemode, int sizeflag)
 	}
       /* FALLTHRU */
     case v_mode:
-    case v_bnd_mode:
     case v_swap_mode:
     case dq_mode:
       USED_REX (REX_W);
@@ -14082,6 +14099,7 @@ intel_operand_size (int bytemode, int sizeflag)
 	abort ();
       oappend ("WORD PTR ");
       break;
+    case v_bnd_mode:
     default:
       break;
     }
@@ -14121,6 +14139,7 @@ OP_E_register (int bytemode, int sizeflag)
       names = names64;
       break;
     case m_mode:
+    case v_bnd_mode:
       names = address_mode == mode_64bit ? names64 : names32;
       break;
     case bnd_mode:
@@ -14135,7 +14154,6 @@ OP_E_register (int bytemode, int sizeflag)
       bytemode = v_mode;
       /* FALLTHRU */
     case v_mode:
-    case v_bnd_mode:
     case v_swap_mode:
     case dq_mode:
     case dqb_mode:
@@ -14904,7 +14922,7 @@ OP_I (int bytemode, int sizeflag)
   op &= mask;
   scratchbuf[0] = '$';
   print_operand_value (scratchbuf + 1, 1, op);
-  oappend (scratchbuf + intel_syntax);
+  oappend_maybe_intel (scratchbuf);
   scratchbuf[0] = '\0';
 }
 
@@ -14958,7 +14976,7 @@ OP_I64 (int bytemode, int sizeflag)
   op &= mask;
   scratchbuf[0] = '$';
   print_operand_value (scratchbuf + 1, 1, op);
-  oappend (scratchbuf + intel_syntax);
+  oappend_maybe_intel (scratchbuf);
   scratchbuf[0] = '\0';
 }
 
@@ -15012,7 +15030,7 @@ OP_sI (int bytemode, int sizeflag)
 
   scratchbuf[0] = '$';
   print_operand_value (scratchbuf + 1, 1, op);
-  oappend (scratchbuf + intel_syntax);
+  oappend_maybe_intel (scratchbuf);
 }
 
 static void
@@ -15194,7 +15212,7 @@ OP_ESreg (int code, int sizeflag)
 	  intel_operand_size (b_mode, sizeflag);
 	}
     }
-  oappend ("%es:" + intel_syntax);
+  oappend_maybe_intel ("%es:");
   ptr_reg (code, sizeflag);
 }
 
@@ -15247,7 +15265,7 @@ OP_C (int dummy ATTRIBUTE_UNUSED, int sizeflag ATTRIBUTE_UNUSED)
   else
     add = 0;
   sprintf (scratchbuf, "%%cr%d", modrm.reg + add);
-  oappend (scratchbuf + intel_syntax);
+  oappend_maybe_intel (scratchbuf);
 }
 
 static void
@@ -15270,7 +15288,7 @@ static void
 OP_T (int dummy ATTRIBUTE_UNUSED, int sizeflag ATTRIBUTE_UNUSED)
 {
   sprintf (scratchbuf, "%%tr%d", modrm.reg);
-  oappend (scratchbuf + intel_syntax);
+  oappend_maybe_intel (scratchbuf);
 }
 
 static void
@@ -15715,7 +15733,7 @@ CMP_Fixup (int bytemode ATTRIBUTE_UNUSED, int sizeflag ATTRIBUTE_UNUSED)
       /* We have a reserved extension byte.  Output it directly.  */
       scratchbuf[0] = '$';
       print_operand_value (scratchbuf + 1, 1, cmp_type);
-      oappend (scratchbuf + intel_syntax);
+      oappend_maybe_intel (scratchbuf);
       scratchbuf[0] = '\0';
     }
 }
@@ -16240,7 +16258,7 @@ OP_EX_VexImmW (int bytemode, int sizeflag)
       /* Output the imm8 directly.  */
       scratchbuf[0] = '$';
       print_operand_value (scratchbuf + 1, 1, vex_imm8 & 0xf);
-      oappend (scratchbuf + intel_syntax);
+      oappend_maybe_intel (scratchbuf);
       scratchbuf[0] = '\0';
       codep++;
     }
@@ -16469,7 +16487,7 @@ VCMP_Fixup (int bytemode ATTRIBUTE_UNUSED, int sizeflag ATTRIBUTE_UNUSED)
       /* We have a reserved extension byte.  Output it directly.  */
       scratchbuf[0] = '$';
       print_operand_value (scratchbuf + 1, 1, cmp_type);
-      oappend (scratchbuf + intel_syntax);
+      oappend_maybe_intel (scratchbuf);
       scratchbuf[0] = '\0';
     }
 }
@@ -16516,7 +16534,7 @@ VPCMP_Fixup (int bytemode ATTRIBUTE_UNUSED,
       /* We have a reserved extension byte.  Output it directly.  */
       scratchbuf[0] = '$';
       print_operand_value (scratchbuf + 1, 1, cmp_type);
-      oappend (scratchbuf + intel_syntax);
+      oappend_maybe_intel (scratchbuf);
       scratchbuf[0] = '\0';
     }
 }
@@ -16564,7 +16582,7 @@ PCLMUL_Fixup (int bytemode ATTRIBUTE_UNUSED,
       /* We have a reserved extension byte.  Output it directly.  */
       scratchbuf[0] = '$';
       print_operand_value (scratchbuf + 1, 1, pclmul_type);
-      oappend (scratchbuf + intel_syntax);
+      oappend_maybe_intel (scratchbuf);
       scratchbuf[0] = '\0';
     }
 }

@@ -1176,7 +1176,6 @@ struct linux_corefile_thread_data
   bfd *obfd;
   char *note_data;
   int *note_size;
-  int num_notes;
   enum gdb_signal stop_signal;
   linux_collect_thread_registers_ftype collect;
 };
@@ -1194,7 +1193,7 @@ linux_corefile_thread_callback (struct thread_info *info, void *data)
       struct cleanup *old_chain;
       struct regcache *regcache;
       gdb_byte *siginfo_data;
-      LONGEST siginfo_size;
+      LONGEST siginfo_size = 0;
 
       regcache = get_thread_arch_regcache (info->ptid, args->gdbarch);
 
@@ -1209,17 +1208,16 @@ linux_corefile_thread_callback (struct thread_info *info, void *data)
       args->note_data = args->collect (regcache, info->ptid, args->obfd,
 				       args->note_data, args->note_size,
 				       args->stop_signal);
-      args->num_notes++;
 
-      if (siginfo_data != NULL)
-	{
+      /* Don't return anything if we got no register information above,
+         such a core file is useless.  */
+      if (args->note_data != NULL)
+	if (siginfo_data != NULL)
 	  args->note_data = elfcore_write_note (args->obfd,
 						args->note_data,
 						args->note_size,
 						"CORE", NT_SIGINFO,
 						siginfo_data, siginfo_size);
-	  args->num_notes++;
-	}
 
       do_cleanups (old_chain);
     }
@@ -1467,7 +1465,6 @@ linux_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size,
   thread_args.obfd = obfd;
   thread_args.note_data = note_data;
   thread_args.note_size = note_size;
-  thread_args.num_notes = 0;
   thread_args.stop_signal = find_stop_signal ();
   thread_args.collect = collect;
   iterate_over_threads (linux_corefile_thread_callback, &thread_args);

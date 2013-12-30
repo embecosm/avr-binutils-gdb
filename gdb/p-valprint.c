@@ -629,7 +629,7 @@ pascal_object_print_value_fields (struct type *type, const gdb_byte *valaddr,
 	      else if (!value_bits_valid (val, TYPE_FIELD_BITPOS (type, i),
 					  TYPE_FIELD_BITSIZE (type, i)))
 		{
-		  val_print_optimized_out (stream);
+		  val_print_optimized_out (val, stream);
 		}
 	      else
 		{
@@ -657,7 +657,7 @@ pascal_object_print_value_fields (struct type *type, const gdb_byte *valaddr,
 		  v = value_field_bitfield (type, i, valaddr, offset, val);
 
 		  if (v == NULL)
-		    val_print_optimized_out (stream);
+		    val_print_optimized_out (NULL, stream);
 		  else
 		    pascal_object_print_static_field (v, stream, recurse + 1,
 						      options);
@@ -843,6 +843,12 @@ pascal_object_print_static_field (struct value *val,
 {
   struct type *type = value_type (val);
   struct value_print_options opts;
+
+  if (value_entirely_optimized_out (val))
+    {
+      val_print_optimized_out (val, stream);
+      return;
+    }
 
   if (TYPE_CODE (type) == TYPE_CODE_STRUCT)
     {

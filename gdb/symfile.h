@@ -237,8 +237,9 @@ struct quick_symbol_functions
      CALLBACK returns 0 to indicate that the scan should continue, or
      non-zero to indicate that the scan should be terminated.  */
 
-  void (*map_matching_symbols) (const char *name, domain_enum namespace,
-				struct objfile *, int global,
+  void (*map_matching_symbols) (struct objfile *,
+				const char *name, domain_enum namespace,
+				int global,
 				int (*callback) (struct block *,
 						 struct symbol *, void *),
 				void *data,
@@ -304,40 +305,6 @@ struct sym_probe_fns
      OBJFILE.  */
   VEC (probe_p) *(*sym_get_probes) (struct objfile *);
 
-  /* Return the number of arguments available to PROBE.  PROBE will
-     have come from a call to this objfile's sym_get_probes method.
-     If you provide an implementation of sym_get_probes, you must
-     implement this method as well.  */
-  unsigned (*sym_get_probe_argument_count) (struct probe *probe);
-
-  /* Return 1 if the probe interface can evaluate the arguments of probe
-     PROBE, zero otherwise.  This function can be probe-specific, informing
-     whether only the arguments of PROBE can be evaluated, of generic,
-     informing whether the probe interface is able to evaluate any kind of
-     argument.  If you provide an implementation of sym_get_probes, you must
-     implement this method as well.  */
-  int (*can_evaluate_probe_arguments) (struct probe *probe);
-
-  /* Evaluate the Nth argument available to PROBE.  PROBE will have
-     come from a call to this objfile's sym_get_probes method.  N will
-     be between 0 and the number of arguments available to this probe.
-     FRAME is the frame in which the evaluation is done; the frame's
-     PC will match the address of the probe.  If you provide an
-     implementation of sym_get_probes, you must implement this method
-     as well.  */
-  struct value *(*sym_evaluate_probe_argument) (struct probe *probe,
-						unsigned n);
-
-  /* Compile the Nth probe argument to an agent expression.  PROBE
-     will have come from a call to this objfile's sym_get_probes
-     method.  N will be between 0 and the number of arguments
-     available to this probe.  EXPR and VALUE are the agent expression
-     that is being updated.  */
-  void (*sym_compile_to_ax) (struct probe *probe,
-			     struct agent_expr *expr,
-			     struct axs_value *value,
-			     unsigned n);
-
   /* Relocate the probe section of OBJFILE.  */
   void (*sym_relocate_probe) (struct objfile *objfile,
 			      const struct section_offsets *new_offsets,
@@ -349,12 +316,6 @@ struct sym_probe_fns
 
 struct sym_fns
 {
-
-  /* BFD flavour that we handle, or (as a special kludge, see
-     xcoffread.c, (enum bfd_flavour)-1 for xcoff).  */
-
-  enum bfd_flavour sym_flavour;
-
   /* Initializes anything that is global to the entire symbol table.
      It is called during symbol_file_add, when we begin debugging an
      entirely new program.  */
@@ -406,7 +367,7 @@ struct sym_fns
      the line table cannot be read while processing the debugging
      information.  */
 
-  void (*sym_read_linetable) (void);
+  void (*sym_read_linetable) (struct objfile *);
 
   /* Relocate the contents of a debug section SECTP.  The
      contents are stored in BUF if it is non-NULL, or returned in a
@@ -453,7 +414,7 @@ extern bfd_byte *default_symfile_relocate (struct objfile *objfile,
 extern struct symtab *allocate_symtab (const char *, struct objfile *)
   ATTRIBUTE_NONNULL (1);
 
-extern void add_symtab_fns (const struct sym_fns *);
+extern void add_symtab_fns (enum bfd_flavour flavour, const struct sym_fns *);
 
 /* This enum encodes bit-flags passed as ADD_FLAGS parameter to
    symbol_file_add, etc.  */
@@ -477,14 +438,15 @@ enum symfile_add_flags
 
 extern void new_symfile_objfile (struct objfile *, int);
 
-extern struct objfile *symbol_file_add (char *, int,
+extern struct objfile *symbol_file_add (const char *, int,
 					struct section_addr_info *, int);
 
-extern struct objfile *symbol_file_add_from_bfd (bfd *, int,
+extern struct objfile *symbol_file_add_from_bfd (bfd *, const char *, int,
                                                  struct section_addr_info *,
                                                  int, struct objfile *parent);
 
-extern void symbol_file_add_separate (bfd *, int, struct objfile *);
+extern void symbol_file_add_separate (bfd *, const char *, int,
+				      struct objfile *);
 
 extern char *find_separate_debug_file_by_debuglink (struct objfile *);
 
@@ -528,7 +490,7 @@ extern void set_initial_language (void);
 
 extern void find_lowest_section (bfd *, asection *, void *);
 
-extern bfd *symfile_bfd_open (char *);
+extern bfd *symfile_bfd_open (const char *);
 
 extern bfd *gdb_bfd_open_maybe_remote (const char *);
 
@@ -572,7 +534,7 @@ extern CORE_ADDR overlay_unmapped_address (CORE_ADDR, struct obj_section *);
 extern CORE_ADDR symbol_overlayed_address (CORE_ADDR, struct obj_section *);
 
 /* Load symbols from a file.  */
-extern void symbol_file_add_main (char *args, int from_tty);
+extern void symbol_file_add_main (const char *args, int from_tty);
 
 /* Clear GDB symbol tables.  */
 extern void symbol_file_clear (int from_tty);
