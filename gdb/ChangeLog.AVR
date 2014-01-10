@@ -1,3 +1,9 @@
 2013-10-22  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
-	* avr-tdep.c: Decrement PC after breakpoint.
+	* avr-tdep.c (AVR_MEM_MASK): New value suitable for up to 23-bit
+	addresses.
+	(avr_gdbarch_init): Set addr_bit to 23.
+
+2013-10-22  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	* avr-tdep.c (avr_gdbarch_init): Decrement PC after breakpoint.

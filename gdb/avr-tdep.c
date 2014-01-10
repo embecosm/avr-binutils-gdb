@@ -125,13 +125,20 @@ enum
      from 0x00ff0000 to 0x00f00000.  Eeprom is not accessible from gdb yet,
      but could be for some remote targets by just adding the correct offset
      to the address and letting the remote target handle the low-level
-     details of actually accessing the eeprom.  */
+     details of actually accessing the eeprom.
+
+     JPB/1014-01-10: This still isn't quite right. The AVR architecture allows
+     up to 22-bit program counter, addressing words. This means GDB addresses
+     (which unlike pointers are *always* byte addressed), can be up to 23 bits
+     long. So the AVR_MEM_MASK must be clear of 23 bits. I've allowed it to
+     mask of the top 9 bits, for potential future masking possibilities.
+  */
 
   AVR_IMEM_START = 0x00000000,	/* INSN memory */
   AVR_SMEM_START = 0x00800000,	/* SRAM memory */
 #if 1
   /* No eeprom mask defined */
-  AVR_MEM_MASK = 0x00f00000,	/* mask to determine memory space */
+  AVR_MEM_MASK = 0xff800000,	/* mask to determine memory space */
 #else
   AVR_EMEM_START = 0x00810000,	/* EEPROM memory */
   AVR_MEM_MASK = 0x00ff0000,	/* mask to determine memory space */
@@ -1395,7 +1402,8 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
   set_gdbarch_ptr_bit (gdbarch, 2 * TARGET_CHAR_BIT);
-  set_gdbarch_addr_bit (gdbarch, 32);
+  /* 2^22 *words* of program space = 2^23 bytes. */
+  set_gdbarch_addr_bit (gdbarch, 23);
 
   set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_double_bit (gdbarch, 4 * TARGET_CHAR_BIT);
