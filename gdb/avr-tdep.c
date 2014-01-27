@@ -1566,6 +1566,43 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   return gdbarch;
 }
 
+
+/* Dump out the target specific information. */
+static void
+avr_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  fprintf_unfiltered (file, "avr_dump_tdep: call_length = %d\n", 
+		      tdep->call_length);
+
+  fprintf_unfiltered (file, "avr_dump_tdep: void type code = %d\n", 
+		      TYPE_CODE (tdep->void_type));
+  fprintf_unfiltered (file, "               void type length = %d\n", 
+		      TYPE_LENGTH (tdep->void_type));
+  fprintf_unfiltered (file, "               void type name = %s\n", 
+		      TYPE_NAME (tdep->void_type)
+		      ? TYPE_NAME (tdep->void_type) : "(null)");
+
+  fprintf_unfiltered (file, "avr_dump_tdep: function void type code = %d\n", 
+		      TYPE_CODE (tdep->func_void_type));
+  fprintf_unfiltered (file, "               function void type length = %d\n", 
+		      TYPE_LENGTH (tdep->func_void_type));
+  fprintf_unfiltered (file, "               function void type name = %s\n", 
+		      TYPE_NAME (tdep->func_void_type)
+		      ? TYPE_NAME (tdep->func_void_type) : "(null)");
+
+  fprintf_unfiltered (file, "avr_dump_tdep: program counter type code = %d\n", 
+		      TYPE_CODE (tdep->pc_type));
+  fprintf_unfiltered (file, "               program counter type length = %d\n", 
+		      TYPE_LENGTH (tdep->pc_type));
+  fprintf_unfiltered (file, "               program counter type name = %s\n", 
+		      TYPE_NAME (tdep->pc_type)
+		      ? TYPE_NAME (tdep->pc_type) : "(null)");
+  
+}	/* avr_dump_tdep () */
+
+
 /* Send a query request to the avr remote target asking for values of the io
    registers.  If args parameter is not NULL, then the user has requested info
    on a specific io register [This still needs implemented and is ignored for
@@ -1655,7 +1692,7 @@ extern initialize_file_ftype _initialize_avr_tdep; /* -Wmissing-prototypes */
 void
 _initialize_avr_tdep (void)
 {
-  register_gdbarch_init (bfd_arch_avr, avr_gdbarch_init);
+  gdbarch_register (bfd_arch_avr, avr_gdbarch_init, avr_dump_tdep);
 
   /* Debug internals for AVR GDB.  */
   add_setshow_zinteger_cmd ("avr", class_maintenance,

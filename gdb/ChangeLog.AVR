@@ -1,5 +1,11 @@
 2014-01-27  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
+	* avr-tdep.c (avr_dump_tdep): Created.
+	(_initialize_avr_tdep): Replace obsolete register_gdbarch_init
+	with gdbarch_register.
+
+2014-01-27  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
 	* avr-tdep.c: Improved commenting of address and code pointer
 	usage.
 	(AVR_CODE_START): Replaces AVR_IMEM_START.
