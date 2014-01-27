@@ -1,3 +1,27 @@
+2014-01-27  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	* avr-tdep.c: Improved commenting of address and code pointer
+	usage.
+	(AVR_CODE_START): Replaces AVR_IMEM_START.
+	(AVR_DATA_START): Replaces AVR_SMEM_START.
+	(AVR_EEPROM_START, AVR_EEPROM_MASK): Created.
+	(avr_debug): Static variable at top level created.
+	(avr_make_iaddr, avr_convert_iaddr_to_raw, avr_make_saddr)
+	(avr_convert_saddr_to_raw): Deleted.
+	(avr_strip_flag_bits, avr_make_code_addr, avr_make_code_ptr)
+	(avr_make_data_addr, avr_make_data_ptr): Created.
+	(avr_address_to_pointer, avr_pointer_to_address): Add optional
+	debug output.
+	(avr_integer_to_address): Use avr_make_data_addr instead of
+	avr_make_saddr.
+	(avr_read_pc, avr_unwind_pc): Explicitly OR in code bit instead of
+	calling avr_make_iaddr.
+	(avr_frame_unwind_cache, avr_unwind_sp, avr_dummy_id): Use
+	avr_make_data_addr instead of avr_make_saddr.
+	(avr_push_dummy_call): avr_strip_flag_bits instead of
+	avr_convert_iaddr_to_raw.
+	(_initialize_avr_tdep): add set/show debug avr as new command.
+
 2013-10-22  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	* avr-tdep.c (AVR_MEM_MASK): New value suitable for up to 23-bit
