@@ -132,17 +132,23 @@ enum
      (which unlike pointers are *always* byte addressed), can be up to 23 bits
      long. So the AVR_MEM_MASK must be clear of 23 bits. I've allowed it to
      mask of the top 9 bits, for potential future masking possibilities.
+
+     EEPROM still works, but is effectively any data address above 0xffff,
+     which is fine, since RAM is limited to 64kB. By allowing a 1 bit mask,
+     potentially up to 64kB of EEPROM is possible (addresses 0x10000 to
+     0x1ffff), although in practice it is much smaller.
+
+     This isn't perfect, since EEPROM is really a third address space, but GDB
+     does not have a clean way of treating more than 2 address spaces, so for
+     now we just have to accept that they will show as a high address in the
+     data address space.
   */
 
-  AVR_IMEM_START = 0x00000000,	/* INSN memory */
-  AVR_SMEM_START = 0x00800000,	/* SRAM memory */
-#if 1
-  /* No eeprom mask defined */
-  AVR_MEM_MASK = 0xff800000,	/* mask to determine memory space */
-#else
-  AVR_EMEM_START = 0x00810000,	/* EEPROM memory */
-  AVR_MEM_MASK = 0x00ff0000,	/* mask to determine memory space */
-#endif
+  AVR_CODE_START   = 0x00000000,	/* INSN memory */
+  AVR_DATA_START   = 0x00800000,	/* SRAM memory */
+  AVR_EEPROM_START = 0x00810000,	/* EEPROM memory */
+  AVR_MEM_MASK     = 0xff800000,	/* mask to determine memory space */
+  AVR_EEPROM_MASK  = 0x00010000,	/* mask for EEPROM within data space */
 };
 
 /* Prologue types:
@@ -197,6 +203,14 @@ struct gdbarch_tdep
   struct type *pc_type;
 };
 
+/* -------------------------------------------------------------------------- */
+/*		     Externally visible data defined here		      */
+/* -------------------------------------------------------------------------- */
+
+/*! Global debug flag */
+int avr_debug;
+
+
 /* Lookup the name of a register given it's number.  */
 
 static const char *
@@ -232,42 +246,77 @@ avr_register_type (struct gdbarch *gdbarch, int reg_nr)
   return builtin_type (gdbarch)->builtin_uint8;
 }
 
-/* Instruction address checks and convertions.  */
 
+/* Strip memory space flag bits.
+
+   Within GDB, AVR byte addresses use high bits to indicate whether this is
+   originally a code or data address (where data may be RAM or EEPROM). Strip
+   these flag bits. */
 static CORE_ADDR
-avr_make_iaddr (CORE_ADDR x)
+avr_strip_flag_bits (CORE_ADDR x)
 {
-  return ((x) | AVR_IMEM_START);
-}
+  return x & (~AVR_MEM_MASK);
 
-/* FIXME: TRoth: Really need to use a larger mask for instructions.  Some
-   devices are already up to 128KBytes of flash space.
+}	/* avr_strip_flag_bits () */
 
-   TRoth/2002-04-8: See comment above where AVR_IMEM_START is defined.  */
 
+/* Convert architectural code pointer to byte address.
+
+   X is a code pointer for the AVR architecture, i.e. a word address.
+
+   Convert this to a byte address, where a flag in one of the high bits
+   indicates where this is a code address. */
 static CORE_ADDR
-avr_convert_iaddr_to_raw (CORE_ADDR x)
+avr_make_code_addr (CORE_ADDR x)
 {
-  return ((x) & 0xffffffff);
-}
+  return (x << 1) | AVR_CODE_START;
 
-/* SRAM address checks and convertions.  */
+}	/* avr_make_code_addr ()*/
 
+
+/* Convert byte address to architectural code pointer.
+
+   X is a byte address, where a flag in one of the high bits indicates where
+   this is a code address. 
+
+   Convert this to a code pointer for the AVR architecture, i.e. a word
+   address (without high end flag bits). */
 static CORE_ADDR
-avr_make_saddr (CORE_ADDR x)
+avr_make_code_ptr (CORE_ADDR x)
 {
-  /* Return 0 for NULL.  */
-  if (x == 0)
-    return 0;
+  return avr_strip_flag_bits (x) >> 1;
 
-  return ((x) | AVR_SMEM_START);
-}
+}	/* avr_make_code_ptr () */
 
+
+/* Convert architectural data pointer to byte address.
+
+   X is a data pointer for the AVR architecture, i.e. a byte address.
+
+   Add a flag in one of the high bits to indicate this is a data address. Note
+   that EEPROM and RAM are both considered data addresses. */
 static CORE_ADDR
-avr_convert_saddr_to_raw (CORE_ADDR x)
+avr_make_data_addr (CORE_ADDR x)
 {
-  return ((x) & 0xffffffff);
-}
+  return x | AVR_DATA_START;
+
+}	/* avr_make_data_addr () */
+
+
+/* Convert byte address to architectural data pointer.
+
+   X is a byte address, where a flag in one of the high bits indicates where
+   this is a data address. 
+
+   Convert this to a data pointer for the AVR architecture, i.e. a byte
+   address without high end flag bits. */
+static CORE_ADDR
+avr_make_data_ptr (CORE_ADDR x)
+{
+  return avr_strip_flag_bits (x);
+
+}	/* avr_make_data_ptr () */
+
 
 /* EEPROM address checks and convertions.  I don't know if these will ever
    actually be used, but I've added them just the same.  TRoth */
@@ -278,13 +327,13 @@ avr_convert_saddr_to_raw (CORE_ADDR x)
 /*  static CORE_ADDR */
 /*  avr_make_eaddr (CORE_ADDR x) */
 /*  { */
-/*    return ((x) | AVR_EMEM_START); */
+/*    return ((x) | AVR_EEPROM_START); */
 /*  } */
 
 /*  static int */
 /*  avr_eaddr_p (CORE_ADDR x) */
 /*  { */
-/*    return (((x) & AVR_MEM_MASK) == AVR_EMEM_START); */
+/*    return (((x) & AVR_MEM_MASK) == AVR_EEPROM_START); */
 /*  } */
 
 /*  static CORE_ADDR */
@@ -293,8 +342,23 @@ avr_convert_saddr_to_raw (CORE_ADDR x)
 /*    return ((x) & 0xffffffff); */
 /*  } */
 
-/* Convert from address to pointer and vice-versa.  */
 
+/* Extract and convert byte address to architectural pointer.
+
+   ADDR holds a byte address, where a flag in one of the high bits
+   indicates where this is a code or data address.
+
+   Convert this to the appropriate format for the AVR architecture, i.e. a
+   word address for code and a byte address otherwise. In doing this, the
+   value of TYPE is used, rather than the high end flag bits.
+
+   Convert this to a byte address, where a flag in one of the high bits
+   indicates where this is a code or data address.
+
+   Note that RAM and EEPROM are both considered data addresses, but have
+   non-overlapping address values.
+   
+   @todo: Should we verify that the TYPE and flag bits are consistent? */
 static void
 avr_address_to_pointer (struct gdbarch *gdbarch,
 			struct type *type, gdb_byte *buf, CORE_ADDR addr)
@@ -305,17 +369,41 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
   if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
       || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
     {
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_address_to_pointer: code %s -> %s.\n",
+			    print_core_address (gdbarch, addr),
+			    print_core_address (gdbarch,
+						avr_make_code_ptr (addr)));
+
       store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
-			      avr_convert_iaddr_to_raw (addr >> 1));
+			      avr_make_code_ptr (addr));
     }
   else
     {
-      /* Strip off any upper segment bits.  */
-      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
-			      avr_convert_saddr_to_raw (addr));
-    }
-}
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_address_to_pointer: data %s -> %s.\n",
+			    print_core_address (gdbarch, addr),
+			    print_core_address (gdbarch,
+						avr_make_data_ptr (addr)));
 
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
+			      avr_make_data_ptr (addr));
+    }
+}	/* avr_address_to_pointer () */
+
+
+/* Extract and convert architectural pointer to byte address.
+
+   BUF holds a pointer of type TYPE, in the appropriate format for the AVR
+   architecture, i.e. a word address for code and a byte address otherwise.
+
+   Convert this to a byte address, where a flag in one of the high bits
+   indicates where this is a code or data address.
+
+   Note that RAM and EEPROM are both considered data addresses, but have
+   non-overlapping address values. */
 static CORE_ADDR
 avr_pointer_to_address (struct gdbarch *gdbarch,
 			struct type *type, const gdb_byte *buf)
@@ -328,10 +416,29 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
   if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
       || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
       || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
-    return avr_make_iaddr (addr << 1);
+    {
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_pointer_to_address: code %s -> %s.\n",
+			    print_core_address (gdbarch, addr),
+			    print_core_address (gdbarch,
+						avr_make_code_addr (addr)));
+
+      return avr_make_code_addr (addr);
+    }
   else
-    return avr_make_saddr (addr);
-}
+    {
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_pointer_to_address: data %s -> %s.\n",
+			    print_core_address (gdbarch, addr),
+			    print_core_address (gdbarch,
+						avr_make_data_addr (addr)));
+
+      return avr_make_data_addr (addr);
+    }
+}	/* avr_pointer_to_address () */
+
 
 static CORE_ADDR
 avr_integer_to_address (struct gdbarch *gdbarch,
@@ -339,7 +446,7 @@ avr_integer_to_address (struct gdbarch *gdbarch,
 {
   ULONGEST addr = unpack_long (type, buf);
 
-  return avr_make_saddr (addr);
+  return avr_make_data_addr (addr);
 }
 
 static CORE_ADDR
@@ -347,14 +454,14 @@ avr_read_pc (struct regcache *regcache)
 {
   ULONGEST pc;
   regcache_cooked_read_unsigned (regcache, AVR_PC_REGNUM, &pc);
-  return avr_make_iaddr (pc);
+  return (pc | AVR_CODE_START);		/* This is a byte address */
 }
 
 static void
 avr_write_pc (struct regcache *regcache, CORE_ADDR val)
 {
   regcache_cooked_write_unsigned (regcache, AVR_PC_REGNUM,
-                                  avr_convert_iaddr_to_raw (val));
+                                  avr_strip_flag_bits (val));
 }
 
 static enum register_status
@@ -1006,8 +1113,8 @@ avr_frame_unwind_cache (struct frame_info *this_frame,
 
   /* Add 1 here to adjust for the post-decrement nature of the push
      instruction.*/
-  info->prev_sp = avr_make_saddr (prev_sp + 1);
-  info->base = avr_make_saddr (this_base);
+  info->prev_sp = avr_make_data_addr (prev_sp + 1);
+  info->base = avr_make_data_addr (this_base);
 
   gdbarch = get_frame_arch (this_frame);
 
@@ -1039,7 +1146,7 @@ avr_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
 
   pc = frame_unwind_register_unsigned (next_frame, AVR_PC_REGNUM);
 
-  return avr_make_iaddr (pc);
+  return (pc | AVR_CODE_START);		/* This is a byte address */
 }
 
 static CORE_ADDR
@@ -1049,7 +1156,7 @@ avr_unwind_sp (struct gdbarch *gdbarch, struct frame_info *next_frame)
 
   sp = frame_unwind_register_unsigned (next_frame, AVR_SP_REGNUM);
 
-  return avr_make_saddr (sp);
+  return avr_make_data_addr (sp);
 }
 
 /* Given a GDB frame, determine the address of the calling function's
@@ -1166,7 +1273,7 @@ avr_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
   ULONGEST base;
 
   base = get_frame_register_unsigned (this_frame, AVR_SP_REGNUM);
-  return frame_id_build (avr_make_saddr (base), get_frame_pc (this_frame));
+  return frame_id_build (avr_make_data_addr (base), get_frame_pc (this_frame));
 }
 
 /* When arguments must be pushed onto the stack, they go on in reverse
@@ -1251,7 +1358,7 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   int i;
   gdb_byte buf[3];
   int call_length = gdbarch_tdep (gdbarch)->call_length;
-  CORE_ADDR return_pc = avr_convert_iaddr_to_raw (bp_addr);
+  CORE_ADDR return_pc = avr_strip_flag_bits (bp_addr);
   int regnum = AVR_ARGN_REGNUM;
   struct stack_item *si = NULL;
 
@@ -1326,7 +1433,7 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   /* Finally, update the SP register.  */
   regcache_cooked_write_unsigned (regcache, AVR_SP_REGNUM,
-				  avr_convert_saddr_to_raw (sp));
+				  avr_make_data_ptr (sp));
 
   /* Return SP value for the dummy frame, where the return address hasn't been
      pushed.  */
@@ -1401,7 +1508,10 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
-  set_gdbarch_ptr_bit (gdbarch, 2 * TARGET_CHAR_BIT);
+  /* The larger of 2^22 addressable *words* of program space and 2^17
+     addressable bytes of data space (being 2^16 bytes of RAM followed by 2^16
+     bytes of EEPROM space). */
+  set_gdbarch_ptr_bit (gdbarch, 22);
   /* 2^22 *words* of program space = 2^23 bytes. */
   set_gdbarch_addr_bit (gdbarch, 23);
 
@@ -1546,6 +1656,17 @@ void
 _initialize_avr_tdep (void)
 {
   register_gdbarch_init (bfd_arch_avr, avr_gdbarch_init);
+
+  /* Debug internals for AVR GDB.  */
+  add_setshow_zinteger_cmd ("avr", class_maintenance,
+			    &avr_debug,
+			    _("Set AVR specific debugging."),
+			    _("Show AVR specific debugging."),
+			    _("Non-zero enables AVR specific debugging."),
+			    NULL,
+			    NULL,
+			    &setdebuglist,
+			    &showdebuglist);
 
   /* Add a new command to allow the user to query the avr remote target for
      the values of the io space registers in a saner way than just using
