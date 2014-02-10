@@ -72,24 +72,22 @@
 
 enum
 {
-  AVR_REG_W = 24,
-  AVR_REG_X = 26,
-  AVR_REG_Y = 28,
-  AVR_FP_REGNUM = 28,
-  AVR_REG_Z = 30,
-
+  /* Raw (i.e real) registers */
+  /* First 32 are the general purpose byte registers */
   AVR_SREG_REGNUM = 32,
   AVR_SP_REGNUM = 33,
   AVR_PC_REGNUM = 34,
 
-  AVR_NUM_REGS = 32 + 1 /*SREG*/ + 1 /*SP*/ + 1 /*PC*/,
-  AVR_NUM_REG_BYTES = 32 + 1 /*SREG*/ + 2 /*SP*/ + 4 /*PC*/,
+  AVR_NUM_REGS = AVR_PC_REGNUM + 1,
 
   /* Pseudo registers.  */
-  AVR_PSEUDO_PC_REGNUM = 35,
-  AVR_NUM_PSEUDO_REGS = 1,
+  AVR_X_REGNUM = 35,
+  AVR_Y_REGNUM = 36,
+  AVR_Z_REGNUM = 37,
 
-  AVR_PC_REG_INDEX = 35,	/* index into array of registers */
+  AVR_NUM_PSEUDO_REGS = AVR_Z_REGNUM - AVR_PC_REGNUM,
+
+  AVR_NUM_ALL_REGS = AVR_NUM_REGS + AVR_NUM_PSEUDO_REGS,
 
   AVR_MAX_PROLOGUE_SIZE = 64,	/* bytes */
 
@@ -104,6 +102,8 @@ enum
 
   AVR_RET1_REGNUM = 24,         /* Single byte return value */
   AVR_RETN_REGNUM = 25,         /* Multi byte return value */
+
+  AVR_FP_REGNUM = AVR_Y_REGNUM,	/* Two byte value */
 
   /* FIXME: TRoth/2002-01-??: Can we shift all these memory masks left 8
      bits?  Do these have to match the bfd vma values?  It sure would make
@@ -194,13 +194,6 @@ struct gdbarch_tdep
   /* Number of bytes stored to the stack by call instructions.
      2 bytes for avr1-5, 3 bytes for avr6.  */
   int call_length;
-
-  /* Type for void.  */
-  struct type *void_type;
-  /* Type for a function returning void.  */
-  struct type *func_void_type;
-  /* Type for a pointer to a function.  Used for the type of PC.  */
-  struct type *pc_type;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -216,20 +209,23 @@ int avr_debug;
 static const char *
 avr_register_name (struct gdbarch *gdbarch, int regnum)
 {
-  static const char * const register_names[] = {
+  static const char * const register_names[AVR_NUM_ALL_REGS] = {
+    /* Raw registers */
     "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
     "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
     "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
     "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
-    "SREG", "SP", "PC2",
-    "pc"
+    "sreg", "sp", "pc",
+    /* pseudo registers */
+    "x", "y", "z"
   };
-  if (regnum < 0)
+  if ((regnum < 0) || (regnum >= AVR_NUM_ALL_REGS))
     return NULL;
-  if (regnum >= (sizeof (register_names) / sizeof (*register_names)))
-    return NULL;
-  return register_names[regnum];
-}
+  else
+    return register_names[regnum];
+
+}	/* avr_rgister_name */
+
 
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
@@ -237,14 +233,21 @@ avr_register_name (struct gdbarch *gdbarch, int regnum)
 static struct type *
 avr_register_type (struct gdbarch *gdbarch, int reg_nr)
 {
-  if (reg_nr == AVR_PC_REGNUM)
-    return builtin_type (gdbarch)->builtin_uint32;
-  if (reg_nr == AVR_PSEUDO_PC_REGNUM)
-    return gdbarch_tdep (gdbarch)->pc_type;
-  if (reg_nr == AVR_SP_REGNUM)
-    return builtin_type (gdbarch)->builtin_data_ptr;
-  return builtin_type (gdbarch)->builtin_uint8;
-}
+  switch (reg_nr)
+    {
+    case AVR_PC_REGNUM:
+	return  builtin_type (gdbarch)->builtin_func_ptr;
+
+    case AVR_SP_REGNUM:
+    case AVR_X_REGNUM:
+    case AVR_Y_REGNUM:
+    case AVR_Z_REGNUM:
+      return builtin_type (gdbarch)->builtin_data_ptr;
+
+    default:
+      return builtin_type (gdbarch)->builtin_uint8;
+    }
+}	/* avr_register_type () */
 
 
 /* Strip memory space flag bits.
@@ -464,44 +467,91 @@ avr_write_pc (struct regcache *regcache, CORE_ADDR val)
                                   avr_strip_flag_bits (val));
 }
 
+
+/* Read a pseudo register and store in BUF.
+
+   These are alternative representations of physical registers. In the case of
+   AVR these are W (on some chips), X, Y and Z registers corresponding to the
+   register pairs r24/r25, r26/r27, r28/r29 and r30/r31. In each case the low
+   8 bits are held in the lower numbered register. */
 static enum register_status
 avr_pseudo_register_read (struct gdbarch *gdbarch, struct regcache *regcache,
                           int regnum, gdb_byte *buf)
 {
+  int regnum_lo;
+  ULONGEST val_lo;
+  ULONGEST val_hi;
+  enum register_status status;
+
+  switch (regnum)
+    {
+    case AVR_X_REGNUM:
+      regnum_lo = 26;
+      break;
+
+    case AVR_Y_REGNUM:
+      regnum_lo = 28;
+      break;
+
+    case AVR_Z_REGNUM:
+      regnum_lo = 30;
+      break;
+
+    default:
+      internal_error (__FILE__, __LINE__, _("invalid pseudo regnum read %d"),
+		      regnum);
+    }
+
+  status = regcache_raw_read_unsigned (regcache, regnum_lo, &val_lo);
+  if (status != REG_VALID)
+    return status;
+  status = regcache_raw_read_unsigned (regcache, regnum_lo + 1, &val_hi);
+  if (status != REG_VALID)
+    return status;
+
+  store_unsigned_integer (buf, 4, gdbarch_byte_order (gdbarch),
+			  ((val_hi &0xff) << 8) + (val_lo & 0xff));
+  return status;
+
+}	/* avr_psuedo_register_read () */
+
+
+/* Write a pseudo register from the value in BUF.
+
+   See avr_pseudo_register_read of details of AVR pseudo registers. */
+static void
+avr_pseudo_register_write (struct gdbarch *gdbarch, struct regcache *regcache,
+                           int regnum, const gdb_byte *buf)
+{
+  int regnum_lo;
   ULONGEST val;
   enum register_status status;
 
   switch (regnum)
     {
-    case AVR_PSEUDO_PC_REGNUM:
-      status = regcache_raw_read_unsigned (regcache, AVR_PC_REGNUM, &val);
-      if (status != REG_VALID)
-	return status;
-      val >>= 1;
-      store_unsigned_integer (buf, 4, gdbarch_byte_order (gdbarch), val);
-      return status;
-    default:
-      internal_error (__FILE__, __LINE__, _("invalid regnum"));
-    }
-}
-
-static void
-avr_pseudo_register_write (struct gdbarch *gdbarch, struct regcache *regcache,
-                           int regnum, const gdb_byte *buf)
-{
-  ULONGEST val;
-
-  switch (regnum)
-    {
-    case AVR_PSEUDO_PC_REGNUM:
-      val = extract_unsigned_integer (buf, 4, gdbarch_byte_order (gdbarch));
-      val <<= 1;
-      regcache_raw_write_unsigned (regcache, AVR_PC_REGNUM, val);
+    case AVR_X_REGNUM:
+      regnum_lo = 26;
       break;
+
+    case AVR_Y_REGNUM:
+      regnum_lo = 28;
+      break;
+
+    case AVR_Z_REGNUM:
+      regnum_lo = 30;
+      break;
+
     default:
-      internal_error (__FILE__, __LINE__, _("invalid regnum"));
+      internal_error (__FILE__, __LINE__, _("invalid pseudo regnum write %d"),
+		      regnum);
     }
-}
+  
+  val = extract_unsigned_integer (buf, 4, gdbarch_byte_order (gdbarch));
+  regcache_raw_write_unsigned (regcache, regnum_lo, val & 0xff);
+  regcache_raw_write_unsigned (regcache, regnum_lo + 1, (val >> 8) & 0xff);
+
+}	/* avr_pseudo_register_write () */
+
 
 /* Function: avr_scan_prologue
 
@@ -1196,7 +1246,7 @@ avr_frame_prev_register (struct frame_info *this_frame,
   struct avr_unwind_cache *info
     = avr_frame_unwind_cache (this_frame, this_prologue_cache);
 
-  if (regnum == AVR_PC_REGNUM || regnum == AVR_PSEUDO_PC_REGNUM)
+  if (regnum == AVR_PC_REGNUM)
     {
       if (trad_frame_addr_p (info->saved_regs, AVR_PC_REGNUM))
         {
@@ -1496,14 +1546,6 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   
   tdep->call_length = call_length;
 
-  /* Create a type for PC.  We can't use builtin types here, as they may not
-     be defined.  */
-  tdep->void_type = arch_type (gdbarch, TYPE_CODE_VOID, 1, "void");
-  tdep->func_void_type = make_function_type (tdep->void_type, NULL);
-  tdep->pc_type = arch_type (gdbarch, TYPE_CODE_PTR, 4, NULL);
-  TYPE_TARGET_TYPE (tdep->pc_type) = tdep->func_void_type;
-  TYPE_UNSIGNED (tdep->pc_type) = 1;
-
   set_gdbarch_short_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
@@ -1575,30 +1617,6 @@ avr_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
 
   fprintf_unfiltered (file, "avr_dump_tdep: call_length = %d\n", 
 		      tdep->call_length);
-
-  fprintf_unfiltered (file, "avr_dump_tdep: void type code = %d\n", 
-		      TYPE_CODE (tdep->void_type));
-  fprintf_unfiltered (file, "               void type length = %d\n", 
-		      TYPE_LENGTH (tdep->void_type));
-  fprintf_unfiltered (file, "               void type name = %s\n", 
-		      TYPE_NAME (tdep->void_type)
-		      ? TYPE_NAME (tdep->void_type) : "(null)");
-
-  fprintf_unfiltered (file, "avr_dump_tdep: function void type code = %d\n", 
-		      TYPE_CODE (tdep->func_void_type));
-  fprintf_unfiltered (file, "               function void type length = %d\n", 
-		      TYPE_LENGTH (tdep->func_void_type));
-  fprintf_unfiltered (file, "               function void type name = %s\n", 
-		      TYPE_NAME (tdep->func_void_type)
-		      ? TYPE_NAME (tdep->func_void_type) : "(null)");
-
-  fprintf_unfiltered (file, "avr_dump_tdep: program counter type code = %d\n", 
-		      TYPE_CODE (tdep->pc_type));
-  fprintf_unfiltered (file, "               program counter type length = %d\n", 
-		      TYPE_LENGTH (tdep->pc_type));
-  fprintf_unfiltered (file, "               program counter type name = %s\n", 
-		      TYPE_NAME (tdep->pc_type)
-		      ? TYPE_NAME (tdep->pc_type) : "(null)");
   
 }	/* avr_dump_tdep () */
 
