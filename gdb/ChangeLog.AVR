@@ -11,11 +11,6 @@
 	(avr_gdbarch_init): Don't set up custom types in tdep.
 	(avr_dump_tdep): Remove types no longer in tdep.
 
-2014-02-07  Jeremy Bennett <jeremy.bennett@embecosm.com>
-
-	* gdbtypes.c (make_pointer_type): Round up pointer bits when
-	converting to bytes.
-
 2014-01-27  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	* avr-tdep.c (avr_dump_tdep): Created.
