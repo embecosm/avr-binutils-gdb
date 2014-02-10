@@ -1,6 +1,6 @@
 /* Serial interface for local (hardwired) serial ports on Windows systems
 
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -788,7 +788,7 @@ struct pipe_state
 static struct pipe_state *
 make_pipe_state (void)
 {
-  struct pipe_state *ps = XMALLOC (struct pipe_state);
+  struct pipe_state *ps = XNEW (struct pipe_state);
 
   memset (ps, 0, sizeof (*ps));
   ps->wait.read_event = INVALID_HANDLE_VALUE;

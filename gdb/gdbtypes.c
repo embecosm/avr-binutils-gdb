@@ -1,6 +1,6 @@
 /* Support routines for manipulating internal types for GDB.
 
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
@@ -201,8 +201,8 @@ alloc_type_arch (struct gdbarch *gdbarch)
 
   /* Alloc the structure and start off with all fields zeroed.  */
 
-  type = XZALLOC (struct type);
-  TYPE_MAIN_TYPE (type) = XZALLOC (struct main_type);
+  type = XCNEW (struct type);
+  TYPE_MAIN_TYPE (type) = XCNEW (struct main_type);
 
   TYPE_OBJFILE_OWNED (type) = 0;
   TYPE_OWNER (type).gdbarch = gdbarch;
@@ -268,7 +268,7 @@ alloc_type_instance (struct type *oldtype)
   /* Allocate the structure.  */
 
   if (! TYPE_OBJFILE_OWNED (oldtype))
-    type = XZALLOC (struct type);
+    type = XCNEW (struct type);
   else
     type = OBSTACK_ZALLOC (&TYPE_OBJFILE (oldtype)->objfile_obstack,
 			   struct type);
@@ -1447,6 +1447,40 @@ lookup_struct_elt_type (struct type *type, const char *name, int noerr)
   typename = type_to_string (type);
   make_cleanup (xfree, typename);
   error (_("Type %s has no component named %s."), typename, name);
+}
+
+/* Store in *MAX the largest number representable by unsigned integer type
+   TYPE.  */
+
+void
+get_unsigned_type_max (struct type *type, ULONGEST *max)
+{
+  unsigned int n;
+
+  CHECK_TYPEDEF (type);
+  gdb_assert (TYPE_CODE (type) == TYPE_CODE_INT && TYPE_UNSIGNED (type));
+  gdb_assert (TYPE_LENGTH (type) <= sizeof (ULONGEST));
+
+  /* Written this way to avoid overflow.  */
+  n = TYPE_LENGTH (type) * TARGET_CHAR_BIT;
+  *max = ((((ULONGEST) 1 << (n - 1)) - 1) << 1) | 1;
+}
+
+/* Store in *MIN, *MAX the smallest and largest numbers representable by
+   signed integer type TYPE.  */
+
+void
+get_signed_type_minmax (struct type *type, LONGEST *min, LONGEST *max)
+{
+  unsigned int n;
+
+  CHECK_TYPEDEF (type);
+  gdb_assert (TYPE_CODE (type) == TYPE_CODE_INT && !TYPE_UNSIGNED (type));
+  gdb_assert (TYPE_LENGTH (type) <= sizeof (LONGEST));
+
+  n = TYPE_LENGTH (type) * TARGET_CHAR_BIT;
+  *min = -((ULONGEST) 1 << (n - 1));
+  *max = ((ULONGEST) 1 << (n - 1)) - 1;
 }
 
 /* Lookup the vptr basetype/fieldno values for TYPE.
@@ -3703,7 +3737,7 @@ copy_type_recursive (struct objfile *objfile,
       int i, nfields;
 
       nfields = TYPE_NFIELDS (type);
-      TYPE_FIELDS (new_type) = XCALLOC (nfields, struct field);
+      TYPE_FIELDS (new_type) = XCNEWVEC (struct field, nfields);
       for (i = 0; i < nfields; i++)
 	{
 	  TYPE_FIELD_ARTIFICIAL (new_type, i) = 

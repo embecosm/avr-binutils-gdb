@@ -1,7 +1,7 @@
 /* GNU/Linux/AArch64 specific low level interface, for the remote server for
    GDB.
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GDB.
@@ -323,7 +323,7 @@ aarch64_get_pc (struct regcache *regcache)
 
   collect_register_by_name (regcache, "pc", &pc);
   if (debug_threads)
-    fprintf (stderr, "stop pc is %08lx\n", pc);
+    debug_printf ("stop pc is %08lx\n", pc);
   return pc;
 }
 

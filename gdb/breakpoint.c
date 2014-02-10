@@ -1,6 +1,6 @@
 /* Everything about breakpoints, for GDB.
 
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -66,7 +66,6 @@
 #include "continuations.h"
 #include "stack.h"
 #include "skip.h"
-#include "gdb_regex.h"
 #include "ax-gdb.h"
 #include "dummy-frame.h"
 
@@ -80,7 +79,7 @@
 #undef savestring
 
 #include "mi/mi-common.h"
-#include "python/python.h"
+#include "extension.h"
 
 /* Enums for exception-handling support.  */
 enum exception_event_kind
@@ -1048,14 +1047,18 @@ condition_command (char *arg, int from_tty)
   ALL_BREAKPOINTS (b)
     if (b->number == bnum)
       {
-	/* Check if this breakpoint has a Python object assigned to
-	   it, and if it has a definition of the "stop"
-	   method.  This method and conditions entered into GDB from
-	   the CLI are mutually exclusive.  */
-	if (b->py_bp_object
-	    && gdbpy_breakpoint_has_py_cond (b->py_bp_object))
-	  error (_("Cannot set a condition where a Python 'stop' "
-		   "method has been defined in the breakpoint."));
+	/* Check if this breakpoint has a "stop" method implemented in an
+	   extension language.  This method and conditions entered into GDB
+	   from the CLI are mutually exclusive.  */
+	const struct extension_language_defn *extlang
+	  = get_breakpoint_cond_ext_lang (b, EXT_LANG_NONE);
+
+	if (extlang != NULL)
+	  {
+	    error (_("Only one stop condition allowed.  There is currently"
+		     " a %s stop condition defined for this breakpoint."),
+		   ext_lang_capitalized_name (extlang));
+	  }
 	set_breakpoint_condition (b, p, from_tty);
 
 	if (is_breakpoint (b))
@@ -2395,9 +2398,9 @@ insert_bp_location (struct bp_location *bl,
 		    int *hw_breakpoint_error,
 		    int *hw_bp_error_explained_already)
 {
-  int val = 0;
-  const char *hw_bp_err_string = NULL;
-  struct gdb_exception e;
+  enum errors bp_err = GDB_NO_ERROR;
+  const char *bp_err_message = NULL;
+  volatile struct gdb_exception e;
 
   if (!should_be_inserted (bl) || (bl->inserted && !bl->needs_update))
     return 0;
@@ -2496,12 +2499,16 @@ insert_bp_location (struct bp_location *bl,
 	  /* No overlay handling: just set the breakpoint.  */
 	  TRY_CATCH (e, RETURN_MASK_ALL)
 	    {
+	      int val;
+
 	      val = bl->owner->ops->insert_location (bl);
+	      if (val)
+		bp_err = GENERIC_ERROR;
 	    }
 	  if (e.reason < 0)
 	    {
-	      val = 1;
-	      hw_bp_err_string = e.message;
+	      bp_err = e.error;
+	      bp_err_message = e.message;
 	    }
 	}
       else
@@ -2523,9 +2530,24 @@ insert_bp_location (struct bp_location *bl,
 		  /* Set a software (trap) breakpoint at the LMA.  */
 		  bl->overlay_target_info = bl->target_info;
 		  bl->overlay_target_info.placed_address = addr;
-		  val = target_insert_breakpoint (bl->gdbarch,
-						  &bl->overlay_target_info);
-		  if (val != 0)
+
+		  /* No overlay handling: just set the breakpoint.  */
+		  TRY_CATCH (e, RETURN_MASK_ALL)
+		    {
+		      int val;
+
+		      val = target_insert_breakpoint (bl->gdbarch,
+						      &bl->overlay_target_info);
+		      if (val)
+			bp_err = GENERIC_ERROR;
+		    }
+		  if (e.reason < 0)
+		    {
+		      bp_err = e.error;
+		      bp_err_message = e.message;
+		    }
+
+		  if (bp_err != GDB_NO_ERROR)
 		    fprintf_unfiltered (tmp_error_stream,
 					"Overlay breakpoint %d "
 					"failed: in ROM?\n",
@@ -2538,12 +2560,16 @@ insert_bp_location (struct bp_location *bl,
 	      /* Yes.  This overlay section is mapped into memory.  */
 	      TRY_CATCH (e, RETURN_MASK_ALL)
 	        {
+		  int val;
+
 	          val = bl->owner->ops->insert_location (bl);
+		  if (val)
+		    bp_err = GENERIC_ERROR;
 	        }
 	      if (e.reason < 0)
 	        {
-	          val = 1;
-	          hw_bp_err_string = e.message;
+		  bp_err = e.error;
+		  bp_err_message = e.message;
 	        }
 	    }
 	  else
@@ -2554,13 +2580,23 @@ insert_bp_location (struct bp_location *bl,
 	    }
 	}
 
-      if (val)
+      if (bp_err != GDB_NO_ERROR)
 	{
 	  /* Can't set the breakpoint.  */
-	  if (solib_name_from_address (bl->pspace, bl->address))
+
+	  /* In some cases, we might not be able to insert a
+	     breakpoint in a shared library that has already been
+	     removed, but we have not yet processed the shlib unload
+	     event.  Unfortunately, some targets that implement
+	     breakpoint insertion themselves (necessary if this is a
+	     HW breakpoint, but SW breakpoints likewise) can't tell
+	     why the breakpoint insertion failed (e.g., the remote
+	     target doesn't define error codes), so we must treat
+	     generic errors as memory errors.  */
+	  if ((bp_err == GENERIC_ERROR || bp_err == MEMORY_ERROR)
+	      && solib_name_from_address (bl->pspace, bl->address))
 	    {
 	      /* See also: disable_breakpoints_in_shlibs.  */
-	      val = 0;
 	      bl->shlib_disabled = 1;
 	      observer_notify_breakpoint_modified (bl->owner);
 	      if (!*disabled_breaks)
@@ -2575,39 +2611,51 @@ insert_bp_location (struct bp_location *bl,
 	      *disabled_breaks = 1;
 	      fprintf_unfiltered (tmp_error_stream,
 				  "breakpoint #%d\n", bl->owner->number);
+	      return 0;
 	    }
 	  else
 	    {
 	      if (bl->loc_type == bp_loc_hardware_breakpoint)
 		{
-                  *hw_breakpoint_error = 1;
-                  *hw_bp_error_explained_already = hw_bp_err_string != NULL;
+		  *hw_breakpoint_error = 1;
+		  *hw_bp_error_explained_already = bp_err_message != NULL;
                   fprintf_unfiltered (tmp_error_stream,
                                       "Cannot insert hardware breakpoint %d%s",
-                                      bl->owner->number, hw_bp_err_string ? ":" : ".\n");
-                  if (hw_bp_err_string)
-                    fprintf_unfiltered (tmp_error_stream, "%s.\n", hw_bp_err_string);
+                                      bl->owner->number, bp_err_message ? ":" : ".\n");
+                  if (bp_err_message != NULL)
+                    fprintf_unfiltered (tmp_error_stream, "%s.\n", bp_err_message);
 		}
 	      else
 		{
-		  char *message = memory_error_message (TARGET_XFER_E_IO,
-							bl->gdbarch, bl->address);
-		  struct cleanup *old_chain = make_cleanup (xfree, message);
+		  if (bp_err_message == NULL)
+		    {
+		      char *message
+			= memory_error_message (TARGET_XFER_E_IO,
+						bl->gdbarch, bl->address);
+		      struct cleanup *old_chain = make_cleanup (xfree, message);
 
-		  fprintf_unfiltered (tmp_error_stream, 
-				      "Cannot insert breakpoint %d.\n"
-				      "%s\n",
-				      bl->owner->number, message);
-
-		  do_cleanups (old_chain);
+		      fprintf_unfiltered (tmp_error_stream,
+					  "Cannot insert breakpoint %d.\n"
+					  "%s\n",
+					  bl->owner->number, message);
+		      do_cleanups (old_chain);
+		    }
+		  else
+		    {
+		      fprintf_unfiltered (tmp_error_stream,
+					  "Cannot insert breakpoint %d: %s\n",
+					  bl->owner->number,
+					  bp_err_message);
+		    }
 		}
+	      return 1;
 
 	    }
 	}
       else
 	bl->inserted = 1;
 
-      return val;
+      return 0;
     }
 
   else if (bl->loc_type == bp_loc_hardware_watchpoint
@@ -2615,6 +2663,8 @@ insert_bp_location (struct bp_location *bl,
 	      watchpoints.  It's not clear that it's necessary...  */
 	   && bl->owner->disposition != disp_del_at_next_stop)
     {
+      int val;
+
       gdb_assert (bl->owner->ops != NULL
 		  && bl->owner->ops->insert_location != NULL);
 
@@ -2658,6 +2708,8 @@ insert_bp_location (struct bp_location *bl,
 
   else if (bl->owner->type == bp_catchpoint)
     {
+      int val;
+
       gdb_assert (bl->owner->ops != NULL
 		  && bl->owner->ops->insert_location != NULL);
 
@@ -5140,9 +5192,9 @@ bpstat_check_breakpoint_conditions (bpstat bs, ptid_t ptid)
       return;
     }
 
-  /* Evaluate Python breakpoints that have a "stop" method implemented.  */
-  if (b->py_bp_object)
-    bs->stop = gdbpy_should_stop (b->py_bp_object);
+  /* Evaluate extension language breakpoints that have a "stop" method
+     implemented.  */
+  bs->stop = breakpoint_ext_lang_cond_says_stop (b);
 
   if (is_watchpoint (b))
     {
@@ -8190,7 +8242,7 @@ get_catch_syscall_inferior_data (struct inferior *inf)
   inf_data = inferior_data (inf, catch_syscall_inferior_data);
   if (inf_data == NULL)
     {
-      inf_data = XZALLOC (struct catch_syscall_inferior_data);
+      inf_data = XCNEW (struct catch_syscall_inferior_data);
       set_inferior_data (inf, catch_syscall_inferior_data, inf_data);
     }
 
@@ -14946,7 +14998,7 @@ deprecated_insert_raw_breakpoint (struct gdbarch *gdbarch,
 {
   struct bp_target_info *bp_tgt;
 
-  bp_tgt = XZALLOC (struct bp_target_info);
+  bp_tgt = XCNEW (struct bp_target_info);
 
   bp_tgt->placed_address_space = aspace;
   bp_tgt->placed_address = pc;

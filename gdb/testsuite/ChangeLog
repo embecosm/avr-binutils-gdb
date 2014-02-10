@@ -1,3 +1,358 @@
+2014-02-10  Doug Evans  <xdje42@gmail.com>
+
+	* configure.ac (AC_OUTPUT): Add gdb.guile.
+	* configure: Regenerate.
+	* lib/gdb-guile.exp: New file.
+	* lib/gdb.exp (get_target_charset): New function.
+	* gdb.base/help.exp: Update expected output from "apropos apropos".
+	* gdb.guile/Makefile.in: New file.
+	* gdb.guile/guile.exp: New file.
+	* gdb.guile/scm-arch.c: New file.
+	* gdb.guile/scm-arch.exp: New file.
+	* gdb.guile/scm-block.c: New file.
+	* gdb.guile/scm-block.exp: New file.
+	* gdb.guile/scm-breakpoint.c: New file.
+	* gdb.guile/scm-breakpoint.exp: New file.
+	* gdb.guile/scm-disasm.c: New file.
+	* gdb.guile/scm-disasm.exp: New file.
+	* gdb.guile/scm-equal.c: New file.
+	* gdb.guile/scm-equal.exp: New file.
+	* gdb.guile/scm-error.exp: New file.
+	* gdb.guile/scm-error.scm: New file.
+	* gdb.guile/scm-frame-args.c: New file.
+	* gdb.guile/scm-frame-args.exp: New file.
+	* gdb.guile/scm-frame-args.scm: New file.
+	* gdb.guile/scm-frame-inline.c: New file.
+	* gdb.guile/scm-frame-inline.exp: New file.
+	* gdb.guile/scm-frame.c: New file.
+	* gdb.guile/scm-frame.exp: New file.
+	* gdb.guile/scm-generics.exp: New file.
+	* gdb.guile/scm-gsmob.exp: New file.
+	* gdb.guile/scm-iterator.c: New file.
+	* gdb.guile/scm-iterator.exp: New file.
+	* gdb.guile/scm-math.c: New file.
+	* gdb.guile/scm-math.exp: New file.
+	* gdb.guile/scm-objfile-script-gdb.in: New file.
+	* gdb.guile/scm-objfile-script.c: New file.
+	* gdb.guile/scm-objfile-script.exp: New file.
+	* gdb.guile/scm-objfile.c: New file.
+	* gdb.guile/scm-objfile.exp: New file.
+	* gdb.guile/scm-ports.exp: New file.
+	* gdb.guile/scm-pretty-print.c: New file.
+	* gdb.guile/scm-pretty-print.exp: New file.
+	* gdb.guile/scm-pretty-print.scm: New file.
+	* gdb.guile/scm-section-script.c: New file.
+	* gdb.guile/scm-section-script.exp: New file.
+	* gdb.guile/scm-section-script.scm: New file.
+	* gdb.guile/scm-symbol.c: New file.
+	* gdb.guile/scm-symbol.exp: New file.
+	* gdb.guile/scm-symtab-2.c: New file.
+	* gdb.guile/scm-symtab.c: New file.
+	* gdb.guile/scm-symtab.exp: New file.
+	* gdb.guile/scm-type.c: New file.
+	* gdb.guile/scm-type.exp: New file.
+	* gdb.guile/scm-value-cc.cc: New file.
+	* gdb.guile/scm-value-cc.exp: New file.
+	* gdb.guile/scm-value.c: New file.
+	* gdb.guile/scm-value.exp: New file.
+	* gdb.guile/source2.scm: New file.
+	* gdb.guile/types-module.cc: New file.
+	* gdb.guile/types-module.exp: New file.
+
+2014-02-10  Yao Qi  <yao@codesourcery.com>
+
+	PR testsuite/16543
+	* configure.ac: Append gdb.gdb/Makefile in AC_OUTPUT.
+	* configure: Regenerated.
+	* Makefile.in: New file.
+
+2014-02-08  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* gdb.python/py-framefilter.exp: Fix typo.
+
+2014-02-08  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.mi/mi-breakpoint-changed.exp (test_insert_delete_modify): Test
+	that no =breakpoint-modified is emitted when breakpoints are
+	modified through MI commands.
+
+2014-02-07  Pedro Alves  <pedro@codesourcery.com>
+	    Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/step-after-sr-lock.c: New file.
+	* gdb.threads/step-after-sr-lock.exp: New file.
+
+2014-02-07  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/stepi-random-signal.exp: Set SIGCHLD to print.
+
+2014-02-06  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	Fix i386-sse-stack-align.exp regression since GDB_PARALLEL.
+	* gdb.arch/i386-sse-stack-align.exp: Use standard_output_file.
+
+2014-02-06  Doug Evans  <xdje42@gmail.com>
+
+	* gdb.python/py-breakpoint.exp (test_bkpt_eval_funcs): Update expected
+	output.
+
+	* gdb.gdb/python-interrupts.exp: New file.
+
+2014-02-05  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.trace/report.exp (use_collected_data): Test the output
+	of "info threads" and "info inferiors".
+
+2014-02-05  Yao Qi  <yao@codesourcery.com>
+
+	Revert this patch:
+
+	2013-05-24  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.trace/tfile.exp: Test inferior and thread.
+
+2014-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gdb.base/sigbpt.exp: Do not use "*" when setting breakpoint
+	on a function.
+	* gdb.base/step-bt.c: Call hello via function pointer to make
+	sure its first instruction is executed on powerpc64le-linux.
+
+2014-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gdb.arch/powerpc-d128-regs.exp: Enable on powerpc64*-*.
+
+2014-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gdb.arch/vsx-regs.exp: Check target endianness.  Provide variants
+	of the test patterns for use on little-endian systems.
+
+2014-02-04  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gdb.arch/altivec-regs.exp: Use gdb_test_multiple for endian test.
+	(decimal_vector): Fix for little-endian.
+
+2014-01-29  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* gdb.arch/sparc-sysstep.exp: New file.
+	* gdb.arch/sparc-sysstep.c: Likewise.
+
+	* gdb.arch/Makefile.in (EXECUTABLES): Add sparc-sysstep.
+
+2014-01-28  Edjunior Barbosa Machado  <emachado@linux.vnet.ibm.com>
+
+	* gdb.base/info-shared.exp: Expect leading `.' on ppc64's symbols.
+
+2014-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* gdb.ada/array_char_idx: New testcase.
+
+2014-01-23  Tom Tromey  <tromey@redhat.com>
+
+	PR python/16487:
+	* gdb.python/py-framefilter.exp: Add test using "Error" filter.
+	* gdb.python/py-framefilter.py (ErrorInName, ErrorFilter): New
+	classes.
+
+2014-01-23  Tom Tromey  <tromey@redhat.com>
+
+	PR python/16491:
+	* gdb.python/py-framefilter.py (Reverse_Function.function): Read a
+	string from an inferior frame.
+	* gdb.python/py-framefilter-mi.exp: Update.
+
+2014-01-22  Doug Evans  <dje@google.com>
+
+	* gdb.server/server-mon.exp: Add tests for "set debug-format".
+
+2014-01-22  Andreas Arnez  <arnez@vnet.linux.ibm.com>
+
+	* gdb.base/catch-syscall.exp: Activate test on s390*-linux.
+
+2014-01-22  Andreas Arnez  <arnez@vnet.linux.ibm.com>
+
+	* gdb.trace/entry-values.exp: Remove excess space character from
+	regex patterns.  Handle s390 call instruction.
+
+2014-01-22  Andreas Arnez  <arnez@vnet.linux.ibm.com>
+
+	* gdb.dwarf2/dw2-dir-file-name.c (FUNC): Insert alignment and
+	define "*_start" label.  Make "name" static.
+	* gdb.dwarf2/dw2-dir-file-name.exp: Replace references to
+	${name} by references to ${name}_start.
+
+2014-01-22  Andreas Arnez  <arnez@vnet.linux.ibm.com>
+
+	* gdb.base/info-macros.exp: Remove "debug" from the compile
+	options.
+
+2014-01-17  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* gdb.dlang/demangle.exp: New file.
+
+2014-01-17  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* gdb.dlang/primitive-types.exp: New file.
+
+2014-01-17  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	* configure.ac: Create gdb.dlang/Makefile.
+	* configure: Regenerate.
+	* Makefile.in (ALL_SUBDIRS): Add gdb.dlang.
+	* gdb.dlang/Makefile.in: New file.
+	* lib/d-support.exp: New file.
+	* lib/gdb.exp (skip_d_tests): New proc.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/delta.exp: Check reverse stepi.
+	* gdb.btrace/tailcall.exp: Update.  Add stepping tests.
+	* gdb.btrace/finish.exp: New.
+	* gdb.btrace/next.exp: New.
+	* gdb.btrace/nexti.exp: New.
+	* gdb.btrace/record_goto.c: Add comments.
+	* gdb.btrace/step.exp: New.
+	* gdb.btrace/stepi.exp: New.
+	* gdb.btrace/multi-thread-step.c: New.
+	* gdb.btrace/multi-thread-step.exp: New.
+	* gdb.btrace/rn-dl-bind.c: New.
+	* gdb.btrace/rn-dl-bind.exp: New.
+	* gdb.btrace/data.c: New.
+	* gdb.btrace/data.exp: New.
+	* gdb.btrace/Makefile.in (EXECUTABLES): Add new.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/Makefile.in (EXECUTABLES): Add delta.
+	* gdb.btrace/exception.exp: Update.
+	* gdb.btrace/instruction_history.exp: Update.
+	* gdb.btrace/record_goto.exp: Update.
+	* gdb.btrace/tailcall.exp: Update.
+	* gdb.btrace/unknown_functions.exp: Update.
+	* gdb.btrace/delta.exp: New.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/record_goto.exp: Add backtrace test.
+	* gdb.btrace/tailcall.exp: Add backtrace test.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/Makefile.in (EXECUTABLES): Add record_goto.
+	* gdb.btrace/record_goto.c: New.
+	* gdb.btrace/record_goto.exp: New.
+	* gdb.btrace/x86-record_goto.S: New.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/function_call_history.exp: Update tests.
+	* gdb.btrace/instruction_history.exp: Update tests.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/function_call_history.exp: Fix expected field
+	order for "record function-call-history".
+	Add new tests for "record function-call-history /c".
+	* gdb.btrace/exception.cc: New.
+	* gdb.btrace/exception.exp: New.
+	* gdb.btrace/tailcall.exp: New.
+	* gdb.btrace/x86-tailcall.S: New.
+	* gdb.btrace/x86-tailcall.c: New.
+	* gdb.btrace/unknown_functions.c: New.
+	* gdb.btrace/unknown_functions.exp: New.
+	* gdb.btrace/Makefile.in (EXECUTABLES): Add new.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/instruction_history.exp: Update.
+	* gdb.btrace/function_call_history.exp: Update.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/function_call_history.exp: Fix expected function
+	trace.
+	* gdb.btrace/instruction_history.exp: Initialize traced.
+	Remove traced_functions.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/function_call_history.exp: Update
+	* gdb.btrace/instruction_history.exp: Update.
+
+2014-01-16  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/enable.exp: Update expected text.
+
+2014-01-16  Omair Javaid  <Omair.Javaid@linaro.org>
+
+	* gdb.dwarf2/dw2-dos-drive.S: Increase text section size to 4
+	bytes.
+
+2014-01-15  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* gdb.base/float.exp: Handle "aarch64*-*-*" targets.
+
+2014-01-15  Omair Javaid  <omair.javaid@linaro.org>
+
+	* lib/gdb.exp (supports_process_record): Return true for
+	arm*-linux*.  (supports_reverse): Likewise.
+
+2014-01-13  Siva Chandra Reddy  <sivachandra@google.com>
+
+	PR python/15464
+	PR python/16113
+	* gdb.python/py-type.c: Enhance test case.
+	* gdb.python/py-value-cc.cc: Likewise
+	* gdb.python/py-type.exp: Add new tests.
+	* gdb.python/py-value-cc.exp: Likewise
+
+2014-01-10  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+	    Pedro Alves <palves@redhat.com>
+
+	* gdb.dwarf2/dw2-dir-file-name.c (FUNC): Remove "*_start" symbol.
+	Make "name" extern.
+	* gdb.dwarf2/dw2-dir-file-name.exp (out_cu, out_line): Replace
+	references to ${name}_start by references to ${name}.
+
+2014-01-10  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/pp-rec-component.exp: Remove path from "source" test.
+
+2014-01-10  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.python/py-pp-integral.exp: Remove path from "source" test.
+
+2014-01-09  Maciej W. Rozycki  <macro@codesourcery.com>
+	    Pedro Alves  <palves@redhat.com>
+
+	* gdb.mi/mi-info-os.exp: Connect to the target with
+        mi_gdb_target_load.
+
+2014-01-08  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/reconnect-signal.c: New file.
+	* gdb.threads/reconnect-signal.exp: New file.
+
+2014-01-07  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* gdb.base/source-dir.exp: New file.
+
+2014-01-07  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/mi_interface: New testcase.
+
+2014-01-07  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/pp-rec-component.exp, gdb.ada/pp-rec-component.py,
+	gdb.ada/pp-rec-component/foo.adb, gdb.ada/pp-rec-component/pck.adb,
+	gdb.ada/pp-rec-component/pck.ads: New files.
+
+2014-01-07  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.python/py-pp-integral.c: New file.
+	* gdb.python/py-pp-integral.py: New file.
+	* gdb.python/py-pp-integral.exp: New file.
+
 2013-12-19  Sergio Durigan Junior  <sergiodj@redhat.com>
 
 	PR breakpoints/16297
@@ -33658,6 +34013,6 @@ Sun Feb 21 10:55:55 1993  Mike Werner  (mtw@poseidon.cygnus.com)
 ;; version-control: never
 ;; End:
 
-    Copyright 1993-2013 Free Software Foundation, Inc.
+    Copyright 1993-2014 Free Software Foundation, Inc.
   Copying and distribution of this file, with or without modification,
   are permitted provided the copyright notice and this notice are preserved.

@@ -2808,6 +2808,7 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
   	    case E_MIPS_MACH_LS3A: strcat (buf, ", loongson-3a"); break;
 	    case E_MIPS_MACH_OCTEON: strcat (buf, ", octeon"); break;
 	    case E_MIPS_MACH_OCTEON2: strcat (buf, ", octeon2"); break;
+	    case E_MIPS_MACH_OCTEON3: strcat (buf, ", octeon3"); break;
 	    case E_MIPS_MACH_XLR:  strcat (buf, ", xlr"); break;
 	    case 0:
 	    /* We simply ignore the field in this case to avoid confusion:
@@ -13574,6 +13575,17 @@ print_gnu_note (Elf_Internal_Note *pnote)
 
 	printf (_("    OS: %s, ABI: %ld.%ld.%ld\n"), osname,
 		major, minor, subminor);
+      }
+      break;
+
+    case NT_GNU_GOLD_VERSION:
+      {
+	unsigned long i;
+
+	printf (_("    Version: "));
+	for (i = 0; i < pnote->descsz && pnote->descdata[i] != '\0'; ++i)
+	  printf ("%c", pnote->descdata[i]);
+	printf ("\n");
       }
       break;
     }

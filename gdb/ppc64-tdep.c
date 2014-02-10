@@ -1,6 +1,6 @@
 /* Common target-dependent code for ppc64 GDB, the GNU debugger.
 
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -289,7 +289,7 @@ static struct ppc_insn_pattern ppc64_standard_linkage6[] =
 static struct ppc_insn_pattern ppc64_standard_linkage7[] =
   {
     /* std r2, 24(r1) <optional> */
-    { -1, insn_ds (62, 2, 1, 40, 0), 1 },
+    { -1, insn_ds (62, 2, 1, 24, 0), 1 },
 
     /* ld r12, <any>(r2) */
     { insn_ds (-1, -1, -1, 0, -1), insn_ds (58, 12, 2, 0, 0), 0 },

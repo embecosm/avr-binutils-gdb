@@ -3,7 +3,7 @@
 
 /* Dynamic architecture support for GDB, the GNU debugger.
 
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -128,8 +128,8 @@ struct gdbarch
 
   /* basic architectural information.  */
   const struct bfd_arch_info * bfd_arch_info;
-  int byte_order;
-  int byte_order_for_code;
+  enum bfd_endian byte_order;
+  enum bfd_endian byte_order_for_code;
   enum gdb_osabi osabi;
   const struct target_desc * target_desc;
 
@@ -229,6 +229,7 @@ struct gdbarch
   gdbarch_return_in_first_hidden_param_p_ftype *return_in_first_hidden_param_p;
   gdbarch_skip_prologue_ftype *skip_prologue;
   gdbarch_skip_main_prologue_ftype *skip_main_prologue;
+  gdbarch_skip_entrypoint_ftype *skip_entrypoint;
   gdbarch_inner_than_ftype *inner_than;
   gdbarch_breakpoint_from_pc_ftype *breakpoint_from_pc;
   gdbarch_remote_breakpoint_from_pc_ftype *remote_breakpoint_from_pc;
@@ -317,6 +318,9 @@ struct gdbarch
   gdbarch_core_info_proc_ftype *core_info_proc;
   gdbarch_iterate_over_objfiles_in_search_order_ftype *iterate_over_objfiles_in_search_order;
   struct ravenscar_arch_ops * ravenscar_ops;
+  gdbarch_insn_is_call_ftype *insn_is_call;
+  gdbarch_insn_is_ret_ftype *insn_is_ret;
+  gdbarch_insn_is_jump_ftype *insn_is_jump;
 };
 
 
@@ -402,6 +406,7 @@ struct gdbarch startup_gdbarch =
   default_return_in_first_hidden_param_p,  /* return_in_first_hidden_param_p */
   0,  /* skip_prologue */
   0,  /* skip_main_prologue */
+  0,  /* skip_entrypoint */
   0,  /* inner_than */
   0,  /* breakpoint_from_pc */
   default_remote_breakpoint_from_pc,  /* remote_breakpoint_from_pc */
@@ -490,6 +495,9 @@ struct gdbarch startup_gdbarch =
   0,  /* core_info_proc */
   default_iterate_over_objfiles_in_search_order,  /* iterate_over_objfiles_in_search_order */
   NULL,  /* ravenscar_ops */
+  default_insn_is_call,  /* insn_is_call */
+  default_insn_is_ret,  /* insn_is_ret */
+  default_insn_is_jump,  /* insn_is_jump */
   /* startup_gdbarch() */
 };
 
@@ -505,7 +513,7 @@ gdbarch_alloc (const struct gdbarch_info *info,
 
   /* Create an obstack for allocating all the per-architecture memory,
      then use that to allocate the architecture vector.  */
-  struct obstack *obstack = XMALLOC (struct obstack);
+  struct obstack *obstack = XNEW (struct obstack);
   obstack_init (obstack);
   gdbarch = obstack_alloc (obstack, sizeof (*gdbarch));
   memset (gdbarch, 0, sizeof (*gdbarch));
@@ -581,6 +589,9 @@ gdbarch_alloc (const struct gdbarch_info *info,
   gdbarch->gen_return_address = default_gen_return_address;
   gdbarch->iterate_over_objfiles_in_search_order = default_iterate_over_objfiles_in_search_order;
   gdbarch->ravenscar_ops = NULL;
+  gdbarch->insn_is_call = default_insn_is_call;
+  gdbarch->insn_is_ret = default_insn_is_ret;
+  gdbarch->insn_is_jump = default_insn_is_jump;
   /* gdbarch_alloc() */
 
   return gdbarch;
@@ -705,6 +716,7 @@ verify_gdbarch (struct gdbarch *gdbarch)
   if (gdbarch->skip_prologue == 0)
     fprintf_unfiltered (log, "\n\tskip_prologue");
   /* Skip verify of skip_main_prologue, has predicate.  */
+  /* Skip verify of skip_entrypoint, has predicate.  */
   if (gdbarch->inner_than == 0)
     fprintf_unfiltered (log, "\n\tinner_than");
   if (gdbarch->breakpoint_from_pc == 0)
@@ -795,6 +807,9 @@ verify_gdbarch (struct gdbarch *gdbarch)
   /* Skip verify of core_info_proc, has predicate.  */
   /* Skip verify of iterate_over_objfiles_in_search_order, invalid_p == 0 */
   /* Skip verify of ravenscar_ops, invalid_p == 0 */
+  /* Skip verify of insn_is_call, invalid_p == 0 */
+  /* Skip verify of insn_is_ret, invalid_p == 0 */
+  /* Skip verify of insn_is_jump, invalid_p == 0 */
   buf = ui_file_xstrdup (log, &length);
   make_cleanup (xfree, buf);
   if (length > 0)
@@ -1128,6 +1143,15 @@ gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file)
                       "gdbarch_dump: inner_than = <%s>\n",
                       host_address_to_string (gdbarch->inner_than));
   fprintf_unfiltered (file,
+                      "gdbarch_dump: insn_is_call = <%s>\n",
+                      host_address_to_string (gdbarch->insn_is_call));
+  fprintf_unfiltered (file,
+                      "gdbarch_dump: insn_is_jump = <%s>\n",
+                      host_address_to_string (gdbarch->insn_is_jump));
+  fprintf_unfiltered (file,
+                      "gdbarch_dump: insn_is_ret = <%s>\n",
+                      host_address_to_string (gdbarch->insn_is_ret));
+  fprintf_unfiltered (file,
                       "gdbarch_dump: int_bit = %s\n",
                       plongest (gdbarch->int_bit));
   fprintf_unfiltered (file,
@@ -1332,6 +1356,12 @@ gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file)
                       "gdbarch_dump: single_step_through_delay = <%s>\n",
                       host_address_to_string (gdbarch->single_step_through_delay));
   fprintf_unfiltered (file,
+                      "gdbarch_dump: gdbarch_skip_entrypoint_p() = %d\n",
+                      gdbarch_skip_entrypoint_p (gdbarch));
+  fprintf_unfiltered (file,
+                      "gdbarch_dump: skip_entrypoint = <%s>\n",
+                      host_address_to_string (gdbarch->skip_entrypoint));
+  fprintf_unfiltered (file,
                       "gdbarch_dump: gdbarch_skip_main_prologue_p() = %d\n",
                       gdbarch_skip_main_prologue_p (gdbarch));
   fprintf_unfiltered (file,
@@ -1473,7 +1503,7 @@ gdbarch_bfd_arch_info (struct gdbarch *gdbarch)
   return gdbarch->bfd_arch_info;
 }
 
-int
+enum bfd_endian
 gdbarch_byte_order (struct gdbarch *gdbarch)
 {
   gdb_assert (gdbarch != NULL);
@@ -1482,7 +1512,7 @@ gdbarch_byte_order (struct gdbarch *gdbarch)
   return gdbarch->byte_order;
 }
 
-int
+enum bfd_endian
 gdbarch_byte_order_for_code (struct gdbarch *gdbarch)
 {
   gdb_assert (gdbarch != NULL);
@@ -2682,6 +2712,30 @@ set_gdbarch_skip_main_prologue (struct gdbarch *gdbarch,
 }
 
 int
+gdbarch_skip_entrypoint_p (struct gdbarch *gdbarch)
+{
+  gdb_assert (gdbarch != NULL);
+  return gdbarch->skip_entrypoint != NULL;
+}
+
+CORE_ADDR
+gdbarch_skip_entrypoint (struct gdbarch *gdbarch, CORE_ADDR ip)
+{
+  gdb_assert (gdbarch != NULL);
+  gdb_assert (gdbarch->skip_entrypoint != NULL);
+  if (gdbarch_debug >= 2)
+    fprintf_unfiltered (gdb_stdlog, "gdbarch_skip_entrypoint called\n");
+  return gdbarch->skip_entrypoint (gdbarch, ip);
+}
+
+void
+set_gdbarch_skip_entrypoint (struct gdbarch *gdbarch,
+                             gdbarch_skip_entrypoint_ftype skip_entrypoint)
+{
+  gdbarch->skip_entrypoint = skip_entrypoint;
+}
+
+int
 gdbarch_inner_than (struct gdbarch *gdbarch, CORE_ADDR lhs, CORE_ADDR rhs)
 {
   gdb_assert (gdbarch != NULL);
@@ -3478,8 +3532,8 @@ gdbarch_core_xfer_shared_libraries_p (struct gdbarch *gdbarch)
   return gdbarch->core_xfer_shared_libraries != NULL;
 }
 
-LONGEST
-gdbarch_core_xfer_shared_libraries (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, LONGEST len)
+ULONGEST
+gdbarch_core_xfer_shared_libraries (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, ULONGEST len)
 {
   gdb_assert (gdbarch != NULL);
   gdb_assert (gdbarch->core_xfer_shared_libraries != NULL);
@@ -3502,8 +3556,8 @@ gdbarch_core_xfer_shared_libraries_aix_p (struct gdbarch *gdbarch)
   return gdbarch->core_xfer_shared_libraries_aix != NULL;
 }
 
-LONGEST
-gdbarch_core_xfer_shared_libraries_aix (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, LONGEST len)
+ULONGEST
+gdbarch_core_xfer_shared_libraries_aix (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, ULONGEST len)
 {
   gdb_assert (gdbarch != NULL);
   gdb_assert (gdbarch->core_xfer_shared_libraries_aix != NULL);
@@ -4451,6 +4505,57 @@ set_gdbarch_ravenscar_ops (struct gdbarch *gdbarch,
   gdbarch->ravenscar_ops = ravenscar_ops;
 }
 
+int
+gdbarch_insn_is_call (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+  gdb_assert (gdbarch != NULL);
+  gdb_assert (gdbarch->insn_is_call != NULL);
+  if (gdbarch_debug >= 2)
+    fprintf_unfiltered (gdb_stdlog, "gdbarch_insn_is_call called\n");
+  return gdbarch->insn_is_call (gdbarch, addr);
+}
+
+void
+set_gdbarch_insn_is_call (struct gdbarch *gdbarch,
+                          gdbarch_insn_is_call_ftype insn_is_call)
+{
+  gdbarch->insn_is_call = insn_is_call;
+}
+
+int
+gdbarch_insn_is_ret (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+  gdb_assert (gdbarch != NULL);
+  gdb_assert (gdbarch->insn_is_ret != NULL);
+  if (gdbarch_debug >= 2)
+    fprintf_unfiltered (gdb_stdlog, "gdbarch_insn_is_ret called\n");
+  return gdbarch->insn_is_ret (gdbarch, addr);
+}
+
+void
+set_gdbarch_insn_is_ret (struct gdbarch *gdbarch,
+                         gdbarch_insn_is_ret_ftype insn_is_ret)
+{
+  gdbarch->insn_is_ret = insn_is_ret;
+}
+
+int
+gdbarch_insn_is_jump (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+  gdb_assert (gdbarch != NULL);
+  gdb_assert (gdbarch->insn_is_jump != NULL);
+  if (gdbarch_debug >= 2)
+    fprintf_unfiltered (gdb_stdlog, "gdbarch_insn_is_jump called\n");
+  return gdbarch->insn_is_jump (gdbarch, addr);
+}
+
+void
+set_gdbarch_insn_is_jump (struct gdbarch *gdbarch,
+                          gdbarch_insn_is_jump_ftype insn_is_jump)
+{
+  gdbarch->insn_is_jump = insn_is_jump;
+}
+
 
 /* Keep a registry of per-architecture data-pointers required by GDB
    modules.  */
@@ -4490,9 +4595,9 @@ gdbarch_data_register (gdbarch_data_pre_init_ftype *pre_init,
   for (curr = &gdbarch_data_registry.registrations;
        (*curr) != NULL;
        curr = &(*curr)->next);
-  (*curr) = XMALLOC (struct gdbarch_data_registration);
+  (*curr) = XNEW (struct gdbarch_data_registration);
   (*curr)->next = NULL;
-  (*curr)->data = XMALLOC (struct gdbarch_data);
+  (*curr)->data = XNEW (struct gdbarch_data);
   (*curr)->data->index = gdbarch_data_registry.nr++;
   (*curr)->data->pre_init = pre_init;
   (*curr)->data->post_init = post_init;
@@ -4661,7 +4766,7 @@ gdbarch_register (enum bfd_architecture bfd_architecture,
 			bfd_arch_info->printable_name,
 			host_address_to_string (init));
   /* Append it */
-  (*curr) = XMALLOC (struct gdbarch_registration);
+  (*curr) = XNEW (struct gdbarch_registration);
   (*curr)->bfd_architecture = bfd_architecture;
   (*curr)->init = init;
   (*curr)->dump_tdep = dump_tdep;
@@ -4805,7 +4910,7 @@ gdbarch_find_by_info (struct gdbarch_info info)
   /* Insert the new architecture into the front of the architecture
      list (keep the list sorted Most Recently Used).  */
   {
-    struct gdbarch_list *this = XMALLOC (struct gdbarch_list);
+    struct gdbarch_list *this = XNEW (struct gdbarch_list);
     this->next = rego->arches;
     this->gdbarch = new_gdbarch;
     rego->arches = this;

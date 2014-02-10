@@ -1,4 +1,4 @@
-#   Copyright 2010-2013 Free Software Foundation, Inc.
+#   Copyright 2010-2014 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -135,9 +135,6 @@ Collected 0 trace frame.*
 Trace buffer has 256 bytes of 4096 bytes free \\(93% full\\).*
 Not looking at any trace frame.*" \
     "tstatus on error trace file"
-
-gdb_test "info threads" "No threads\..*"
-gdb_test "info inferiors" "\\* 1    <null>\[ \t\]+${binfile}.*"
 
 # Make sure we can reopen without error.
 gdb_test \

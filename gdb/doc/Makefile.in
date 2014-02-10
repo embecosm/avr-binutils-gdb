@@ -1,4 +1,4 @@
-##Copyright (C) 1991-2013 Free Software Foundation, Inc.
+##Copyright (C) 1991-2014 Free Software Foundation, Inc.
 
 # Makefile for GDB documentation.
 # This file is part of GDB.
@@ -130,6 +130,7 @@ GDB_DOC_BUILD_INCLUDES = \
 	GDBvn.texi
 GDB_DOC_FILES = \
 	$(srcdir)/gdb.texinfo \
+	$(srcdir)/guile.texi \
 	$(GDB_DOC_SOURCE_INCLUDES) \
 	$(GDB_DOC_BUILD_INCLUDES)
 

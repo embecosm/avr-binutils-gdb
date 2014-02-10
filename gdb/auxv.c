@@ -1,6 +1,6 @@
 /* Auxiliary vector support for GDB, the GNU debugger.
 
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -42,7 +42,7 @@ static LONGEST
 procfs_xfer_auxv (gdb_byte *readbuf,
 		  const gdb_byte *writebuf,
 		  ULONGEST offset,
-		  LONGEST len)
+		  ULONGEST len)
 {
   char *pathname;
   int fd;
@@ -52,7 +52,7 @@ procfs_xfer_auxv (gdb_byte *readbuf,
   fd = gdb_open_cloexec (pathname, writebuf != NULL ? O_WRONLY : O_RDONLY, 0);
   xfree (pathname);
   if (fd < 0)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   if (offset != (ULONGEST) 0
       && lseek (fd, (off_t) offset, SEEK_SET) != (off_t) offset)
@@ -73,7 +73,7 @@ static LONGEST
 ld_so_xfer_auxv (gdb_byte *readbuf,
 		 const gdb_byte *writebuf,
 		 ULONGEST offset,
-		 LONGEST len)
+		 ULONGEST len)
 {
   struct minimal_symbol *msym;
   CORE_ADDR data_address, pointer_address;
@@ -86,10 +86,10 @@ ld_so_xfer_auxv (gdb_byte *readbuf,
 
   msym = lookup_minimal_symbol ("_dl_auxv", NULL, NULL);
   if (msym == NULL)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   if (MSYMBOL_SIZE (msym) != ptr_size)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   /* POINTER_ADDRESS is a location where the `_dl_auxv' variable
      resides.  DATA_ADDRESS is the inferior value present in
@@ -118,14 +118,14 @@ ld_so_xfer_auxv (gdb_byte *readbuf,
      11440.  */
 
   if (target_read_memory (pointer_address, ptr_buf, ptr_size) != 0)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   data_address = extract_typed_address (ptr_buf, ptr_type);
 
   /* Possibly still not initialized such as during an inferior
      startup.  */
   if (data_address == 0)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   data_address += offset;
 
@@ -134,7 +134,7 @@ ld_so_xfer_auxv (gdb_byte *readbuf,
       if (target_write_memory (data_address, writebuf, len) == 0)
 	return len;
       else
-	return -1;
+	return TARGET_XFER_E_IO;
     }
 
   /* Stop if trying to read past the existing AUXV block.  The final
@@ -144,7 +144,7 @@ ld_so_xfer_auxv (gdb_byte *readbuf,
     {
       if (target_read_memory (data_address - auxv_pair_size, ptr_buf,
 			      ptr_size) != 0)
-	return -1;
+	return TARGET_XFER_E_IO;
 
       if (extract_typed_address (ptr_buf, ptr_type) == AT_NULL)
 	return 0;
@@ -209,7 +209,7 @@ memory_xfer_auxv (struct target_ops *ops,
 		  gdb_byte *readbuf,
 		  const gdb_byte *writebuf,
 		  ULONGEST offset,
-		  LONGEST len)
+		  ULONGEST len)
 {
   gdb_assert (object == TARGET_OBJECT_AUXV);
   gdb_assert (readbuf || writebuf);
@@ -341,7 +341,7 @@ get_auxv_inferior_data (struct target_ops *ops)
   info = inferior_data (inf, auxv_inferior_data);
   if (info == NULL)
     {
-      info = XZALLOC (struct auxv_info);
+      info = XCNEW (struct auxv_info);
       info->length = target_read_alloc (ops, TARGET_OBJECT_AUXV,
 					NULL, &info->data);
       set_inferior_data (inf, auxv_inferior_data, info);
@@ -442,6 +442,7 @@ fprint_target_auxv (struct ui_file *file, struct target_ops *ops)
 	  TAG (AT_IGNOREPPC, _("Entry should be ignored"), dec);
 	  TAG (AT_BASE_PLATFORM, _("String identifying base platform"), str);
 	  TAG (AT_RANDOM, _("Address of 16 random bytes"), hex);
+	  TAG (AT_HWCAP2, _("Extension of AT_HWCAP"), hex);
 	  TAG (AT_EXECFN, _("File name of executable"), str);
 	  TAG (AT_SECURE, _("Boolean, was exec setuid-like?"), dec);
 	  TAG (AT_SYSINFO, _("Special system info/entry points"), hex);

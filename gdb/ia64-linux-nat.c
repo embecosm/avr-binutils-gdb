@@ -1,7 +1,7 @@
 /* Functions specific to running gdb native on IA-64 running
    GNU/Linux.
 
-   Copyright (C) 1999-2013 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -840,7 +840,7 @@ ia64_linux_xfer_partial (struct target_ops *ops,
 			 enum target_object object,
 			 const char *annex,
 			 gdb_byte *readbuf, const gdb_byte *writebuf,
-			 ULONGEST offset, LONGEST len)
+			 ULONGEST offset, ULONGEST len)
 {
   if (object == TARGET_OBJECT_UNWIND_TABLE && writebuf == NULL && offset == 0)
     return syscall (__NR_getunwind, readbuf, len);

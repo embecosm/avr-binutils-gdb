@@ -1,6 +1,6 @@
 /* GDB CLI commands.
 
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -50,7 +50,7 @@
 #include "cli/cli-cmds.h"
 #include "cli/cli-utils.h"
 
-#include "python/python.h"
+#include "extension.h"
 
 #ifdef TUI
 #include "tui/tui.h"	/* For tui_active et.al.  */
@@ -522,21 +522,33 @@ find_and_open_script (const char *script_file, int search_path,
 static void
 source_script_from_stream (FILE *stream, const char *file)
 {
-  if (script_ext_mode != script_ext_off
-      && strlen (file) > 3 && !strcmp (&file[strlen (file) - 3], ".py"))
+  if (script_ext_mode != script_ext_off)
     {
-      if (have_python ())
-	source_python_script (stream, file);
-      else if (script_ext_mode == script_ext_soft)
+      const struct extension_language_defn *extlang
+	= get_ext_lang_of_file (file);
+
+      if (extlang != NULL)
 	{
-	  /* Fallback to GDB script mode.  */
-	  script_from_file (stream, file);
+	  if (ext_lang_present_p (extlang))
+	    {
+	      script_sourcer_func *sourcer
+		= ext_lang_script_sourcer (extlang);
+
+	      gdb_assert (sourcer != NULL);
+	      sourcer (extlang, stream, file);
+	      return;
+	    }
+	  else if (script_ext_mode == script_ext_soft)
+	    {
+	      /* Assume the file is a gdb script.
+		 This is handled below.  */
+	    }
+	  else
+	    throw_ext_lang_unsupported (extlang);
 	}
-      else
-	error (_("Python scripting is not supported in this copy of GDB."));
     }
-  else
-    script_from_file (stream, file);
+
+  script_from_file (stream, file);
 }
 
 /* Worker to perform the "source" command.
@@ -1213,7 +1225,7 @@ show_user (char *args, int from_tty)
       const char *comname = args;
 
       c = lookup_cmd (&comname, cmdlist, "", 0, 1);
-      /* c->user_commands would be NULL if it's a python command.  */
+      /* c->user_commands would be NULL if it's a python/scheme command.  */
       if (c->class != class_user || !c->user_commands)
 	error (_("Not a user command."));
       show_user_1 (c, "", args, gdb_stdout);
@@ -1819,7 +1831,7 @@ you must type \"disassemble 'foo.c'::bar\" and not \"disassemble foo.c:bar\"."))
 Run the ``make'' program using the rest of the line as arguments."));
   set_cmd_completer (c, filename_completer);
   add_cmd ("user", no_class, show_user, _("\
-Show definitions of non-python user defined commands.\n\
+Show definitions of non-python/scheme user defined commands.\n\
 Argument is the name of the user defined command.\n\
 With no argument, show definitions of all user defined commands."), &showlist);
   add_com ("apropos", class_support, apropos_command,
@@ -1827,8 +1839,8 @@ With no argument, show definitions of all user defined commands."), &showlist);
 
   add_setshow_uinteger_cmd ("max-user-call-depth", no_class,
 			   &max_user_call_depth, _("\
-Set the max call depth for non-python user-defined commands."), _("\
-Show the max call depth for non-python user-defined commands."), NULL,
+Set the max call depth for non-python/scheme user-defined commands."), _("\
+Show the max call depth for non-python/scheme user-defined commands."), NULL,
 			    NULL,
 			    show_max_user_call_depth,
 			    &setlist, &showlist);

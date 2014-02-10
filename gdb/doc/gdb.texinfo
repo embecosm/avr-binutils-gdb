@@ -1,5 +1,5 @@
 \input texinfo      @c -*-texinfo-*-
-@c Copyright (C) 1988-2013 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
 @c
 @c %**start of header
 @c makeinfo ignores cmds prev to setfilename, so its arg cannot make use
@@ -50,7 +50,7 @@
 
 @copying
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988-2013 Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2014 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -120,7 +120,7 @@ This is the @value{EDITION} Edition, for @value{GDBN}
 @end ifset
 Version @value{GDBVN}.
 
-Copyright (C) 1988-2013 Free Software Foundation, Inc.
+Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This edition of the GDB manual is dedicated to the memory of Fred
 Fish.  Fred was a long-standing contributor to GDB and to Free
@@ -2089,6 +2089,7 @@ your program too late, as the program would have already completed the
 elaboration phase.  Under these circumstances, insert breakpoints in your
 elaboration code before running your program.
 
+@anchor{set exec-wrapper}
 @kindex set exec-wrapper
 @item set exec-wrapper @var{wrapper}
 @itemx show exec-wrapper
@@ -2279,9 +2280,10 @@ your program.  You can abbreviate @code{environment} as @code{env}.
 @kindex set environment
 @item set environment @var{varname} @r{[}=@var{value}@r{]}
 Set environment variable @var{varname} to @var{value}.  The value
-changes for your program only, not for @value{GDBN} itself.  @var{value} may
-be any string; the values of environment variables are just strings, and
-any interpretation is supplied by your program itself.  The @var{value}
+changes for your program (and the shell @value{GDBN} uses to launch
+it), not for @value{GDBN} itself.  @var{value} may be any string; the
+values of environment variables are just strings, and any
+interpretation is supplied by your program itself.  The @var{value}
 parameter is optional; if it is eliminated, the variable is set to a
 null value.
 @c "any string" here does not include leading, trailing
@@ -2297,6 +2299,12 @@ set env USER = foo
 tells the debugged program, when subsequently run, that its user is named
 @samp{foo}.  (The spaces around @samp{=} are used for clarity here; they
 are not actually required.)
+
+Note that on Unix systems, @value{GDBN} runs your program via a shell,
+which also inherits the environment set with @code{set environment}.
+If necessary, you can avoid that by using the @samp{env} program as a
+wrapper instead of using @code{set environment}.  @xref{set
+exec-wrapper}, for an example doing just that.
 
 @kindex unset environment
 @item unset environment @var{varname}
@@ -6255,8 +6263,10 @@ replay implementation.  This method allows replaying and reverse
 execution.
 
 @item btrace
-Hardware-supported instruction recording.  This method does not allow
-replaying and reverse execution.
+Hardware-supported instruction recording.  This method does not record
+data.  Further, the data is collected in a ring buffer so old data will
+be overwritten when the buffer is full.  It allows limited replay and
+reverse execution.
 
 This recording method may not be available on all processors.
 @end table
@@ -6457,7 +6467,7 @@ Disassembles ten more instructions before the last disassembly.
 @item record instruction-history @var{begin} @var{end}
 Disassembles instructions beginning with instruction number
 @var{begin} until instruction number @var{end}.  The instruction
-number @var{end} is not included.
+number @var{end} is included.
 @end table
 
 This command may not be available for all recording methods.
@@ -6482,7 +6492,10 @@ line for each sequence of instructions that belong to the same
 function giving the name of that function, the source lines
 for this instruction sequence (if the @code{/l} modifier is
 specified), and the instructions numbers that form the sequence (if
-the @code{/i} modifier is specified).
+the @code{/i} modifier is specified).  The function names are indented
+to reflect the call stack depth if the @code{/c} modifier is
+specified.  The @code{/l}, @code{/i}, and @code{/c} modifiers can be
+given together.
 
 @smallexample
 (@value{GDBP}) @b{list 1, 10}
@@ -6496,10 +6509,10 @@ the @code{/i} modifier is specified).
 8     foo ();
 9     ...
 10  @}
-(@value{GDBP}) @b{record function-call-history /l}
-1  foo.c:6-8   bar
-2  foo.c:2-3   foo
-3  foo.c:9-10  bar
+(@value{GDBP}) @b{record function-call-history /ilc}
+1  bar     inst 1,4     at foo.c:6,8
+2    foo   inst 5,10    at foo.c:2,3
+3  bar     inst 11,13   at foo.c:9,10
 @end smallexample
 
 By default, ten lines are printed.  This can be changed using the
@@ -6525,8 +6538,7 @@ Prints ten more functions before the last ten-line print.
 
 @item record function-call-history @var{begin} @var{end}
 Prints functions beginning with function number @var{begin} until
-function number @var{end}.  The function number @var{end} is not
-included.
+function number @var{end}.  The function number @var{end} is included.
 @end table
 
 This command may not be available for all recording methods.
@@ -15700,6 +15712,37 @@ recommended to leave this setting to @code{on} unless necessary.
 
 @end table
 
+@cindex GNAT descriptive types
+@cindex GNAT encoding
+Internally, the debugger also relies on the compiler following a number
+of conventions known as the @samp{GNAT Encoding}, all documented in
+@file{gcc/ada/exp_dbug.ads} in the GCC sources. This encoding describes
+how the debugging information should be generated for certain types.
+In particular, this convention makes use of @dfn{descriptive types},
+which are artificial types generated purely to help the debugger.
+
+These encodings were defined at a time when the debugging information
+format used was not powerful enough to describe some of the more complex
+types available in Ada.  Since DWARF allows us to express nearly all
+Ada features, the long-term goal is to slowly replace these descriptive
+types by their pure DWARF equivalent.  To facilitate that transition,
+a new maintenance option is available to force the debugger to ignore
+those descriptive types.  It allows the user to quickly evaluate how
+well @value{GDBN} works without them.
+
+@table @code
+
+@kindex maint ada set ignore-descriptive-types
+@item maintenance ada set ignore-descriptive-types [on|off]
+Control whether the debugger should ignore descriptive types.
+The default is not to ignore descriptives types (@code{off}).
+
+@kindex maint ada show ignore-descriptive-types
+@item maintenance ada show ignore-descriptive-types
+Show if descriptive types are ignored by @value{GDBN}.
+
+@end table
+
 @node Unsupported Languages
 @section Unsupported Languages
 
@@ -18495,6 +18538,7 @@ connections and even in the @kbd{target extended-remote} mode.  The
 multiple instances of @code{gdbserver} running on the same host, since each
 instance closes its port after the first connection.
 
+@anchor{Other Command-Line Arguments for gdbserver}
 @subsubsection Other Command-Line Arguments for @code{gdbserver}
 
 @cindex @option{--debug}, @code{gdbserver} option
@@ -18504,6 +18548,23 @@ status information about the debugging process.
 The @option{--remote-debug} option tells @code{gdbserver} to display
 remote protocol debug output.  These options are intended for
 @code{gdbserver} development and for bug reports to the developers.
+
+@cindex @option{--debug-format}, @code{gdbserver} option
+The @option{--debug-format=option1[,option2,...]} option tells
+@code{gdbserver} to include additional information in each output.
+Possible options are:
+
+@table @code
+@item none
+Turn off all extra information in debugging output.
+@item all
+Turn on all extra information in debugging output.
+@item timestamps
+Include a timestamp in each line of debugging output.
+@end table
+
+Options are processed in order.  Thus, for example, if @option{none}
+appears last then no additional information is added to debugging output.
 
 @cindex @option{--wrapper}, @code{gdbserver} option
 The @option{--wrapper} option specifies a wrapper to launch programs
@@ -18574,6 +18635,22 @@ Disable or enable general debugging messages.
 @itemx monitor set remote-debug 1
 Disable or enable specific debugging messages associated with the remote
 protocol (@pxref{Remote Protocol}).
+
+@item monitor set debug-format option1@r{[},option2,...@r{]}
+Specify additional text to add to debugging messages.
+Possible options are:
+
+@table @code
+@item none
+Turn off all extra information in debugging output.
+@item all
+Turn on all extra information in debugging output.
+@item timestamps
+Include a timestamp in each line of debugging output.
+@end table
+
+Options are processed in order.  Thus, for example, if @option{none}
+appears last then no additional information is added to debugging output.
 
 @item monitor set libthread-db-search-path [PATH]
 @cindex gdbserver, search path for @code{libthread_db}
@@ -22247,6 +22324,12 @@ These are @value{GDBN} control commands for the auto-loading:
 @tab Show setting of @value{GDBN} Python scripts.
 @item @xref{info auto-load python-scripts}.
 @tab Show state of @value{GDBN} Python scripts.
+@item @xref{set auto-load guile-scripts}.
+@tab Control for @value{GDBN} Guile scripts.
+@item @xref{show auto-load guile-scripts}.
+@tab Show setting of @value{GDBN} Guile scripts.
+@item @xref{info auto-load guile-scripts}.
+@tab Show state of @value{GDBN} Guile scripts.
 @item @xref{set auto-load scripts-directory}.
 @tab Control for @value{GDBN} auto-loaded scripts location.
 @item @xref{show auto-load scripts-directory}.
@@ -22873,7 +22956,9 @@ being debugged.
 @menu
 * Sequences::                Canned Sequences of @value{GDBN} Commands
 * Python::                   Extending @value{GDBN} using Python
+* Guile::                    Extending @value{GDBN} using Guile
 * Auto-loading extensions::  Automatically loading extensions
+* Multiple Extension Languages:: Working with multiple extension languages
 * Aliases::                  Creating new spellings of existing commands
 @end menu
 
@@ -24309,6 +24394,11 @@ An instance of @code{Type} has the following attributes:
 @defvar Type.code
 The type code for this type.  The type code will be one of the
 @code{TYPE_CODE_} constants defined below.
+@end defvar
+
+@defvar Type.name
+The name of this type.  If this type has no name, then @code{None}
+is returned.
 @end defvar
 
 @defvar Type.sizeof
@@ -27871,6 +27961,9 @@ substitute_prompt (``frame: \f,
 @end smallexample
 @end table
 
+@c Guile docs live in a separate file.
+@include guile.texi
+
 @node Auto-loading extensions
 @section Auto-loading extensions
 @cindex auto-loading extensions
@@ -27916,6 +28009,8 @@ where @var{ext} is the file extension for the extension language:
 GDB's own command language
 @item @file{@var{objfile}-gdb.py}
 Python
+@item @file{@var{objfile}-gdb.scm}
+Guile
 @end table
 
 @var{script-name} is formed by ensuring that the file name of @var{objfile}
@@ -28009,6 +28104,7 @@ for example, this GCC macro for Python scripts.
 @end example
 
 @noindent
+For Guile scripts, replace @code{.byte 1} with @code{.byte 3}.
 Then one can reference the macro in a header or source file like this:
 
 @example
@@ -28079,6 +28175,26 @@ cumbersome.  It may be easier to specify the scripts in the
 @code{.debug_gdb_scripts} section as relative paths, and add a path to the
 top of the source tree to the source search path.
 @end itemize
+
+@node Multiple Extension Languages
+@section Multiple Extension Languages
+
+The Guile and Python extension languages do not share any state,
+and generally do not interfere with each other.
+There are some things to be aware of, however.
+
+@subsection Python comes first
+
+Python was @value{GDBN}'s first extension language, and to avoid breaking
+existing behaviour Python comes first.  This is generally solved by the
+``first one wins'' principle.  @value{GDBN} maintains a list of enabled
+extension languages, and when it makes a call to an extension language,
+(say to pretty-print a value), it tries each in turn until an extension
+language indicates it has performed the request (e.g., has returned the
+pretty-printed form of a value).
+This extends to errors while performing such requests: If an error happens
+while, for example, trying to pretty-print an object then the error is
+reported and any following extension languages are not tried.
 
 @node Aliases
 @section Creating new spellings of existing commands
@@ -29199,16 +29315,16 @@ corresponding output for that command will also be prefixed by that same
 @code{@var{exec-async-output} | @var{status-async-output} | @var{notify-async-output}}
 
 @item @var{exec-async-output} @expansion{}
-@code{[ @var{token} ] "*" @var{async-output}}
+@code{[ @var{token} ] "*" @var{async-output nl}}
 
 @item @var{status-async-output} @expansion{}
-@code{[ @var{token} ] "+" @var{async-output}}
+@code{[ @var{token} ] "+" @var{async-output nl}}
 
 @item @var{notify-async-output} @expansion{}
-@code{[ @var{token} ] "=" @var{async-output}}
+@code{[ @var{token} ] "=" @var{async-output nl}}
 
 @item @var{async-output} @expansion{}
-@code{@var{async-class} ( "," @var{result} )* @var{nl}}
+@code{@var{async-class} ( "," @var{result} )*}
 
 @item @var{result-class} @expansion{}
 @code{"done" | "running" | "connected" | "error" | "exit"}
@@ -29240,13 +29356,13 @@ depending on the needs---this is still in development).
 @code{@var{console-stream-output} | @var{target-stream-output} | @var{log-stream-output}}
 
 @item @var{console-stream-output} @expansion{}
-@code{"~" @var{c-string}}
+@code{"~" @var{c-string nl}}
 
 @item @var{target-stream-output} @expansion{}
-@code{"@@" @var{c-string}}
+@code{"@@" @var{c-string nl}}
 
 @item @var{log-stream-output} @expansion{}
-@code{"&" @var{c-string}}
+@code{"&" @var{c-string nl}}
 
 @item @var{nl} @expansion{}
 @code{CR | CR-LF}
@@ -39963,6 +40079,14 @@ Returns all available branch trace.
 @item new
 Returns all available branch trace if the branch trace changed since
 the last read request.
+
+@item delta
+Returns the new branch trace since the last read request.  Adds a new
+block to the end of the trace that begins at zero and ends at the source
+location of the first branch in the trace buffer.  This extra block is
+used to stitch traces together.
+
+If the trace buffer overflowed, returns an error indicating the overflow.
 @end table
 
 This packet is not probed by default; the remote stub must request it
@@ -44316,6 +44440,11 @@ the developers.
 Instruct @code{gdbserver} to display remote protocol debug output.
 This option is intended for @code{gdbserver} development and for bug reports to
 the developers.
+
+@item --debug-format=option1@r{[},option2,...@r{]}
+Instruct @code{gdbserver} to include extra information in each line
+of debugging output.
+@xref{Other Command-Line Arguments for gdbserver}.
 
 @item --wrapper
 Specify a wrapper to launch programs

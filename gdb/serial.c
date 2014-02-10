@@ -1,6 +1,6 @@
 /* Generic serial interface routines
 
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -211,7 +211,7 @@ serial_open (const char *name)
   if (!ops)
     return NULL;
 
-  scb = XMALLOC (struct serial);
+  scb = XNEW (struct serial);
 
   scb->ops = ops;
 
@@ -263,7 +263,7 @@ serial_fdopen_ops (const int fd, const struct serial_ops *ops)
   if (!ops)
     return NULL;
 
-  scb = XCALLOC (1, struct serial);
+  scb = XCNEW (struct serial);
 
   scb->ops = ops;
 

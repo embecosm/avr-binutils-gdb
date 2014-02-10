@@ -1,6 +1,6 @@
 /* Low level packing and unpacking of values for GDB, the GNU Debugger.
 
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -38,7 +38,7 @@
 #include "valprint.h"
 #include "cli/cli-decode.h"
 #include "exceptions.h"
-#include "python/python.h"
+#include "extension.h"
 #include <ctype.h>
 #include "tracepoint.h"
 #include "cp-abi.h"
@@ -216,6 +216,9 @@ struct value
   /* If the value has been released.  */
   unsigned int released : 1;
 
+  /* Register number if the value is from a register.  */
+  short regnum;
+
   /* Location of value (if lval).  */
   union
   {
@@ -323,9 +326,6 @@ struct value
      variables, put into the value history or exposed to Python are
      taken off this list.  */
   struct value *next;
-
-  /* Register number if the value is from a register.  */
-  short regnum;
 
   /* Actual contents of the value.  Target byte-order.  NULL or not
      valid if lazy is nonzero.  */
@@ -2405,7 +2405,7 @@ preserve_values (struct objfile *objfile)
   for (var = internalvars; var; var = var->next)
     preserve_one_internalvar (var, objfile, copied_types);
 
-  preserve_python_values (objfile, copied_types);
+  preserve_ext_lang_values (objfile, copied_types);
 
   htab_delete (copied_types);
 }

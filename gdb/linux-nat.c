@@ -1,6 +1,6 @@
 /* GNU/Linux native-dependent code common to multiple platforms.
 
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -46,7 +46,6 @@
 #include "gregset.h"		/* for gregset */
 #include "gdbcore.h"		/* for get_exec_file */
 #include <ctype.h>		/* for isdigit */
-#include "gdbthread.h"		/* for struct thread_info etc.  */
 #include <sys/stat.h>		/* for struct stat */
 #include <fcntl.h>		/* for O_RDONLY */
 #include "inf-loop.h"
@@ -65,7 +64,6 @@
 #include "agent.h"
 #include "tracepoint.h"
 #include "exceptions.h"
-#include "linux-ptrace.h"
 #include "buffer.h"
 #include "target-descriptions.h"
 #include "filestuff.h"
@@ -2738,7 +2736,7 @@ cancel_breakpoint (struct lwp_info *lp)
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
   CORE_ADDR pc;
 
-  pc = regcache_read_pc (regcache) - gdbarch_decr_pc_after_break (gdbarch);
+  pc = regcache_read_pc (regcache) - target_decr_pc_after_break (gdbarch);
   if (breakpoint_inserted_here_p (get_regcache_aspace (regcache), pc))
     {
       if (debug_linux_nat)
@@ -2747,7 +2745,7 @@ cancel_breakpoint (struct lwp_info *lp)
 			    target_pid_to_str (lp->ptid));
 
       /* Back up the PC if necessary.  */
-      if (gdbarch_decr_pc_after_break (gdbarch))
+      if (target_decr_pc_after_break (gdbarch))
 	regcache_write_pc (regcache, pc);
 
       return 1;
@@ -3867,7 +3865,7 @@ siginfo_fixup (siginfo_t *siginfo, gdb_byte *inf_siginfo, int direction)
 static LONGEST
 linux_xfer_siginfo (struct target_ops *ops, enum target_object object,
                     const char *annex, gdb_byte *readbuf,
-		    const gdb_byte *writebuf, ULONGEST offset, LONGEST len)
+		    const gdb_byte *writebuf, ULONGEST offset, ULONGEST len)
 {
   int pid;
   siginfo_t siginfo;
@@ -3881,12 +3879,12 @@ linux_xfer_siginfo (struct target_ops *ops, enum target_object object,
     pid = ptid_get_pid (inferior_ptid);
 
   if (offset > sizeof (siginfo))
-    return -1;
+    return TARGET_XFER_E_IO;
 
   errno = 0;
   ptrace (PTRACE_GETSIGINFO, pid, (PTRACE_TYPE_ARG3) 0, &siginfo);
   if (errno != 0)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   /* When GDB is built as a 64-bit application, ptrace writes into
      SIGINFO an object with 64-bit layout.  Since debugging a 32-bit
@@ -3911,7 +3909,7 @@ linux_xfer_siginfo (struct target_ops *ops, enum target_object object,
       errno = 0;
       ptrace (PTRACE_SETSIGINFO, pid, (PTRACE_TYPE_ARG3) 0, &siginfo);
       if (errno != 0)
-	return -1;
+	return TARGET_XFER_E_IO;
     }
 
   return len;
@@ -3921,7 +3919,7 @@ static LONGEST
 linux_nat_xfer_partial (struct target_ops *ops, enum target_object object,
 			const char *annex, gdb_byte *readbuf,
 			const gdb_byte *writebuf,
-			ULONGEST offset, LONGEST len)
+			ULONGEST offset, ULONGEST len)
 {
   struct cleanup *old_chain;
   LONGEST xfer;
@@ -4157,7 +4155,7 @@ linux_proc_xfer_partial (struct target_ops *ops, enum target_object object,
 
 /* Enumerate spufs IDs for process PID.  */
 static LONGEST
-spu_enumerate_spu_ids (int pid, gdb_byte *buf, ULONGEST offset, LONGEST len)
+spu_enumerate_spu_ids (int pid, gdb_byte *buf, ULONGEST offset, ULONGEST len)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (target_gdbarch ());
   LONGEST pos = 0;
@@ -4211,7 +4209,7 @@ static LONGEST
 linux_proc_xfer_spu (struct target_ops *ops, enum target_object object,
 		     const char *annex, gdb_byte *readbuf,
 		     const gdb_byte *writebuf,
-		     ULONGEST offset, LONGEST len)
+		     ULONGEST offset, ULONGEST len)
 {
   char buf[128];
   int fd = 0;
@@ -4221,7 +4219,7 @@ linux_proc_xfer_spu (struct target_ops *ops, enum target_object object,
   if (!annex)
     {
       if (!readbuf)
-	return -1;
+	return TARGET_XFER_E_IO;
       else
 	return spu_enumerate_spu_ids (pid, readbuf, offset, len);
     }
@@ -4229,7 +4227,7 @@ linux_proc_xfer_spu (struct target_ops *ops, enum target_object object,
   xsnprintf (buf, sizeof buf, "/proc/%d/fd/%s", pid, annex);
   fd = gdb_open_cloexec (buf, writebuf? O_WRONLY : O_RDONLY, 0);
   if (fd <= 0)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   if (offset != 0
       && lseek (fd, (off_t) offset, SEEK_SET) != (off_t) offset)
@@ -4334,7 +4332,7 @@ linux_proc_pending_signals (int pid, sigset_t *pending,
 static LONGEST
 linux_nat_xfer_osdata (struct target_ops *ops, enum target_object object,
 		       const char *annex, gdb_byte *readbuf,
-		       const gdb_byte *writebuf, ULONGEST offset, LONGEST len)
+		       const gdb_byte *writebuf, ULONGEST offset, ULONGEST len)
 {
   gdb_assert (object == TARGET_OBJECT_OSDATA);
 
@@ -4344,7 +4342,7 @@ linux_nat_xfer_osdata (struct target_ops *ops, enum target_object object,
 static LONGEST
 linux_xfer_partial (struct target_ops *ops, enum target_object object,
                     const char *annex, gdb_byte *readbuf,
-		    const gdb_byte *writebuf, ULONGEST offset, LONGEST len)
+		    const gdb_byte *writebuf, ULONGEST offset, ULONGEST len)
 {
   LONGEST xfer;
 

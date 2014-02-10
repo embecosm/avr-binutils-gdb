@@ -3,7 +3,7 @@
 
 /* Dynamic architecture support for GDB, the GNU debugger.
 
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -91,10 +91,10 @@ typedef int (iterate_over_objfiles_in_search_order_cb_ftype)
 extern const struct bfd_arch_info * gdbarch_bfd_arch_info (struct gdbarch *gdbarch);
 /* set_gdbarch_bfd_arch_info() - not applicable - pre-initialized.  */
 
-extern int gdbarch_byte_order (struct gdbarch *gdbarch);
+extern enum bfd_endian gdbarch_byte_order (struct gdbarch *gdbarch);
 /* set_gdbarch_byte_order() - not applicable - pre-initialized.  */
 
-extern int gdbarch_byte_order_for_code (struct gdbarch *gdbarch);
+extern enum bfd_endian gdbarch_byte_order_for_code (struct gdbarch *gdbarch);
 /* set_gdbarch_byte_order_for_code() - not applicable - pre-initialized.  */
 
 extern enum gdb_osabi gdbarch_osabi (struct gdbarch *gdbarch);
@@ -486,6 +486,24 @@ typedef CORE_ADDR (gdbarch_skip_main_prologue_ftype) (struct gdbarch *gdbarch, C
 extern CORE_ADDR gdbarch_skip_main_prologue (struct gdbarch *gdbarch, CORE_ADDR ip);
 extern void set_gdbarch_skip_main_prologue (struct gdbarch *gdbarch, gdbarch_skip_main_prologue_ftype *skip_main_prologue);
 
+/* On some platforms, a single function may provide multiple entry points,
+   e.g. one that is used for function-pointer calls and a different one
+   that is used for direct function calls.
+   In order to ensure that breakpoints set on the function will trigger
+   no matter via which entry point the function is entered, a platform
+   may provide the skip_entrypoint callback.  It is called with IP set
+   to the main entry point of a function (as determined by the symbol table),
+   and should return the address of the innermost entry point, where the
+   actual breakpoint needs to be set.  Note that skip_entrypoint is used
+   by GDB common code even when debugging optimized code, where skip_prologue
+   is not used. */
+
+extern int gdbarch_skip_entrypoint_p (struct gdbarch *gdbarch);
+
+typedef CORE_ADDR (gdbarch_skip_entrypoint_ftype) (struct gdbarch *gdbarch, CORE_ADDR ip);
+extern CORE_ADDR gdbarch_skip_entrypoint (struct gdbarch *gdbarch, CORE_ADDR ip);
+extern void set_gdbarch_skip_entrypoint (struct gdbarch *gdbarch, gdbarch_skip_entrypoint_ftype *skip_entrypoint);
+
 typedef int (gdbarch_inner_than_ftype) (CORE_ADDR lhs, CORE_ADDR rhs);
 extern int gdbarch_inner_than (struct gdbarch *gdbarch, CORE_ADDR lhs, CORE_ADDR rhs);
 extern void set_gdbarch_inner_than (struct gdbarch *gdbarch, gdbarch_inner_than_ftype *inner_than);
@@ -694,6 +712,10 @@ typedef const char * (gdbarch_address_class_type_flags_to_name_ftype) (struct gd
 extern const char * gdbarch_address_class_type_flags_to_name (struct gdbarch *gdbarch, int type_flags);
 extern void set_gdbarch_address_class_type_flags_to_name (struct gdbarch *gdbarch, gdbarch_address_class_type_flags_to_name_ftype *address_class_type_flags_to_name);
 
+/* Return the appropriate type_flags for the supplied address class.
+   This function should return 1 if the address class was recognized and
+   type_flags was set, zero otherwise. */
+
 extern int gdbarch_address_class_name_to_type_flags_p (struct gdbarch *gdbarch);
 
 typedef int (gdbarch_address_class_name_to_type_flags_ftype) (struct gdbarch *gdbarch, const char *name, int *type_flags_ptr);
@@ -757,21 +779,24 @@ extern int gdbarch_find_memory_regions (struct gdbarch *gdbarch, find_memory_reg
 extern void set_gdbarch_find_memory_regions (struct gdbarch *gdbarch, gdbarch_find_memory_regions_ftype *find_memory_regions);
 
 /* Read offset OFFSET of TARGET_OBJECT_LIBRARIES formatted shared libraries list from
-   core file into buffer READBUF with length LEN. */
+   core file into buffer READBUF with length LEN.  Return the number of bytes read
+   (zero indicates failure).
+   failed, otherwise, return the red length of READBUF. */
 
 extern int gdbarch_core_xfer_shared_libraries_p (struct gdbarch *gdbarch);
 
-typedef LONGEST (gdbarch_core_xfer_shared_libraries_ftype) (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, LONGEST len);
-extern LONGEST gdbarch_core_xfer_shared_libraries (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, LONGEST len);
+typedef ULONGEST (gdbarch_core_xfer_shared_libraries_ftype) (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, ULONGEST len);
+extern ULONGEST gdbarch_core_xfer_shared_libraries (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, ULONGEST len);
 extern void set_gdbarch_core_xfer_shared_libraries (struct gdbarch *gdbarch, gdbarch_core_xfer_shared_libraries_ftype *core_xfer_shared_libraries);
 
 /* Read offset OFFSET of TARGET_OBJECT_LIBRARIES_AIX formatted shared
-   libraries list from core file into buffer READBUF with length LEN. */
+   libraries list from core file into buffer READBUF with length LEN.
+   Return the number of bytes read (zero indicates failure). */
 
 extern int gdbarch_core_xfer_shared_libraries_aix_p (struct gdbarch *gdbarch);
 
-typedef LONGEST (gdbarch_core_xfer_shared_libraries_aix_ftype) (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, LONGEST len);
-extern LONGEST gdbarch_core_xfer_shared_libraries_aix (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, LONGEST len);
+typedef ULONGEST (gdbarch_core_xfer_shared_libraries_aix_ftype) (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, ULONGEST len);
+extern ULONGEST gdbarch_core_xfer_shared_libraries_aix (struct gdbarch *gdbarch, gdb_byte *readbuf, ULONGEST offset, ULONGEST len);
 extern void set_gdbarch_core_xfer_shared_libraries_aix (struct gdbarch *gdbarch, gdbarch_core_xfer_shared_libraries_aix_ftype *core_xfer_shared_libraries_aix);
 
 /* How the core target converts a PTID from a core file to a string. */
@@ -1267,6 +1292,24 @@ extern void set_gdbarch_iterate_over_objfiles_in_search_order (struct gdbarch *g
 extern struct ravenscar_arch_ops * gdbarch_ravenscar_ops (struct gdbarch *gdbarch);
 extern void set_gdbarch_ravenscar_ops (struct gdbarch *gdbarch, struct ravenscar_arch_ops * ravenscar_ops);
 
+/* Return non-zero if the instruction at ADDR is a call; zero otherwise. */
+
+typedef int (gdbarch_insn_is_call_ftype) (struct gdbarch *gdbarch, CORE_ADDR addr);
+extern int gdbarch_insn_is_call (struct gdbarch *gdbarch, CORE_ADDR addr);
+extern void set_gdbarch_insn_is_call (struct gdbarch *gdbarch, gdbarch_insn_is_call_ftype *insn_is_call);
+
+/* Return non-zero if the instruction at ADDR is a return; zero otherwise. */
+
+typedef int (gdbarch_insn_is_ret_ftype) (struct gdbarch *gdbarch, CORE_ADDR addr);
+extern int gdbarch_insn_is_ret (struct gdbarch *gdbarch, CORE_ADDR addr);
+extern void set_gdbarch_insn_is_ret (struct gdbarch *gdbarch, gdbarch_insn_is_ret_ftype *insn_is_ret);
+
+/* Return non-zero if the instruction at ADDR is a jump; zero otherwise. */
+
+typedef int (gdbarch_insn_is_jump_ftype) (struct gdbarch *gdbarch, CORE_ADDR addr);
+extern int gdbarch_insn_is_jump (struct gdbarch *gdbarch, CORE_ADDR addr);
+extern void set_gdbarch_insn_is_jump (struct gdbarch *gdbarch, gdbarch_insn_is_jump_ftype *insn_is_jump);
+
 /* Definition for an unknown syscall, used basically in error-cases.  */
 #define UNKNOWN_SYSCALL (-1)
 
@@ -1342,9 +1385,9 @@ struct gdbarch_info
   const struct bfd_arch_info *bfd_arch_info;
 
   /* Use default: BFD_ENDIAN_UNKNOWN (NB: is not ZERO).  */
-  int byte_order;
+  enum bfd_endian byte_order;
 
-  int byte_order_for_code;
+  enum bfd_endian byte_order_for_code;
 
   /* Use default: NULL (ZERO).  */
   bfd *abfd;

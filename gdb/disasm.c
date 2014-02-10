@@ -1,6 +1,6 @@
 /* Disassemble support for GDB.
 
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -376,7 +376,7 @@ fprintf_disasm (void *stream, const char *format, ...)
   return 0;
 }
 
-static struct disassemble_info
+struct disassemble_info
 gdb_disassemble_info (struct gdbarch *gdbarch, struct ui_file *file)
 {
   struct disassemble_info di;

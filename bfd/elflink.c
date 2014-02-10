@@ -1087,20 +1087,19 @@ _bfd_elf_merge_symbol (bfd *abfd,
 
   /* When we try to create a default indirect symbol from the dynamic
      definition with the default version, we skip it if its type and
-     the type of existing regular definition mismatch.  We only do it
-     if the existing regular definition won't be dynamic.  */
+     the type of existing regular definition mismatch.  */
   if (pold_alignment == NULL
-      && !info->shared
-      && !info->export_dynamic
-      && !h->ref_dynamic
       && newdyn
       && newdef
       && !olddyn
-      && (olddef || h->root.type == bfd_link_hash_common)
-      && ELF_ST_TYPE (sym->st_info) != h->type
-      && ELF_ST_TYPE (sym->st_info) != STT_NOTYPE
-      && h->type != STT_NOTYPE
-      && !(newfunc && oldfunc))
+      && (((olddef || h->root.type == bfd_link_hash_common)
+	   && ELF_ST_TYPE (sym->st_info) != h->type
+	   && ELF_ST_TYPE (sym->st_info) != STT_NOTYPE
+	   && h->type != STT_NOTYPE
+	   && !(newfunc && oldfunc))
+	  || (olddef
+	      && ((h->type == STT_GNU_IFUNC)
+		  != (ELF_ST_TYPE (sym->st_info) == STT_GNU_IFUNC)))))
     {
       *skip = TRUE;
       return TRUE;
@@ -4437,6 +4436,9 @@ error_free_dyn:
 	    {
 	      int ret;
 	      const char *soname = elf_dt_name (abfd);
+
+	      info->callbacks->minfo ("%!", soname, old_bfd,
+				      h->root.root.string);
 
 	      /* A symbol from a library loaded via DT_NEEDED of some
 		 other library is referenced by a regular object.
@@ -9547,7 +9549,16 @@ elf_link_input_bfd (struct elf_final_link_info *flinfo, bfd *input_bfd)
 	 file, so the contents field will not have been set by any of
 	 the routines which work on output files.  */
       if (elf_section_data (o)->this_hdr.contents != NULL)
-	contents = elf_section_data (o)->this_hdr.contents;
+	{
+	  contents = elf_section_data (o)->this_hdr.contents;
+	  if (bed->caches_rawsize
+	      && o->rawsize != 0
+	      && o->rawsize < o->size)
+	    {
+	      memcpy (flinfo->contents, contents, o->rawsize);
+	      contents = flinfo->contents;
+	    }
+	}
       else
 	{
 	  contents = flinfo->contents;

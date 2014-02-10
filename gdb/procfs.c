@@ -1,6 +1,6 @@
 /* Machine independent support for SVR4 /proc (process file system) for GDB.
 
-   Copyright (C) 1999-2013 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
    Written by Michael Snyder at Cygnus Solutions.
    Based on work by Fred Fish, Stu Grossman, Geoff Noer, and others.
@@ -3976,7 +3976,7 @@ wait_again:
 static LONGEST
 procfs_xfer_partial (struct target_ops *ops, enum target_object object,
 		     const char *annex, gdb_byte *readbuf,
-		     const gdb_byte *writebuf, ULONGEST offset, LONGEST len)
+		     const gdb_byte *writebuf, ULONGEST offset, ULONGEST len)
 {
   switch (object)
     {
@@ -3987,7 +3987,7 @@ procfs_xfer_partial (struct target_ops *ops, enum target_object object,
       if (writebuf)
 	return (*ops->deprecated_xfer_memory) (offset, (gdb_byte *) writebuf,
 					       len, 1/*write*/, NULL, ops);
-      return -1;
+      return TARGET_XFER_E_IO;
 
 #ifdef NEW_PROC_API
     case TARGET_OBJECT_AUXV:
@@ -3999,7 +3999,7 @@ procfs_xfer_partial (struct target_ops *ops, enum target_object object,
       if (ops->beneath != NULL)
 	return ops->beneath->to_xfer_partial (ops->beneath, object, annex,
 					      readbuf, writebuf, offset, len);
-      return -1;
+      return TARGET_XFER_E_IO;
     }
 }
 
@@ -5518,9 +5518,6 @@ procfs_make_note_section (bfd *obfd, int *note_size)
   thread_args.stop_signal = stop_signal;
   proc_iterate_over_threads (pi, procfs_corefile_thread_callback,
 			     &thread_args);
-
-  /* There should be always at least one thread.  */
-  gdb_assert (thread_args.note_data != note_data);
   note_data = thread_args.note_data;
 
   auxv_len = target_read_alloc (&current_target, TARGET_OBJECT_AUXV,

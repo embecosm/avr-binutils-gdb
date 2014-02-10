@@ -1,6 +1,6 @@
 /* Definitions for values of C expressions, for GDB.
 
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -669,6 +669,11 @@ extern struct value *value_struct_elt (struct value **argp,
 				       struct value **args,
 				       const char *name, int *static_memfuncp,
 				       const char *err);
+
+extern struct value *value_struct_elt_bitpos (struct value **argp,
+					      int bitpos,
+					      struct type *field_type,
+					      const char *err);
 
 extern struct value *value_aggregate_elt (struct type *curtype,
 					  char *name,

@@ -1,6 +1,6 @@
 /* IBM RS/6000 native-dependent code for GDB, the GNU debugger.
 
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -79,10 +79,7 @@
 
 static void exec_one_dummy_insn (struct regcache *);
 
-static LONGEST rs6000_xfer_shared_libraries
-  (struct target_ops *ops, enum target_object object,
-   const char *annex, gdb_byte *readbuf, const gdb_byte *writebuf,
-   ULONGEST offset, LONGEST len);
+static target_xfer_partial_ftype rs6000_xfer_shared_libraries;
 
 /* Given REGNO, a gdb register number, return the corresponding
    number suitable for use as a ptrace() parameter.  Return -1 if
@@ -386,7 +383,7 @@ static LONGEST
 rs6000_xfer_partial (struct target_ops *ops, enum target_object object,
 		     const char *annex, gdb_byte *readbuf,
 		     const gdb_byte *writebuf,
-		     ULONGEST offset, LONGEST len)
+		     ULONGEST offset, ULONGEST len)
 {
   pid_t pid = ptid_get_pid (inferior_ptid);
   int arch64 = ARCH64 ();
@@ -479,7 +476,7 @@ rs6000_xfer_partial (struct target_ops *ops, enum target_object object,
       }
 
     default:
-      return -1;
+      return TARGET_XFER_E_IO;
     }
 }
 
@@ -689,7 +686,7 @@ static LONGEST
 rs6000_xfer_shared_libraries
   (struct target_ops *ops, enum target_object object,
    const char *annex, gdb_byte *readbuf, const gdb_byte *writebuf,
-   ULONGEST offset, LONGEST len)
+   ULONGEST offset, ULONGEST len)
 {
   gdb_byte *ldi_buf;
   ULONGEST result;
@@ -700,7 +697,7 @@ rs6000_xfer_shared_libraries
   gdb_assert (target_has_execution);
 
   if (writebuf)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   ldi_buf = rs6000_ptrace_ldinfo (inferior_ptid);
   gdb_assert (ldi_buf != NULL);

@@ -1,6 +1,6 @@
 /* Ada language support definitions for GDB, the GNU debugger.
 
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -235,8 +235,6 @@ extern const char *ada_decode_symbol (const struct general_symbol_info *);
 extern const char *ada_decode (const char*);
 
 extern enum language ada_update_initial_language (enum language);
-
-extern void clear_ada_sym_cache (void);
 
 extern int ada_lookup_symbol_list (const char *, const struct block *,
                                    domain_enum, struct ada_symbol_info**);

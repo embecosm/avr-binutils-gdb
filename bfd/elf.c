@@ -1,6 +1,6 @@
 /* ELF executable support for BFD.
 
-   Copyright 1993-2013 Free Software Foundation, Inc.
+   Copyright 1993-2014 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -4117,11 +4117,31 @@ _bfd_elf_map_sections_to_segments (bfd *abfd, struct bfd_link_info *info)
 	  /* Mandated PF_R.  */
 	  m->p_flags = PF_R;
 	  m->p_flags_valid = 1;
+	  s = first_tls;
 	  for (i = 0; i < (unsigned int) tls_count; ++i)
 	    {
-	      BFD_ASSERT (first_tls->flags & SEC_THREAD_LOCAL);
-	      m->sections[i] = first_tls;
-	      first_tls = first_tls->next;
+	      if ((s->flags & SEC_THREAD_LOCAL) == 0)
+		{
+		  _bfd_error_handler
+		    (_("%B: TLS sections are not adjacent:"), abfd);
+		  s = first_tls;
+		  i = 0;
+		  while (i < (unsigned int) tls_count)
+		    {
+		      if ((s->flags & SEC_THREAD_LOCAL) != 0)
+			{
+			  _bfd_error_handler (_("	    TLS: %A"), s);
+			  i++;
+			}
+		      else
+			_bfd_error_handler (_("	non-TLS: %A"), s);
+		      s = s->next;
+		    }
+		  bfd_set_error (bfd_error_bad_value);
+		  goto error_return;
+		}
+	      m->sections[i] = s;
+	      s = s->next;
 	    }
 
 	  *pm = m;
@@ -4184,11 +4204,7 @@ _bfd_elf_map_sections_to_segments (bfd *abfd, struct bfd_link_info *info)
 			== (SEC_LOAD | SEC_HAS_CONTENTS))
 		      break;
 
-		  if (i == (unsigned) -1)
-		    continue;
-
-		  if (m->sections[i]->vma + m->sections[i]->size
-		      >= info->relro_end)
+		  if (i != (unsigned) -1)
 		    break;
 		}
 	    }
@@ -4313,6 +4329,9 @@ elf_sort_sections (const void *arg1, const void *arg2)
 static file_ptr
 vma_page_aligned_bias (bfd_vma vma, ufile_ptr off, bfd_vma maxpagesize)
 {
+  /* PR binutils/16199: Handle an alignment of zero.  */
+  if (maxpagesize == 0)
+    maxpagesize = 1;
   return ((vma - off) % maxpagesize);
 }
 
@@ -4789,6 +4808,7 @@ assign_file_positions_for_load_sections (bfd *abfd,
 		p->p_flags |= PF_W;
 	    }
 	}
+
       off -= off_adjust;
 
       /* Check that all sections are in a PT_LOAD segment.
@@ -4990,14 +5010,11 @@ assign_file_positions_for_non_load_sections (bfd *abfd,
 		{
 		  if (lp->p_type == PT_LOAD
 		      && lp->p_vaddr < link_info->relro_end
-		      && lp->p_vaddr + lp->p_filesz >= link_info->relro_end
 		      && lm->count != 0
 		      && lm->sections[0]->vma >= link_info->relro_start)
 		    break;
 		}
 
-	      /* PR ld/14207.  If the RELRO segment doesn't fit in the
-		 LOAD segment, it should be removed.  */
 	      BFD_ASSERT (lm != NULL);
 	    }
 	  else

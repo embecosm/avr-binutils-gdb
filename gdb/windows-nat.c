@@ -1,6 +1,6 @@
 /* Target-vector operations for controlling windows child processes, for GDB.
 
-   Copyright (C) 1995-2013 Free Software Foundation, Inc.
+   Copyright (C) 1995-2014 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions, A Red Hat Company.
 
@@ -43,7 +43,6 @@
 #include <sys/cygwin.h>
 #include <cygwin/version.h>
 #endif
-#include <signal.h>
 
 #include "buildsym.h"
 #include "filenames.h"
@@ -342,7 +341,7 @@ windows_add_thread (ptid_t ptid, HANDLE h, void *tlb)
   if ((th = thread_rec (id, FALSE)))
     return th;
 
-  th = XZALLOC (thread_info);
+  th = XCNEW (thread_info);
   th->id = id;
   th->h = h;
   th->thread_local_base = (CORE_ADDR) (uintptr_t) tlb;
@@ -729,7 +728,7 @@ windows_make_so (const char *name, LPVOID load_addr)
 #endif
     }
 #endif
-  so = XZALLOC (struct so_list);
+  so = XCNEW (struct so_list);
   so->lm_info = (struct lm_info *) xmalloc (sizeof (struct lm_info));
   so->lm_info->load_addr = load_addr;
   strcpy (so->so_original_name, name);
@@ -2416,7 +2415,7 @@ windows_stop (ptid_t ptid)
 
 static LONGEST
 windows_xfer_memory (gdb_byte *readbuf, const gdb_byte *writebuf,
-		     ULONGEST memaddr, LONGEST len)
+		     ULONGEST memaddr, ULONGEST len)
 {
   SIZE_T done = 0;
   BOOL success;
@@ -2425,7 +2424,7 @@ windows_xfer_memory (gdb_byte *readbuf, const gdb_byte *writebuf,
   if (writebuf != NULL)
     {
       DEBUG_MEM (("gdb: write target memory, %s bytes at %s\n",
-		  plongest (len), core_addr_to_string (memaddr)));
+		  pulongest (len), core_addr_to_string (memaddr)));
       success = WriteProcessMemory (current_process_handle,
 				    (LPVOID) (uintptr_t) memaddr, writebuf,
 				    len, &done);
@@ -2437,7 +2436,7 @@ windows_xfer_memory (gdb_byte *readbuf, const gdb_byte *writebuf,
   else
     {
       DEBUG_MEM (("gdb: read target memory, %s bytes at %s\n",
-		  plongest (len), core_addr_to_string (memaddr)));
+		  pulongest (len), core_addr_to_string (memaddr)));
       success = ReadProcessMemory (current_process_handle,
 				   (LPCVOID) (uintptr_t) memaddr, readbuf,
 				   len, &done);
@@ -2469,7 +2468,7 @@ windows_kill_inferior (struct target_ops *ops)
 }
 
 static void
-windows_prepare_to_store (struct regcache *regcache)
+windows_prepare_to_store (struct target_ops *self, struct regcache *regcache)
 {
   /* Do nothing, since we can store individual regs.  */
 }
@@ -2507,7 +2506,7 @@ static LONGEST
 windows_xfer_shared_libraries (struct target_ops *ops,
 			     enum target_object object, const char *annex,
 			     gdb_byte *readbuf, const gdb_byte *writebuf,
-			     ULONGEST offset, LONGEST len)
+			     ULONGEST offset, ULONGEST len)
 {
   struct obstack obstack;
   const char *buf;
@@ -2515,7 +2514,7 @@ windows_xfer_shared_libraries (struct target_ops *ops,
   struct so_list *so;
 
   if (writebuf)
-    return -1;
+    return TARGET_XFER_E_IO;
 
   obstack_init (&obstack);
   obstack_grow_str (&obstack, "<library-list>\n");
@@ -2543,7 +2542,7 @@ windows_xfer_shared_libraries (struct target_ops *ops,
 static LONGEST
 windows_xfer_partial (struct target_ops *ops, enum target_object object,
 		    const char *annex, gdb_byte *readbuf,
-		    const gdb_byte *writebuf, ULONGEST offset, LONGEST len)
+		    const gdb_byte *writebuf, ULONGEST offset, ULONGEST len)
 {
   switch (object)
     {
@@ -2558,7 +2557,7 @@ windows_xfer_partial (struct target_ops *ops, enum target_object object,
       if (ops->beneath != NULL)
 	return ops->beneath->to_xfer_partial (ops->beneath, object, annex,
 					      readbuf, writebuf, offset, len);
-      return -1;
+      return TARGET_XFER_E_IO;
     }
 }
 

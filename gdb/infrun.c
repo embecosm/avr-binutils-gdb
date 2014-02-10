@@ -1,7 +1,7 @@
 /* Target-struct-independent code to start (run) and stop an inferior
    process.
 
-   Copyright (C) 1986-2013 Free Software Foundation, Inc.
+   Copyright (C) 1986-2014 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -1240,7 +1240,7 @@ use_displaced_stepping (struct gdbarch *gdbarch)
   return (((can_use_displaced_stepping == AUTO_BOOLEAN_AUTO && non_stop)
 	   || can_use_displaced_stepping == AUTO_BOOLEAN_TRUE)
 	  && gdbarch_displaced_step_copy_insn_p (gdbarch)
-	  && !RECORD_IS_USED);
+	  && find_record_target () == NULL);
 }
 
 /* Clean out any stray displaced stepping state.  */
@@ -2963,7 +2963,7 @@ adjust_pc_after_break (struct execution_control_state *ecs)
   struct regcache *regcache;
   struct gdbarch *gdbarch;
   struct address_space *aspace;
-  CORE_ADDR breakpoint_pc;
+  CORE_ADDR breakpoint_pc, decr_pc;
 
   /* If we've hit a breakpoint, we'll normally be stopped with SIGTRAP.  If
      we aren't, just return.
@@ -3025,15 +3025,16 @@ adjust_pc_after_break (struct execution_control_state *ecs)
      we have nothing to do.  */
   regcache = get_thread_regcache (ecs->ptid);
   gdbarch = get_regcache_arch (regcache);
-  if (gdbarch_decr_pc_after_break (gdbarch) == 0)
+
+  decr_pc = target_decr_pc_after_break (gdbarch);
+  if (decr_pc == 0)
     return;
 
   aspace = get_regcache_aspace (regcache);
 
   /* Find the location where (if we've hit a breakpoint) the
      breakpoint would be.  */
-  breakpoint_pc = regcache_read_pc (regcache)
-		  - gdbarch_decr_pc_after_break (gdbarch);
+  breakpoint_pc = regcache_read_pc (regcache) - decr_pc;
 
   /* Check whether there actually is a software breakpoint inserted at
      that location.
@@ -3048,7 +3049,7 @@ adjust_pc_after_break (struct execution_control_state *ecs)
     {
       struct cleanup *old_cleanups = make_cleanup (null_cleanup, NULL);
 
-      if (RECORD_IS_USED)
+      if (record_full_is_used ())
 	record_full_gdb_operation_disable_set ();
 
       /* When using hardware single-step, a SIGTRAP is reported for both
@@ -3157,6 +3158,10 @@ fill_in_stop_func (struct gdbarch *gdbarch,
 				&ecs->stop_func_start, &ecs->stop_func_end);
       ecs->stop_func_start
 	+= gdbarch_deprecated_function_start_offset (gdbarch);
+
+      if (gdbarch_skip_entrypoint_p (gdbarch))
+	ecs->stop_func_start = gdbarch_skip_entrypoint (gdbarch,
+							ecs->stop_func_start);
 
       ecs->stop_func_filled_in = 1;
     }
@@ -4379,7 +4384,11 @@ handle_signal_stop (struct execution_control_state *ecs)
 	  ecs->event_thread->step_after_step_resume_breakpoint = 1;
 	  /* Reset trap_expected to ensure breakpoints are re-inserted.  */
 	  ecs->event_thread->control.trap_expected = 0;
-	  keep_going (ecs);
+
+	  /* If we were nexting/stepping some other thread, switch to
+	     it, so that we don't continue it, losing control.  */
+	  if (!switch_back_to_stepped_thread (ecs))
+	    keep_going (ecs);
 	  return;
 	}
 
@@ -6851,7 +6860,7 @@ save_infcall_suspend_state (void)
 	}
     }
 
-  inf_state = XZALLOC (struct infcall_suspend_state);
+  inf_state = XCNEW (struct infcall_suspend_state);
 
   if (siginfo_data)
     {
