@@ -343,10 +343,13 @@ make_pointer_type (struct type *type, struct type **typeptr)
   TYPE_TARGET_TYPE (ntype) = type;
   TYPE_POINTER_TYPE (type) = ntype;
 
-  /* FIXME!  Assumes the machine has only one representation for pointers!  */
+  /* FIXME!  Assumes the machine has only one representation for pointers!
+     Round up in case gdbarch_ptr_bit is not an exact multiple of
+     TARGET_CHAR_BIT. */
 
   TYPE_LENGTH (ntype)
-    = gdbarch_ptr_bit (get_type_arch (type)) / TARGET_CHAR_BIT;
+    = (gdbarch_ptr_bit (get_type_arch (type)) + TARGET_CHAR_BIT  - 1)
+    / TARGET_CHAR_BIT;
   TYPE_CODE (ntype) = TYPE_CODE_PTR;
 
   /* Mark pointers as unsigned.  The target converts between pointers
