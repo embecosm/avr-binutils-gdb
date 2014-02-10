@@ -1,8 +1,4 @@
-2014-02-10  Jeremy Bennett  <jeremy.bennett@embecosm.com>
-
-	* gdb/avr-tdep.c (avr_gdbarch_init): Set ptr bits to 32.
-
-2014-02-10  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+2014-02-10  Jeremy Bennett  <jeremy@my.domain.org>
 
 	* gdb/avr-tdep.c: Make X, Y and Z pseudo-regs, remove W (is it
 	ever used) and make FP alias of Y, remove pseudo_pc.
