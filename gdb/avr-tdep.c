@@ -1550,10 +1550,12 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
-  /* The larger of 2^22 addressable *words* of program space and 2^17
-     addressable bytes of data space (being 2^16 bytes of RAM followed by 2^16
-     bytes of EEPROM space). */
-  set_gdbarch_ptr_bit (gdbarch, 22);
+  /* This should be the larger of 2^22 addressable *words* of program space
+     and 2^17 addressable bytes of data space (being 2^16 bytes of RAM
+     followed by 2^16 bytes of EEPROM space). However GDB also uses this for
+     anything which is a code pointer (like the PC), and the PC is sent back
+     as 32 bits, so we must use 32 bits. */
+  set_gdbarch_ptr_bit (gdbarch, 32);
   /* 2^22 *words* of program space = 2^23 bytes. */
   set_gdbarch_addr_bit (gdbarch, 23);
 
