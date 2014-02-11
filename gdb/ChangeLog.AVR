@@ -1,3 +1,19 @@
+2014-02-11  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+
+	* gdb/avr-tdep.c (struct gdbarch_tdep): Add back types for code
+	and data.
+	(avr_register_type): Use AVR arch specific types for code and data
+	pointers.
+	(avr_make_code_addr): Use flag bits with both addresses and pointers.
+	(avr_make_code_ptr): Likewise.
+	(avr_make_data_addr): Likewise.
+	(avr_make_data_ptr): Likewise.
+	(avr_address_to_pointer): Use hex_string rather than
+	print_core_address.
+	(avr_pointer_to_address): Likewise.
+	(avr_gdbarch_init): Initialize custom types.
+	(avr_dump_tdep): Print custom types.
+
 2014-02-10  Jeremy Bennett  <jeremy@my.domain.org>
 
 	* gdb/avr-tdep.c: Make X, Y and Z pseudo-regs, remove W (is it

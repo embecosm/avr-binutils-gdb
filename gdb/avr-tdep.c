@@ -194,6 +194,10 @@ struct gdbarch_tdep
   /* Number of bytes stored to the stack by call instructions.
      2 bytes for avr1-5, 3 bytes for avr6.  */
   int call_length;
+  /* GDB does not cope with different sizes of pointer type, so we create our
+     own. */
+  struct type *code_ptr_type;	/* 32 bits for PC */
+  struct type *data_ptr_type;	/* 16 bits for SP, X, Y, Z */
 };
 
 /* -------------------------------------------------------------------------- */
@@ -227,22 +231,23 @@ avr_register_name (struct gdbarch *gdbarch, int regnum)
 }	/* avr_rgister_name */
 
 
-/* Return the GDB type object for the "standard" data type
-   of data in register N.  */
+/* Return the GDB type object for the data type of data in register REG_NR.
 
+   @note We use custom types here, because standard GDB types cannot cope with
+         code and data pointers being of different length. */
 static struct type *
 avr_register_type (struct gdbarch *gdbarch, int reg_nr)
 {
   switch (reg_nr)
     {
     case AVR_PC_REGNUM:
-	return  builtin_type (gdbarch)->builtin_func_ptr;
+      return  gdbarch_tdep (gdbarch)->code_ptr_type;
 
     case AVR_SP_REGNUM:
     case AVR_X_REGNUM:
     case AVR_Y_REGNUM:
     case AVR_Z_REGNUM:
-      return builtin_type (gdbarch)->builtin_data_ptr;
+      return  gdbarch_tdep (gdbarch)->data_ptr_type;
 
     default:
       return builtin_type (gdbarch)->builtin_uint8;
@@ -263,60 +268,39 @@ avr_strip_flag_bits (CORE_ADDR x)
 }	/* avr_strip_flag_bits () */
 
 
-/* Convert architectural code pointer to byte address.
-
-   X is a code pointer for the AVR architecture, i.e. a word address.
-
-   Convert this to a byte address, where a flag in one of the high bits
-   indicates where this is a code address. */
+/* Convert architectural code pointer to byte address. */
 static CORE_ADDR
 avr_make_code_addr (CORE_ADDR x)
 {
-  return (x << 1) | AVR_CODE_START;
+  return (avr_strip_flag_bits (x) << 1) | AVR_CODE_START;
 
 }	/* avr_make_code_addr ()*/
 
 
-/* Convert byte address to architectural code pointer.
-
-   X is a byte address, where a flag in one of the high bits indicates where
-   this is a code address. 
-
-   Convert this to a code pointer for the AVR architecture, i.e. a word
-   address (without high end flag bits). */
+/* Convert byte address to architectural code pointer. */
 static CORE_ADDR
 avr_make_code_ptr (CORE_ADDR x)
 {
-  return avr_strip_flag_bits (x) >> 1;
+  return (avr_strip_flag_bits (x) >> 1) | AVR_CODE_START;
 
 }	/* avr_make_code_ptr () */
 
 
-/* Convert architectural data pointer to byte address.
-
-   X is a data pointer for the AVR architecture, i.e. a byte address.
-
-   Add a flag in one of the high bits to indicate this is a data address. Note
-   that EEPROM and RAM are both considered data addresses. */
+/* Convert architectural data pointer to byte address. */
 static CORE_ADDR
 avr_make_data_addr (CORE_ADDR x)
 {
-  return x | AVR_DATA_START;
+  /* fprintf_unfiltered (gdb_stdlog, "x = %p, stripped = %p, AVR_DATA_START = %p, result = %p\n", (void *)x, (void *)avr_strip_flag_bits (x), (void *) AVR_DATA_START, (void *)(avr_strip_flag_bits (x) | AVR_DATA_START)); */
+  return avr_strip_flag_bits (x) | AVR_DATA_START;
 
 }	/* avr_make_data_addr () */
 
 
-/* Convert byte address to architectural data pointer.
-
-   X is a byte address, where a flag in one of the high bits indicates where
-   this is a data address. 
-
-   Convert this to a data pointer for the AVR architecture, i.e. a byte
-   address without high end flag bits. */
+/* Convert byte address to architectural data pointer. */
 static CORE_ADDR
 avr_make_data_ptr (CORE_ADDR x)
 {
-  return avr_strip_flag_bits (x);
+  return  avr_strip_flag_bits (x)| AVR_DATA_START;
 
 }	/* avr_make_data_ptr () */
 
@@ -349,17 +333,16 @@ avr_make_data_ptr (CORE_ADDR x)
 /* Extract and convert byte address to architectural pointer.
 
    ADDR holds a byte address, where a flag in one of the high bits
-   indicates where this is a code or data address.
+   indicates where this is a code or data address, and if a data address
+   whether SRAM or EEPROM.
 
    Convert this to the appropriate format for the AVR architecture, i.e. a
    word address for code and a byte address otherwise. In doing this, the
    value of TYPE is used, rather than the high end flag bits.
 
-   Convert this to a byte address, where a flag in one of the high bits
-   indicates where this is a code or data address.
-
-   Note that RAM and EEPROM are both considered data addresses, but have
-   non-overlapping address values.
+   We still leave the high bits set in the pointer, since this is the address
+   that will be used in packets to the remote target, which needs them to tell
+   whether it is being given a code or data address.
    
    @todo: Should we verify that the TYPE and flag bits are consistent? */
 static void
@@ -375,9 +358,8 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
 			    "avr_address_to_pointer: code %s -> %s.\n",
-			    print_core_address (gdbarch, addr),
-			    print_core_address (gdbarch,
-						avr_make_code_ptr (addr)));
+			    hex_string (addr),
+			    hex_string (avr_make_code_ptr (addr)));
 
       store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
 			      avr_make_code_ptr (addr));
@@ -387,9 +369,8 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
 			    "avr_address_to_pointer: data %s -> %s.\n",
-			    print_core_address (gdbarch, addr),
-			    print_core_address (gdbarch,
-						avr_make_data_ptr (addr)));
+			    hex_string (addr),
+			    hex_string (avr_make_data_ptr (addr)));
 
       store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
 			      avr_make_data_ptr (addr));
@@ -423,9 +404,8 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
 			    "avr_pointer_to_address: code %s -> %s.\n",
-			    print_core_address (gdbarch, addr),
-			    print_core_address (gdbarch,
-						avr_make_code_addr (addr)));
+			    hex_string (addr),
+			    hex_string (avr_make_code_addr (addr)));
 
       return avr_make_code_addr (addr);
     }
@@ -434,9 +414,8 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
 			    "avr_pointer_to_address: data %s -> %s.\n",
-			    print_core_address (gdbarch, addr),
-			    print_core_address (gdbarch,
-						avr_make_data_addr (addr)));
+			    hex_string (addr),
+			    hex_string (avr_make_data_addr (addr)));
 
       return avr_make_data_addr (addr);
     }
@@ -1514,6 +1493,8 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   struct gdbarch_tdep *tdep;
   struct gdbarch_list *best_arch;
   int call_length;
+  struct type *void_type;
+  struct type *void_func_type;
 
   /* Avr-6 call instructions save 3 bytes.  */
   switch (info.bfd_arch_info->mach)
@@ -1546,15 +1527,40 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   
   tdep->call_length = call_length;
 
+  /* Since we have different pointer lengths for code and data (something GDB
+     does not by default have), they will need their own types, with different
+     sizes. We could use the default version (which takes its length from
+     gdbarch_ptr_bit) for one, and create the other, but for clarity we create
+     both.
+
+     As an added annoyance, the builtin types are not necessarily defined at
+     this point, so we can't use them and have to define our own. */
+
+  void_type = arch_type (gdbarch, TYPE_CODE_VOID, 1, "void");
+  void_func_type = make_function_type (void_type, NULL);
+
+  tdep->code_ptr_type = arch_type (gdbarch, TYPE_CODE_PTR, 4, "code pointer");
+  TYPE_TARGET_TYPE (tdep->code_ptr_type) = void_func_type;
+  TYPE_UNSIGNED (tdep->code_ptr_type) = 1;
+
+  tdep->data_ptr_type = arch_type (gdbarch, TYPE_CODE_PTR, 2, "data pointer");
+  TYPE_TARGET_TYPE (tdep->data_ptr_type) = void_type;
+  TYPE_UNSIGNED (tdep->data_ptr_type) = 1;
+
   set_gdbarch_short_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
-  /* The larger of 2^22 addressable *words* of program space and 2^17
-     addressable bytes of data space (being 2^16 bytes of RAM followed by 2^16
-     bytes of EEPROM space). */
-  set_gdbarch_ptr_bit (gdbarch, 22);
-  /* 2^22 *words* of program space = 2^23 bytes. */
+  /* This is now mostly irrelevant, since the sizes of pointers are now taken
+     from customer types. However we keep it for completeness. Since GDB has
+     only one size for pointers, it has to be the larger of 2^22 addressable
+     *words* of program space and 2^17 addressable bytes of data space (being
+     2^16 bytes of RAM followed by 2^16 bytes of EEPROM space) plus the extra
+     bit to indicate whether it is code or data. */
+  set_gdbarch_ptr_bit (gdbarch, 23);
+  /* This seems to be for internal display purposes, which we would much
+     rather were separate for code and data. We make it the larger of 2^23
+     bytes of flash (code) and 2^16 bytes of data (SRAM or EEPROM). */
   set_gdbarch_addr_bit (gdbarch, 23);
 
   set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
@@ -1617,7 +1623,23 @@ avr_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
 
   fprintf_unfiltered (file, "avr_dump_tdep: call_length = %d\n", 
 		      tdep->call_length);
-  
+
+  fprintf_unfiltered (file, "avr_dump_tdep: code pointer type code = %d\n", 
+		      TYPE_CODE (tdep->code_ptr_type));
+  fprintf_unfiltered (file, "               code pointer type length = %d\n", 
+		      TYPE_LENGTH (tdep->code_ptr_type));
+  fprintf_unfiltered (file, "               code pointer type name = %s\n", 
+		      TYPE_NAME (tdep->code_ptr_type)
+		      ? TYPE_NAME (tdep->code_ptr_type) : "(null)");
+
+  fprintf_unfiltered (file, "avr_dump_tdep: data pointer type code = %d\n", 
+		      TYPE_CODE (tdep->data_ptr_type));
+  fprintf_unfiltered (file, "               data pointer type length = %d\n", 
+		      TYPE_LENGTH (tdep->data_ptr_type));
+  fprintf_unfiltered (file, "               data pointer type name = %s\n", 
+		      TYPE_NAME (tdep->data_ptr_type)
+		      ? TYPE_NAME (tdep->data_ptr_type) : "(null)");
+
 }	/* avr_dump_tdep () */
 
 
