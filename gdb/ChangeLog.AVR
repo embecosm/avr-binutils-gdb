@@ -1,3 +1,23 @@
+2014-02-24  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+
+	* gdb/avr-tdep.c: Commenting tidied up.
+	(avr_strip_flag_bits): Deleted.
+	(avr_make_code_addr): Simplified
+	(avr_make_code_ptr): #ifdef'd out
+	(avr_make_data_addr): Simplified
+	(avr_make_data_ptr): #ifdef'd out
+	(avr_address_to_pointer): Comprehensive explanation in
+	comments. Simplified and added sanity checks.
+	(avr_pointer_to_address): Simplified and added sanity checks.
+	(avr_integer_to_address): Simplified and better commenting.
+	(avr_write_pc): Mask out flag bits when writing PC.
+	(avr_unwind_pc): Add debug of unwound value and correct masking.
+	(avr_dummy_id): Add code flags to PC in frame build.
+	(avr_push_dummy_call): Remove MSBs from return_pc, make data
+	adddress when writing SP.
+	(avr_gdbarch_init): Return pointer and address bit sizes to
+	upstream values.
+
 2014-02-11  Jeremy Bennett  <jeremy.bennett@embecosm.com>
 
 	* gdb/avr-tdep.c (struct gdbarch_tdep): Add back types for code

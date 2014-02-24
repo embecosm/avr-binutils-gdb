@@ -61,12 +61,14 @@
    All three memory spaces have physical addresses beginning at 0x0.  In
    addition, the flash is addressed by gcc/binutils/gdb with respect to 8 bit
    bytes instead of the 16 bit wide words used by the real device for the
-   Program Counter.
+   Program Counter, although the program counter still holds a byte address -
+   its bottom bit is tied to zero.
 
    In order for remote targets to work correctly, extra bits must be added to
    addresses before they are send to the target or received from the target
-   via the remote serial protocol.  The extra bits are the MSBs and are used to
-   decode which memory space the address is referring to.  */
+   via the remote serial protocol to identify the address space being referred
+   to.  The extra bits are the MSBs and are used to decode which memory space
+   the address is referring to.  */
 
 /* Constants: prefixed with AVR_ to avoid name space clashes */
 
@@ -127,22 +129,10 @@ enum
      to the address and letting the remote target handle the low-level
      details of actually accessing the eeprom.
 
-     JPB/1014-01-10: This still isn't quite right. The AVR architecture allows
-     up to 22-bit program counter, addressing words. This means GDB addresses
-     (which unlike pointers are *always* byte addressed), can be up to 23 bits
-     long. So the AVR_MEM_MASK must be clear of 23 bits. I've allowed it to
-     mask of the top 9 bits, for potential future masking possibilities.
-
-     EEPROM still works, but is effectively any data address above 0xffff,
-     which is fine, since RAM is limited to 64kB. By allowing a 1 bit mask,
-     potentially up to 64kB of EEPROM is possible (addresses 0x10000 to
-     0x1ffff), although in practice it is much smaller.
-
-     This isn't perfect, since EEPROM is really a third address space, but GDB
-     does not have a clean way of treating more than 2 address spaces, so for
-     now we just have to accept that they will show as a high address in the
-     data address space.
-  */
+     JPB/2014-02-23: See the comments above avr_address_to_pointer for a
+     detailed explanation of how these bits are used. A proper handling of
+     this awaits future improvements to GDB's handling of multiple address
+     spaces.. */
 
   AVR_CODE_START   = 0x00000000,	/* INSN memory */
   AVR_DATA_START   = 0x00800000,	/* SRAM memory */
@@ -255,54 +245,56 @@ avr_register_type (struct gdbarch *gdbarch, int reg_nr)
 }	/* avr_register_type () */
 
 
-/* Strip memory space flag bits.
+/* Convert architectural code pointer to an internal GDB byte address.
 
-   Within GDB, AVR byte addresses use high bits to indicate whether this is
-   originally a code or data address (where data may be RAM or EEPROM). Strip
-   these flag bits. */
-static CORE_ADDR
-avr_strip_flag_bits (CORE_ADDR x)
-{
-  return x & (~AVR_MEM_MASK);
-
-}	/* avr_strip_flag_bits () */
-
-
-/* Convert architectural code pointer to byte address. */
+   See avr_address_to_pointer for an explanation of how addresses and
+   pointers work for AVR. */
 static CORE_ADDR
 avr_make_code_addr (CORE_ADDR x)
 {
-  return (avr_strip_flag_bits (x) << 1) | AVR_CODE_START;
+  return (x & ~AVR_MEM_MASK) | AVR_CODE_START;
 
 }	/* avr_make_code_addr ()*/
 
 
-/* Convert byte address to architectural code pointer. */
+#if 0
+/* Convert internal GDB byte address to architectural code pointer.
+
+   See avr_address_to_pointer for an explanation of how addresses and
+   pointers work for AVR. */
 static CORE_ADDR
 avr_make_code_ptr (CORE_ADDR x)
 {
-  return (avr_strip_flag_bits (x) >> 1) | AVR_CODE_START;
+  return (x & ~AVR_MEM_MASK) | AVR_CODE_START;
 
 }	/* avr_make_code_ptr () */
+#endif
 
 
-/* Convert architectural data pointer to byte address. */
+/* Convert architectural data pointer to an internal GDB byte address.
+
+   See avr_address_to_pointer for an explanation of how addresses and
+   pointers work for AVR. */
 static CORE_ADDR
 avr_make_data_addr (CORE_ADDR x)
 {
-  /* fprintf_unfiltered (gdb_stdlog, "x = %p, stripped = %p, AVR_DATA_START = %p, result = %p\n", (void *)x, (void *)avr_strip_flag_bits (x), (void *) AVR_DATA_START, (void *)(avr_strip_flag_bits (x) | AVR_DATA_START)); */
-  return avr_strip_flag_bits (x) | AVR_DATA_START;
+  return (x & ~AVR_MEM_MASK) | AVR_DATA_START;
 
 }	/* avr_make_data_addr () */
 
 
-/* Convert byte address to architectural data pointer. */
+#if 0
+/* Convert internal GDB byte address to architectural data pointer.
+
+   See avr_address_to_pointer for an explanation of how addresses and
+   pointers work for AVR. */
 static CORE_ADDR
 avr_make_data_ptr (CORE_ADDR x)
 {
-  return  avr_strip_flag_bits (x)| AVR_DATA_START;
+  return  (x & ~AVR_MEM_MASK) | AVR_DATA_START;
 
 }	/* avr_make_data_ptr () */
+#endif
 
 
 /* EEPROM address checks and convertions.  I don't know if these will ever
@@ -332,19 +324,47 @@ avr_make_data_ptr (CORE_ADDR x)
 
 /* Extract and convert byte address to architectural pointer.
 
+   GDB works with a single byte addressed memory space. This is a problem for
+   architectures with multiple address spaces or which are word addressed.
+
+   To aovid ambiguity, GDB distinguishes between "addresses" which are the
+   single byte addressed memory space, and "pointers", which are the memory as
+   referenced on the actual target, and which may be either work addressed, or
+   non-unique (or both).
+
+   In the case of AVR, we have 3 address spaces on the target as described at
+   the head of ths file. We map pointers in these spaces as follows:
+   - Flash   0x0 - 0x7ffffe -> 0x000000 - 0x7ffffe
+   - SRAM    0x0 -   0xffff -> 0x800000 - 0x80ffff
+   - EEPROM  0x0 -   0xffff -> 0x810000 - 0x81ffff
+
+   The idea is that when converting to pointers, the higher order bits (known
+   as MSBs) will be stripped off.
+
+   But...
+
+   We are typically connecting to the target via the GDB Remote Serial
+   Protocol, which always uses 'm', 'M' and 'X' packets to read/write data,
+   irrespective of address space. So we have to leave the bits in place in
+   order that the remote target can determine the address space to which the
+   read/write refers. All we can do is pass the address through unchanged.
+
+   We don't even need to convert the address in flash to a word address, since
+   the address is always supplied as a byte address in the PC with the lowest
+   order bit fixed to zero.
+
+   We still retain these functions, even though they are for now a null
+   operation, pending future upgrades which will be able to take a more
+   sophisticated approach.
+
    ADDR holds a byte address, where a flag in one of the high bits
    indicates where this is a code or data address, and if a data address
    whether SRAM or EEPROM.
 
-   Convert this to the appropriate format for the AVR architecture, i.e. a
-   word address for code and a byte address otherwise. In doing this, the
-   value of TYPE is used, rather than the high end flag bits.
+   Convert this to the appropriate format for the AVR architecture (currently
+   a null operation), In doing this, the value of TYPE is used, rather than
+   the high end flag bits. */
 
-   We still leave the high bits set in the pointer, since this is the address
-   that will be used in packets to the remote target, which needs them to tell
-   whether it is being given a code or data address.
-   
-   @todo: Should we verify that the TYPE and flag bits are consistent? */
 static void
 avr_address_to_pointer (struct gdbarch *gdbarch,
 			struct type *type, gdb_byte *buf, CORE_ADDR addr)
@@ -355,80 +375,115 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
   if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
       || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
     {
+      /* Sanity check */
+      if ((addr & AVR_MEM_MASK) != AVR_CODE_START)
+	{
+	  warning (_("AVR code address 0x%s missing code flags - corrected"),
+		   hex_string (addr));
+	  addr = (addr & ~AVR_MEM_MASK) | AVR_CODE_START;
+	}
+
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_address_to_pointer: code %s -> %s.\n",
-			    hex_string (addr),
-			    hex_string (avr_make_code_ptr (addr)));
+			    "avr_address_to_pointer: code address %s.\n",
+			    hex_string (addr));
 
-      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
-			      avr_make_code_ptr (addr));
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, addr);
     }
   else
     {
+      /* Sanity check */
+      if ((addr & AVR_MEM_MASK) != AVR_DATA_START)
+	{
+	  warning (_("AVR code address 0x%s missing code flags - corrected"),
+		   hex_string (addr));
+	  addr = (addr & ~AVR_MEM_MASK) | AVR_DATA_START;
+	}
+
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_address_to_pointer: data %s -> %s.\n",
-			    hex_string (addr),
-			    hex_string (avr_make_data_ptr (addr)));
+			    "avr_address_to_pointer: data address %s.\n",
+			    hex_string (addr));
 
-      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order,
-			      avr_make_data_ptr (addr));
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, addr);
     }
 }	/* avr_address_to_pointer () */
 
 
 /* Extract and convert architectural pointer to byte address.
 
+   See avr_address_to_pointer for a detailed description of the transformation
+   required and why this function is present.
+
    BUF holds a pointer of type TYPE, in the appropriate format for the AVR
-   architecture, i.e. a word address for code and a byte address otherwise.
+   architecture. Convert this to a byte address, where a flag in one of the
+   high bits indicates where this is a code or data address. */
 
-   Convert this to a byte address, where a flag in one of the high bits
-   indicates where this is a code or data address.
-
-   Note that RAM and EEPROM are both considered data addresses, but have
-   non-overlapping address values. */
 static CORE_ADDR
 avr_pointer_to_address (struct gdbarch *gdbarch,
 			struct type *type, const gdb_byte *buf)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
-  CORE_ADDR addr
-    = extract_unsigned_integer (buf, TYPE_LENGTH (type), byte_order);
+  CORE_ADDR ptr = extract_unsigned_integer (buf, TYPE_LENGTH (type),
+					    byte_order);
 
-  /* Is it a code address?  */
+  /* Is it a code pointer?  */
   if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
       || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
       || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
     {
+      /* Sanity check */
+      if ((ptr & AVR_MEM_MASK) != AVR_CODE_START)
+	{
+	  warning (_("AVR code pointer 0x%s missing code flags - corrected"),
+		   hex_string (ptr));
+	  ptr = (ptr & ~AVR_MEM_MASK) | AVR_CODE_START;
+	}
+
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_pointer_to_address: code %s -> %s.\n",
-			    hex_string (addr),
-			    hex_string (avr_make_code_addr (addr)));
+			    "avr_pointer_to_address: code pointer %s.\n",
+			    hex_string (ptr));
 
-      return avr_make_code_addr (addr);
+      return ptr;
     }
   else
     {
+      /* Sanity check */
+      if ((ptr & AVR_MEM_MASK) != AVR_DATA_START)
+	{
+	  warning (_("AVR code pointer 0x%s missing code flags - corrected"),
+		   hex_string (ptr));
+	  ptr = (ptr & ~AVR_MEM_MASK) | AVR_DATA_START;
+	}
+
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_pointer_to_address: data %s -> %s.\n",
-			    hex_string (addr),
-			    hex_string (avr_make_data_addr (addr)));
+			    "avr_pointer_to_address: data pointer %s.\n",
+			    hex_string (ptr));
 
-      return avr_make_data_addr (addr);
+      return ptr;
     }
 }	/* avr_pointer_to_address () */
 
 
+/* Convert an integer to a pointer
+
+   Sometimes GDB is given a literal value to use as a pointer (for example
+   when examining memory).  This function should convert the value to an
+   appropriate address.  See the explanation at avr_address_to_pointer for an
+   explanation of how addresses and pointers work for AVR.
+
+   The integer value is in BUF, and is considered to be of type TYPE (which
+   will be an integer type). For AVR we do not override any MSBs, so these can
+   be used. */
 static CORE_ADDR
 avr_integer_to_address (struct gdbarch *gdbarch,
 			struct type *type, const gdb_byte *buf)
 {
   ULONGEST addr = unpack_long (type, buf);
 
-  return avr_make_data_addr (addr);
+  return addr;
 }
 
 static CORE_ADDR
@@ -439,11 +494,14 @@ avr_read_pc (struct regcache *regcache)
   return (pc | AVR_CODE_START);		/* This is a byte address */
 }
 
+
+/* The actual value in the PC must not carry any flag bits - it is a real
+   Harvard address. */
 static void
 avr_write_pc (struct regcache *regcache, CORE_ADDR val)
 {
   regcache_cooked_write_unsigned (regcache, AVR_PC_REGNUM,
-                                  avr_strip_flag_bits (val));
+                                  val & ~AVR_MEM_MASK);
 }
 
 
@@ -1175,7 +1233,12 @@ avr_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
 
   pc = frame_unwind_register_unsigned (next_frame, AVR_PC_REGNUM);
 
-  return (pc | AVR_CODE_START);		/* This is a byte address */
+  if (avr_debug >= 2)
+    fprintf_unfiltered (gdb_stdlog,
+			_("AVR Unwind PC value 0x%s, frame level %d\n"),
+			hex_string (pc), frame_relative_level (next_frame));
+
+  return ((pc & ~AVR_MEM_MASK) | AVR_CODE_START);		/* This is a byte address */
 }
 
 static CORE_ADDR
@@ -1302,7 +1365,8 @@ avr_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
   ULONGEST base;
 
   base = get_frame_register_unsigned (this_frame, AVR_SP_REGNUM);
-  return frame_id_build (avr_make_data_addr (base), get_frame_pc (this_frame));
+  return frame_id_build (avr_make_data_addr (base),
+			 avr_make_code_addr (get_frame_pc (this_frame)));
 }
 
 /* When arguments must be pushed onto the stack, they go on in reverse
@@ -1387,7 +1451,9 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
   int i;
   gdb_byte buf[3];
   int call_length = gdbarch_tdep (gdbarch)->call_length;
-  CORE_ADDR return_pc = avr_strip_flag_bits (bp_addr);
+  /* When we are looking at the PC value, we don't want any MSB's - just the
+     raw Harvard address. */
+  CORE_ADDR return_pc = bp_addr & ~AVR_MEM_MASK;
   int regnum = AVR_ARGN_REGNUM;
   struct stack_item *si = NULL;
 
@@ -1462,7 +1528,7 @@ avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 
   /* Finally, update the SP register.  */
   regcache_cooked_write_unsigned (regcache, AVR_SP_REGNUM,
-				  avr_make_data_ptr (sp));
+				  avr_make_data_addr (sp));
 
   /* Return SP value for the dummy frame, where the return address hasn't been
      pushed.  */
@@ -1551,17 +1617,11 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_long_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_long_long_bit (gdbarch, 8 * TARGET_CHAR_BIT);
-  /* This is now mostly irrelevant, since the sizes of pointers are now taken
-     from customer types. However we keep it for completeness. Since GDB has
-     only one size for pointers, it has to be the larger of 2^22 addressable
-     *words* of program space and 2^17 addressable bytes of data space (being
-     2^16 bytes of RAM followed by 2^16 bytes of EEPROM space) plus the extra
-     bit to indicate whether it is code or data. */
-  set_gdbarch_ptr_bit (gdbarch, 23);
-  /* This seems to be for internal display purposes, which we would much
-     rather were separate for code and data. We make it the larger of 2^23
-     bytes of flash (code) and 2^16 bytes of data (SRAM or EEPROM). */
-  set_gdbarch_addr_bit (gdbarch, 23);
+  /* This is an area where we need to do a lot of work. Internally GDB assumes
+     these values are multiples of 8 bits. In the absence of a sane structure,
+     this means we have no choice but to display the higher mask bits. */
+  set_gdbarch_ptr_bit (gdbarch, 2 * TARGET_CHAR_BIT);
+  set_gdbarch_addr_bit (gdbarch, 32);
 
   set_gdbarch_float_bit (gdbarch, 4 * TARGET_CHAR_BIT);
   set_gdbarch_double_bit (gdbarch, 4 * TARGET_CHAR_BIT);
