@@ -1,6 +1,20 @@
+2014-02-28  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+
+	* avr-tdep.c (avr_make_code_addr): Cleared coding.
+	(avr_make_code_ptr): Enable function.
+	(avr_make_data_addr): Clearer coding.
+	(avr_make_data_ptr): Enable function.
+	(avr_address_to_pointer): Silently set bits.
+	(avr_pointer_to_address): Likewise.
+	(avr_integer_to_address): Likewise.
+	(avr_addr_bits_remove): Created.
+	(avr_read_pc): Use avr_make_code_addr.
+	(avr_unwind_pc): Likewise.
+	(avr_gdbarch_init): Set avr_addr_bits_remove.
+
 2014-02-24  Jeremy Bennett  <jeremy.bennett@embecosm.com>
 
-	* gdb/avr-tdep.c: Commenting tidied up.
+	* avr-tdep.c: Commenting tidied up.
 	(avr_strip_flag_bits): Deleted.
 	(avr_make_code_addr): Simplified
 	(avr_make_code_ptr): #ifdef'd out
@@ -20,7 +34,7 @@
 
 2014-02-11  Jeremy Bennett  <jeremy.bennett@embecosm.com>
 
-	* gdb/avr-tdep.c (struct gdbarch_tdep): Add back types for code
+	* avr-tdep.c (struct gdbarch_tdep): Add back types for code
 	and data.
 	(avr_register_type): Use AVR arch specific types for code and data
 	pointers.
@@ -36,7 +50,7 @@
 
 2014-02-10  Jeremy Bennett  <jeremy@my.domain.org>
 
-	* gdb/avr-tdep.c: Make X, Y and Z pseudo-regs, remove W (is it
+	* avr-tdep.c: Make X, Y and Z pseudo-regs, remove W (is it
 	ever used) and make FP alias of Y, remove pseudo_pc.
 	(struct gdbarch_tdep): Remove custom types, use builtin instead.
 	(avr_register_name): Add pseudo regs.

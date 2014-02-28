@@ -249,52 +249,52 @@ avr_register_type (struct gdbarch *gdbarch, int reg_nr)
 
    See avr_address_to_pointer for an explanation of how addresses and
    pointers work for AVR. */
+
 static CORE_ADDR
-avr_make_code_addr (CORE_ADDR x)
+avr_make_code_addr (CORE_ADDR addr)
 {
-  return (x & ~AVR_MEM_MASK) | AVR_CODE_START;
+  return (addr & ~AVR_MEM_MASK) | AVR_CODE_START;
 
 }	/* avr_make_code_addr ()*/
 
 
-#if 0
 /* Convert internal GDB byte address to architectural code pointer.
 
    See avr_address_to_pointer for an explanation of how addresses and
    pointers work for AVR. */
+
 static CORE_ADDR
-avr_make_code_ptr (CORE_ADDR x)
+avr_make_code_ptr (CORE_ADDR ptr)
 {
-  return (x & ~AVR_MEM_MASK) | AVR_CODE_START;
+  return (ptr & ~AVR_MEM_MASK) | AVR_CODE_START;
 
 }	/* avr_make_code_ptr () */
-#endif
 
 
 /* Convert architectural data pointer to an internal GDB byte address.
 
    See avr_address_to_pointer for an explanation of how addresses and
    pointers work for AVR. */
+
 static CORE_ADDR
-avr_make_data_addr (CORE_ADDR x)
+avr_make_data_addr (CORE_ADDR addr)
 {
-  return (x & ~AVR_MEM_MASK) | AVR_DATA_START;
+  return (addr & ~AVR_MEM_MASK) | AVR_DATA_START;
 
 }	/* avr_make_data_addr () */
 
 
-#if 0
 /* Convert internal GDB byte address to architectural data pointer.
 
    See avr_address_to_pointer for an explanation of how addresses and
    pointers work for AVR. */
+
 static CORE_ADDR
-avr_make_data_ptr (CORE_ADDR x)
+avr_make_data_ptr (CORE_ADDR ptr)
 {
-  return  (x & ~AVR_MEM_MASK) | AVR_DATA_START;
+  return  (ptr & ~AVR_MEM_MASK) | AVR_DATA_START;
 
 }	/* avr_make_data_ptr () */
-#endif
 
 
 /* EEPROM address checks and convertions.  I don't know if these will ever
@@ -363,7 +363,7 @@ avr_make_data_ptr (CORE_ADDR x)
 
    Convert this to the appropriate format for the AVR architecture (currently
    a null operation), In doing this, the value of TYPE is used, rather than
-   the high end flag bits. */
+   the high end flag bits, and where necessary these are silently set. */
 
 static void
 avr_address_to_pointer (struct gdbarch *gdbarch,
@@ -375,35 +375,23 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
   if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
       || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
     {
-      /* Sanity check */
-      if ((addr & AVR_MEM_MASK) != AVR_CODE_START)
-	{
-	  warning (_("AVR code address 0x%s missing code flags - corrected"),
-		   hex_string (addr));
-	  addr = (addr & ~AVR_MEM_MASK) | AVR_CODE_START;
-	}
+      CORE_ADDR ptr = avr_make_code_ptr (addr);
 
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_address_to_pointer: code address %s.\n",
-			    hex_string (addr));
+			    "avr_address_to_pointer: code %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
 
-      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, addr);
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, ptr);
     }
   else
     {
-      /* Sanity check */
-      if ((addr & AVR_MEM_MASK) != AVR_DATA_START)
-	{
-	  warning (_("AVR code address 0x%s missing code flags - corrected"),
-		   hex_string (addr));
-	  addr = (addr & ~AVR_MEM_MASK) | AVR_DATA_START;
-	}
+      CORE_ADDR ptr = avr_make_data_ptr (addr);
 
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_address_to_pointer: data address %s.\n",
-			    hex_string (addr));
+			    "avr_address_to_pointer: data %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
 
       store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, addr);
     }
@@ -432,37 +420,23 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
       || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
       || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
     {
-      /* Sanity check */
-      if ((ptr & AVR_MEM_MASK) != AVR_CODE_START)
-	{
-	  warning (_("AVR code pointer 0x%s missing code flags - corrected"),
-		   hex_string (ptr));
-	  ptr = (ptr & ~AVR_MEM_MASK) | AVR_CODE_START;
-	}
+      CORE_ADDR addr = avr_make_code_addr (ptr);
 
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_pointer_to_address: code pointer %s.\n",
-			    hex_string (ptr));
-
-      return ptr;
+			    "avr_pointer_to_address: code %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
+      return addr;
     }
   else
     {
-      /* Sanity check */
-      if ((ptr & AVR_MEM_MASK) != AVR_DATA_START)
-	{
-	  warning (_("AVR code pointer 0x%s missing code flags - corrected"),
-		   hex_string (ptr));
-	  ptr = (ptr & ~AVR_MEM_MASK) | AVR_DATA_START;
-	}
+      CORE_ADDR addr = avr_make_data_addr (ptr);
 
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
-			    "avr_pointer_to_address: data pointer %s.\n",
-			    hex_string (ptr));
-
-      return ptr;
+			    "avr_pointer_to_address: data %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
+      return addr;
     }
 }	/* avr_pointer_to_address () */
 
@@ -474,24 +448,39 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
    appropriate address.  See the explanation at avr_address_to_pointer for an
    explanation of how addresses and pointers work for AVR.
 
-   The integer value is in BUF, and is considered to be of type TYPE (which
-   will be an integer type). For AVR we do not override any MSBs, so these can
-   be used. */
+   The integer value is in BUF, and is considered to be of type TYPE. We try
+   to use this to override the MSB flags */
 static CORE_ADDR
 avr_integer_to_address (struct gdbarch *gdbarch,
 			struct type *type, const gdb_byte *buf)
 {
   ULONGEST addr = unpack_long (type, buf);
 
-  return addr;
+  if ((TYPE_CODE (type) == TYPE_CODE_PTR)
+      || (TYPE_CODE (type) == TYPE_CODE_REF))
+    return avr_make_code_addr (addr);
+  else
+    return avr_make_data_addr (addr);
+
 }
+
+
+/* Remove flag bits from addresses. */
+
+static CORE_ADDR
+avr_addr_bits_remove (struct gdbarch *gdbarch, CORE_ADDR val)
+{
+  return val & ~AVR_MEM_MASK;
+
+}	/* avr_addr_bits_remove () */
+
 
 static CORE_ADDR
 avr_read_pc (struct regcache *regcache)
 {
   ULONGEST pc;
   regcache_cooked_read_unsigned (regcache, AVR_PC_REGNUM, &pc);
-  return (pc | AVR_CODE_START);		/* This is a byte address */
+  return avr_make_code_addr (pc);
 }
 
 
@@ -1238,7 +1227,7 @@ avr_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
 			_("AVR Unwind PC value 0x%s, frame level %d\n"),
 			hex_string (pc), frame_relative_level (next_frame));
 
-  return ((pc & ~AVR_MEM_MASK) | AVR_CODE_START);		/* This is a byte address */
+  return avr_make_code_addr (pc);
 }
 
 static CORE_ADDR
@@ -1656,6 +1645,7 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_address_to_pointer (gdbarch, avr_address_to_pointer);
   set_gdbarch_pointer_to_address (gdbarch, avr_pointer_to_address);
   set_gdbarch_integer_to_address (gdbarch, avr_integer_to_address);
+  set_gdbarch_addr_bits_remove (gdbarch, avr_addr_bits_remove);
 
   set_gdbarch_skip_prologue (gdbarch, avr_skip_prologue);
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
