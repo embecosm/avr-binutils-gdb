@@ -1555,14 +1555,21 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   switch (info.bfd_arch_info->mach)
     {
     case bfd_mach_avr1:
+    case bfd_mach_avrxmega1:
     case bfd_mach_avr2:
+    case bfd_mach_avrxmega2:
     case bfd_mach_avr3:
+    case bfd_mach_avrxmega3:
     case bfd_mach_avr4:
+    case bfd_mach_avrxmega4:
     case bfd_mach_avr5:
+    case bfd_mach_avrxmega5:
     default:
       call_length = 2;
       break;
     case bfd_mach_avr6:
+    case bfd_mach_avrxmega6:
+    case bfd_mach_avrxmega7:
       call_length = 3;
       break;
     }
