@@ -2033,6 +2033,7 @@ elf32_avr_relax_section (bfd *abfd,
 	      }
 	    else if (k >= sfr_offset && k - sfr_offset <= 63)
 	      {
+		k -= sfr_offset;
 		code_msb
 		  = ((code_msb << 2) - (0x91 << 2) + 0xb0 /* -> in/out */
 		     + ((k >> 3) & 6)
