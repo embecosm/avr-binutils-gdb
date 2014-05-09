@@ -4349,6 +4349,10 @@ short offset into 7 bits.  */
 short offset into 12 bits.  */
   BFD_RELOC_AVR_13_PCREL,
 
+/* This is a 16 bit reloc for the AVR that works like BFD_RELOC_16, but is
+exclusively used for lds/sts instructions, to give context for relaxation.  */
+  BFD_RELOC_AVR_16_LDST,
+
 /* This is a 16 bit reloc for the AVR that stores 17 bit value (usually
 program memory address) into 16 bits.  */
   BFD_RELOC_AVR_16_PM,
@@ -4452,6 +4456,10 @@ in .byte hi8(symbol)  */
 /* This is a 8 bit reloc for the AVR that stores bits 16..23 of a symbol
 in .byte hlo8(symbol)  */
   BFD_RELOC_AVR_8_HLO,
+
+/* This is a 6 bit reloc for the AVR that stores an address for an in or
+out instruction.  */
+  BFD_RELOC_AVR_6_IO,
 
 /* Renesas RL78 Relocations.  */
   BFD_RELOC_RL78_NEG8,

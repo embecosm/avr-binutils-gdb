@@ -1,3 +1,7 @@
+2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* testsuite/ld-avr: New directory.
+
 2013-09-23  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* scripttempl/avr.sc (SECTIONS): Add / KEEP .fini6a .

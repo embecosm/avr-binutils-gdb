@@ -1,0 +1,11 @@
+2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* reloc.c (BFD_RELOC_AVR_16_LDST, BFD_RELOC_AVR_6_IO): New relocs.
+	* elf32-avr.c (R_AVR_6_IO, R_AVR_16_LDST): New HOWTOs.
+	(avr_reloc_map): Add entries for {BFD_RELOC,R}_AVR_{6_IO,16_LDST}.
+	(avr_final_link_relocate): Handle R_AVR_6_IO.
+	(elf32_avr_relax_section): Handle R_AVR_16_LDST.
+	* bfd-in2.h, libbfd.h: Regenerate.
+
+	* elf32-avr.c (elf32_avr_relax_section):
+	Set elf_section_data (sec)->this_hdr.content.

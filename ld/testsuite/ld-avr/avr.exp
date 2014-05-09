@@ -1,0 +1,67 @@
+# Expect script for ld-sh tests
+#   Copyright 1995-2014
+#   Free Software Foundation, Inc.
+#
+# This file is part of the GNU Binutils.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
+# MA 02110-1301, USA.
+#
+
+# Test AVR relaxing.  This tests the compiler and assembler as well as
+# the linker.
+
+if ![istarget avr*-*-*] {
+    return
+}
+
+set link_in "AVR in address resolving"
+set relax_in "AVR relaxing for in"
+
+if { [which $CC] == 0 } {
+    untested $link_in
+    untested $relax_in
+    return
+}
+
+if {![ld_compile $CC "-O $srcdir/$subdir/in1.c" tmpdir/in1.o]
+    || ![ld_compile $CC "-O $srcdir/$subdir/in-crt.c" tmpdir/in-crt.o]} {
+    unresolved $link_in
+} else {
+    if ![ld_simple_link $ld tmpdir/in1 "tmpdir/in1.o tmpdir/in-crt.o"] {
+	fail $link_in
+    } else {
+	if {![$objdump -S tmpdir/in1|grep -q 'in[ 	]*r[0-9]*,[ 	]*0x22']} {
+	    fail $link_in
+	} else {
+	    pass $link_in
+	}
+    }
+}
+
+if {![ld_compile $CC "-O -mrelax $srcdir/$subdir/in2.c" tmpdir/in2.o]
+    || ![ld_compile $CC "-O -mrelax $srcdir/$subdir/in-crt.c" tmpdir/in-crt.o]} {
+    unresolved $relax_in
+} else {
+    if ![ld_simple_link $ld tmpdir/in2 "-relax tmpdir/in2.o tmpdir/in-crt.o"] {
+	fail $relax_in
+    } else {
+	if {![$objdump -S tmpdir/in1|grep -q 'in[ 	]*r[0-9]*,[ 	]*0x22']} {
+	    fail $relax_in
+	} else {
+	    pass $relax_in
+	}
+    }
+}
