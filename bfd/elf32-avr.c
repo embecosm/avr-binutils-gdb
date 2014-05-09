@@ -1500,6 +1500,45 @@ elf32_avr_object_p (bfd *abfd)
 }
 
 
+static int
+get_sfr_offset (bfd *abfd)
+{
+  if (elf_elfheader (abfd)->e_machine == EM_AVR
+      || elf_elfheader (abfd)->e_machine == EM_AVR_OLD)
+    {
+      int e_mach = elf_elfheader (abfd)->e_flags & EF_AVR_MACH;
+
+      switch (e_mach)
+	{
+	case E_AVR_MACH_AVR2:
+	case E_AVR_MACH_AVR1:
+	case E_AVR_MACH_AVR25:
+	case E_AVR_MACH_AVR3:
+	case E_AVR_MACH_AVR31:
+	case E_AVR_MACH_AVR35:
+	case E_AVR_MACH_AVR4:
+	case E_AVR_MACH_AVR5:
+	case E_AVR_MACH_AVR51:
+	case E_AVR_MACH_AVR6:
+	  return 0x20;
+
+	case E_AVR_MACH_XMEGA2:
+	case E_AVR_MACH_XMEGA4:
+	case E_AVR_MACH_XMEGA5:
+	case E_AVR_MACH_XMEGA6:
+	case E_AVR_MACH_XMEGA7:
+	  return 0;
+
+	case E_AVR_MACH_XMEGA1:
+	case E_AVR_MACH_XMEGA3:
+	default:
+	  break;
+	}
+    }
+  (*_bfd_error_handler) (_("sfr_offset unknown"));
+  return -1;
+}
+
 /* Delete some bytes from a section while changing the size of an instruction.
    The parameter "addr" denotes the section-relative offset pointing just
    behind the shrinked instruction. "addr+count" point at the first
@@ -2010,6 +2049,7 @@ elf32_avr_relax_section (bfd *abfd,
 	  {
 	    unsigned char code_msb;
 	    unsigned char code_lsb;
+	    static bfd_vma sfr_offset = -1;
 
 	    BFD_ASSERT (irel->r_offset >= 2);
 	    code_msb = bfd_get_8 (abfd, contents + irel->r_offset - 1);
@@ -2019,7 +2059,8 @@ elf32_avr_relax_section (bfd *abfd,
 	    BFD_ASSERT (0x90 == (code_msb & 0xfc) && 0x00 == (code_lsb & 0x0f));
 
 	    bfd_vma k = symval + irel->r_addend;
-	    bfd_vma sfr_offset = 0x20;
+	    if (sfr_offset == (bfd_vma) -1)
+	      sfr_offset = get_sfr_offset (abfd);
 
 	    if (0 /* ??? need to test if 16 bit lds/sts is available.  */
 		&& (code_msb & 1) /* High register.  */ && k <= 127)

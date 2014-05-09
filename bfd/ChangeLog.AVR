@@ -1,5 +1,10 @@
 2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
 
+	* elf32-avr.c (get_sfr_offset): New function.
+	(elf32_avr_relax_section) <R_AVR_16_LDST>: Use it.
+
+2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
 	* elf32-avr.c (elf32_avr_relax_section) <R_AVR_16_LDST>: 
 	Subtract sfr_offset from value before inserting.
 
