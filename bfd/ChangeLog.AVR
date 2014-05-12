@@ -1,3 +1,10 @@
+2014-05-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* reloc.c (BFD_RELOC_AVR_5_IO): New reloc.
+	* elf32-avr.c (R_AVR_5_IO): New HOWTO.
+	(avr_reloc_map): Add entry for {BFD_RELOC,R}_AVR_5_IO.
+	* bfd-in2.h, libbfd.h: Regenerate.
+
 2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* elf32-avr.c (get_sfr_offset): New function.

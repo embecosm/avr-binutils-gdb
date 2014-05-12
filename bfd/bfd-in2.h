@@ -4461,6 +4461,10 @@ in .byte hlo8(symbol)  */
 out instruction.  */
   BFD_RELOC_AVR_6_IO,
 
+/* This is a 5 bit reloc for the AVR that stores an address for an cbi, sbi,
+sbic or sbis instruction.  */
+  BFD_RELOC_AVR_5_IO,
+
 /* Renesas RL78 Relocations.  */
   BFD_RELOC_RL78_NEG8,
   BFD_RELOC_RL78_NEG16,

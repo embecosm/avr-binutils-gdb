@@ -83,6 +83,7 @@ START_RELOC_NUMBERS (elf_avr_reloc_type)
      RELOC_NUMBER (R_AVR_8_HLO8,               29)
      RELOC_NUMBER (R_AVR_6_IO,                 30)
      RELOC_NUMBER (R_AVR_16_LDST,              31)
+     RELOC_NUMBER (R_AVR_5_IO,                 32)
 END_RELOC_NUMBERS (R_AVR_max)
 
 #endif /* _ELF_AVR_H */

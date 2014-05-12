@@ -586,6 +586,21 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 0xffff,		/* src_mask */
 	 0xffff,		/* dst_mask */
 	 FALSE),		/* pcrel_offset */
+  /* A 5 bit absolute relocation of 5 bit I/O address.
+     For cbi/sbi/sbic/sbis instructions.  */
+  HOWTO (R_AVR_5_IO,		/* type */
+	 0,			/* rightshift */
+	 1,			/* size (0 = byte, 1 = short, 2 = long) */
+	 5,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 3,			/* bitpos */
+	 complain_overflow_unsigned,/* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_5_IO",		/* name */
+	 FALSE,			/* partial_inplace */
+	 0x0000,		/* src_mask */
+	 0x00f8,		/* dst_mask */
+	 FALSE),		/* pcrel_offset */
 };
 
 /* Map BFD reloc types to AVR ELF reloc types.  */
@@ -629,7 +644,8 @@ static const struct avr_reloc_map avr_reloc_map[] =
   { BFD_RELOC_AVR_8_HI,             R_AVR_8_HI8 },
   { BFD_RELOC_AVR_8_HLO,            R_AVR_8_HLO8 },
   { BFD_RELOC_AVR_6_IO,             R_AVR_6_IO },
-  { BFD_RELOC_AVR_16_LDST,          R_AVR_16_LDST }
+  { BFD_RELOC_AVR_16_LDST,          R_AVR_16_LDST },
+  { BFD_RELOC_AVR_5_IO,             R_AVR_5_IO },
 };
 
 /* Meant to be filled one day with the wrap around address for the
@@ -1184,7 +1200,6 @@ avr_final_link_relocate (reloc_howto_type *                 howto,
       contents += rel->r_offset;
       srel = (bfd_signed_vma) relocation + rel->r_addend;
       if (((srel & 0xffff) > 63) || (srel < 0))
-	/* Remove offset for data/eeprom section.  */
 	return bfd_reloc_overflow;
       x = bfd_get_16 (input_bfd, contents);
       x = (x & 0xf9f0) | (srel & 0xf) | ((srel & 0x30) << 5);

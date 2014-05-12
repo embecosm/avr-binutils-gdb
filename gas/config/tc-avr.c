@@ -1013,13 +1013,18 @@ avr_operand (struct avr_opcodes_s *opcode,
       break;
 
     case 'p':
-      {
-	unsigned int x;
+      str = parse_exp (str, &op_expr);
 
-	x = avr_get_constant (str, 31);
-	str = input_line_pointer;
-	op_mask |= x << 3;
-      }
+      if (op_expr.X_op == O_constant
+	  && op_expr.X_add_number <= 31 && op_expr.X_add_number >= 0)
+	{
+	  unsigned int x = op_expr.X_add_number;
+
+	  op_mask |= x << 3;
+	}
+      else
+	fix_new_exp (frag_now, where, 2,
+		     &op_expr, FALSE, BFD_RELOC_AVR_5_IO);
       break;
 
     case 'E':
@@ -1193,6 +1198,8 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
     case BFD_RELOC_16:
     case BFD_RELOC_AVR_16_LDST:
     case BFD_RELOC_AVR_CALL:
+    case BFD_RELOC_AVR_6_IO:
+    case BFD_RELOC_AVR_5_IO:
       break;
     }
 
@@ -1372,6 +1379,13 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
 			  _("operand out of range: %ld"), value);
 	  bfd_putl16 ((bfd_vma) insn | (value & 0xf) | ((value & 0x30) << 5),
 		      where);
+	  break;
+
+	case BFD_RELOC_AVR_5_IO:
+	  if ((value > 31) || (value < 0))
+	    as_bad_where (fixP->fx_file, fixP->fx_line,
+			  _("operand out of range: %ld"), value);
+	  bfd_putl16 ((bfd_vma) insn | ((value & 0x1f) << 3), where);
 	  break;
 
         default:
