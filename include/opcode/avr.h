@@ -110,6 +110,7 @@
    p - Port address value from 0 to 31. (cbi, sbi, sbic, sbis)
    K - immediate value from 0 to 63 (used in `adiw', `sbiw')
    i - immediate value
+   D - data space address in lds/sts
    l - signed pc relative offset from -64 to 63
    L - signed pc relative offset from -2048 to 2047
    h - absolute code address (call, jmp)
@@ -280,8 +281,8 @@ AVR_INSN (fmul, "a,a", "000000110ddd1rrr", 1, AVR_ISA_MUL,  0x0308)
 AVR_INSN (fmuls,"a,a", "000000111ddd0rrr", 1, AVR_ISA_MUL,  0x0380)
 AVR_INSN (fmulsu,"a,a","000000111ddd1rrr", 1, AVR_ISA_MUL,  0x0388)
 
-AVR_INSN (sts,  "i,r", "1001001ddddd0000", 2, AVR_ISA_2xxx, 0x9200)
-AVR_INSN (lds,  "r,i", "1001000ddddd0000", 2, AVR_ISA_2xxx, 0x9000)
+AVR_INSN (sts,  "D,r", "1001001ddddd0000", 2, AVR_ISA_2xxx, 0x9200)
+AVR_INSN (lds,  "r,D", "1001000ddddd0000", 2, AVR_ISA_2xxx, 0x9000)
 
    /* Special case for b+0, `e' must be next entry after `b',
       b={Y=1,Z=0}, ee={X=11,Y=10,Z=00}, !=1 if -e or e+ or X.  */

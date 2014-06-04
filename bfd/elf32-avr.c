@@ -557,6 +557,50 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 0xffffff,		/* src_mask */
 	 0xffffff,		/* dst_mask */
 	 FALSE),		/* pcrel_offset */
+  /* A 6 bit absolute relocation of 6 bit I/O address.
+     For in/out instructions.  */
+  HOWTO (R_AVR_6_IO,		/* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 6,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont,/* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_6_IO",		/* name */
+	 FALSE,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
+	 FALSE),		/* pcrel_offset */
+  /* A 16 bit absolute relocation used in lds/sts.  */
+  HOWTO (R_AVR_16_LDST,		/* type */
+	 0,			/* rightshift */
+	 1,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_16_LDST",		/* name */
+	 FALSE,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
+	 FALSE),		/* pcrel_offset */
+  /* A 5 bit absolute relocation of 5 bit I/O address.
+     For cbi/sbi/sbic/sbis instructions.  */
+  HOWTO (R_AVR_5_IO,		/* type */
+	 0,			/* rightshift */
+	 1,			/* size (0 = byte, 1 = short, 2 = long) */
+	 5,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 3,			/* bitpos */
+	 complain_overflow_unsigned,/* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_5_IO",		/* name */
+	 FALSE,			/* partial_inplace */
+	 0x0000,		/* src_mask */
+	 0x00f8,		/* dst_mask */
+	 FALSE),		/* pcrel_offset */
 };
 
 /* Map BFD reloc types to AVR ELF reloc types.  */
@@ -598,7 +642,10 @@ static const struct avr_reloc_map avr_reloc_map[] =
   { BFD_RELOC_8,                    R_AVR_8 },
   { BFD_RELOC_AVR_8_LO,             R_AVR_8_LO8 },
   { BFD_RELOC_AVR_8_HI,             R_AVR_8_HI8 },
-  { BFD_RELOC_AVR_8_HLO,            R_AVR_8_HLO8 }
+  { BFD_RELOC_AVR_8_HLO,            R_AVR_8_HLO8 },
+  { BFD_RELOC_AVR_6_IO,             R_AVR_6_IO },
+  { BFD_RELOC_AVR_16_LDST,          R_AVR_16_LDST },
+  { BFD_RELOC_AVR_5_IO,             R_AVR_5_IO },
 };
 
 /* Meant to be filled one day with the wrap around address for the
@@ -1149,6 +1196,16 @@ avr_final_link_relocate (reloc_howto_type *                 howto,
       bfd_put_16 (input_bfd, (bfd_vma) srel &0x00ffff, contents);
       break;
 
+    case R_AVR_6_IO:
+      contents += rel->r_offset;
+      srel = (bfd_signed_vma) relocation + rel->r_addend;
+      if (((srel & 0xffff) > 63) || (srel < 0))
+	return bfd_reloc_overflow;
+      x = bfd_get_16 (input_bfd, contents);
+      x = (x & 0xf9f0) | (srel & 0xf) | ((srel & 0x30) << 5);
+      bfd_put_16 (input_bfd, x, contents);
+      break;
+
     default:
       r = _bfd_final_link_relocate (howto, input_bfd, input_section,
 				    contents, rel->r_offset,
@@ -1458,6 +1515,45 @@ elf32_avr_object_p (bfd *abfd)
 }
 
 
+static int
+get_sfr_offset (bfd *abfd)
+{
+  if (elf_elfheader (abfd)->e_machine == EM_AVR
+      || elf_elfheader (abfd)->e_machine == EM_AVR_OLD)
+    {
+      int e_mach = elf_elfheader (abfd)->e_flags & EF_AVR_MACH;
+
+      switch (e_mach)
+	{
+	case E_AVR_MACH_AVR2:
+	case E_AVR_MACH_AVR1:
+	case E_AVR_MACH_AVR25:
+	case E_AVR_MACH_AVR3:
+	case E_AVR_MACH_AVR31:
+	case E_AVR_MACH_AVR35:
+	case E_AVR_MACH_AVR4:
+	case E_AVR_MACH_AVR5:
+	case E_AVR_MACH_AVR51:
+	case E_AVR_MACH_AVR6:
+	  return 0x20;
+
+	case E_AVR_MACH_XMEGA2:
+	case E_AVR_MACH_XMEGA4:
+	case E_AVR_MACH_XMEGA5:
+	case E_AVR_MACH_XMEGA6:
+	case E_AVR_MACH_XMEGA7:
+	  return 0;
+
+	case E_AVR_MACH_XMEGA1:
+	case E_AVR_MACH_XMEGA3:
+	default:
+	  break;
+	}
+    }
+  (*_bfd_error_handler) (_("sfr_offset unknown"));
+  return -1;
+}
+
 /* Delete some bytes from a section while changing the size of an instruction.
    The parameter "addr" denotes the section-relative offset pointing just
    behind the shrinked instruction. "addr+count" point at the first
@@ -1764,9 +1860,10 @@ elf32_avr_relax_section (bfd *abfd,
     {
       bfd_vma symval;
 
-      if (   ELF32_R_TYPE (irel->r_info) != R_AVR_13_PCREL
-	     && ELF32_R_TYPE (irel->r_info) != R_AVR_7_PCREL
-	     && ELF32_R_TYPE (irel->r_info) != R_AVR_CALL)
+      if (ELF32_R_TYPE (irel->r_info) != R_AVR_13_PCREL
+	  && ELF32_R_TYPE (irel->r_info) != R_AVR_7_PCREL
+	  && ELF32_R_TYPE (irel->r_info) != R_AVR_CALL
+	  && ELF32_R_TYPE (irel->r_info) != R_AVR_16_LDST)
         continue;
 
       /* Get the section contents if we haven't done so already.  */
@@ -1780,6 +1877,7 @@ elf32_avr_relax_section (bfd *abfd,
               /* Go get them off disk.  */
               if (! bfd_malloc_and_get_section (abfd, sec, &contents))
                 goto error_return;
+            elf_section_data (sec)->this_hdr.contents = contents;
             }
         }
 
@@ -1962,6 +2060,65 @@ elf32_avr_relax_section (bfd *abfd,
               }
           }
 
+	case R_AVR_16_LDST:
+	  {
+	    unsigned char code_msb;
+	    unsigned char code_lsb;
+	    static bfd_vma sfr_offset = -1;
+
+	    BFD_ASSERT (irel->r_offset >= 2);
+	    code_msb = bfd_get_8 (abfd, contents + irel->r_offset - 1);
+	    code_lsb = bfd_get_8 (abfd, contents + irel->r_offset - 2);
+
+	    /* This insn must be a 32 bit lds or sts.  */
+	    BFD_ASSERT (0x90 == (code_msb & 0xfc) && 0x00 == (code_lsb & 0x0f));
+
+	    bfd_vma k = symval + irel->r_addend;
+	    if (sfr_offset == (bfd_vma) -1)
+	      sfr_offset = get_sfr_offset (abfd);
+
+	    if (0 /* ??? need to test if 16 bit lds/sts is available.  */
+		&& (code_msb & 1) /* High register.  */ && k <= 127)
+	      {
+		/* Transform 32 bit lds/sts to 16 bit version.  */
+		code_msb = (code_msb << 2) - (0x91 << 2) + 0xa0 + (k >> 4);
+		code_lsb = (code_lsb & 0xf0) | (k & 0xf);
+		/* Fix the relocation's type.  */
+		irel->r_info = ELF32_R_INFO (ELF32_R_SYM (irel->r_info),
+					     R_AVR_NONE);
+	      }
+	    else if (k >= sfr_offset && k - sfr_offset <= 63)
+	      {
+		k -= sfr_offset;
+		code_msb
+		  = ((code_msb << 2) - (0x91 << 2) + 0xb0 /* -> in/out */
+		     + ((k >> 3) & 6)
+		     + (code_msb & 1)); /* High bit of register number.  */
+		code_lsb = (code_lsb & 0xf0) | (k & 0xf);
+		/* Fix the relocation's type.  */
+		irel->r_info = ELF32_R_INFO (ELF32_R_SYM (irel->r_info),
+					     R_AVR_6_IO);
+	      }
+	    else
+	      break;
+	    /* Fix the relocation's offset.  */
+	    irel->r_offset -= 2;
+	    /* Install new instruction.  */
+	    bfd_put_8 (abfd, code_lsb, contents + irel->r_offset + 0);
+	    bfd_put_8 (abfd, code_msb, contents + irel->r_offset + 1);
+	    if (debug_relax)
+	      printf ("converted 32 bit lds/sts at address 0x%x"
+		      " into 16 bit lds/sts/in/out. Section is %s\n\n",
+		      (int) (sec->output_section->vma
+			     + sec->output_offset + irel->r_offset - 2),
+		      sec->name);
+	    /* Delete two bytes of data.  */
+	    if (!elf32_avr_relax_delete_bytes (abfd, sec,
+					       irel->r_offset + 2, 2))
+	      goto error_return;
+	    *again = TRUE;
+	    break;
+	  }
         default:
           {
             unsigned char code_msb;

@@ -948,6 +948,12 @@ avr_operand (struct avr_opcodes_s *opcode,
 		   &op_expr, FALSE, BFD_RELOC_16);
       break;
 
+    case 'D':
+      str = parse_exp (str, &op_expr);
+      fix_new_exp (frag_now, where + 2, opcode->insn_size * 2,
+		   &op_expr, FALSE, BFD_RELOC_AVR_16_LDST);
+      break;
+
     case 'M':
       {
 	bfd_reloc_code_real_type r_type;
@@ -992,23 +998,33 @@ avr_operand (struct avr_opcodes_s *opcode,
       break;
 
     case 'P':
-      {
-	unsigned int x;
+      str = parse_exp (str, &op_expr);
 
-	x = avr_get_constant (str, 63);
-	str = input_line_pointer;
-	op_mask |= (x & 0xf) | ((x & 0x30) << 5);
-      }
+      if (op_expr.X_op == O_constant
+	  && op_expr.X_add_number <= 63 && op_expr.X_add_number >= 0)
+	{
+	  unsigned int x = op_expr.X_add_number;
+
+	  op_mask |= (x & 0xf) | ((x & 0x30) << 5);
+	}
+      else
+	fix_new_exp (frag_now, where, 2,
+		     &op_expr, FALSE, BFD_RELOC_AVR_6_IO);
       break;
 
     case 'p':
-      {
-	unsigned int x;
+      str = parse_exp (str, &op_expr);
 
-	x = avr_get_constant (str, 31);
-	str = input_line_pointer;
-	op_mask |= x << 3;
-      }
+      if (op_expr.X_op == O_constant
+	  && op_expr.X_add_number <= 31 && op_expr.X_add_number >= 0)
+	{
+	  unsigned int x = op_expr.X_add_number;
+
+	  op_mask |= x << 3;
+	}
+      else
+	fix_new_exp (frag_now, where, 2,
+		     &op_expr, FALSE, BFD_RELOC_AVR_5_IO);
       break;
 
     case 'E':
@@ -1180,7 +1196,10 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
     case BFD_RELOC_AVR_13_PCREL:
     case BFD_RELOC_32:
     case BFD_RELOC_16:
+    case BFD_RELOC_AVR_16_LDST:
     case BFD_RELOC_AVR_CALL:
+    case BFD_RELOC_AVR_6_IO:
+    case BFD_RELOC_AVR_5_IO:
       break;
     }
 
@@ -1235,6 +1254,7 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
 	  break;
 
 	case BFD_RELOC_16:
+	case BFD_RELOC_AVR_16_LDST:
 	  bfd_putl16 ((bfd_vma) value, where);
 	  break;
 
@@ -1352,6 +1372,21 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
         case BFD_RELOC_AVR_8_HLO:
           *where = 0xff & (value >> 16);
           break;
+
+	case BFD_RELOC_AVR_6_IO:
+	  if ((value > 63) || (value < 0))
+	    as_bad_where (fixP->fx_file, fixP->fx_line,
+			  _("operand out of range: %ld"), value);
+	  bfd_putl16 ((bfd_vma) insn | (value & 0xf) | ((value & 0x30) << 5),
+		      where);
+	  break;
+
+	case BFD_RELOC_AVR_5_IO:
+	  if ((value > 31) || (value < 0))
+	    as_bad_where (fixP->fx_file, fixP->fx_line,
+			  _("operand out of range: %ld"), value);
+	  bfd_putl16 ((bfd_vma) insn | ((value & 0x1f) << 3), where);
+	  break;
 
         default:
 	  as_fatal (_("line %d: unknown relocation type: 0x%x"),

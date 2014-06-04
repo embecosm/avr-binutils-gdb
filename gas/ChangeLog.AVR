@@ -1,0 +1,14 @@
+2014-05-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	 * config/tc-avr.c (avr_operand) <'p'>: Create a fixup for
+	 non-immediate-constant addresses.
+	(md_apply_fix): Handle BFD_RELOC_AVR_5_IO.
+
+	* config/tc-avr.c (md_apply_fix): Don't suppress overflow warnings
+	for BFD_RELOC_AVR_6_IO.
+
+2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	 * config/tc-avr.c (avr_operand): Handle 'D'.
+	<'P'>: Create a fixup for non-immediate-constant addresses.
+	(md_apply_fix): Handle BFD_RELOC_AVR_16_LDST and BFD_RELOC_AVR_6_IO.

@@ -184,7 +184,7 @@ avr_operand (unsigned int insn, unsigned int insn2, unsigned int pc, int constra
       }
       break;
 
-    case 'i':
+    case 'i': case 'D':
       sprintf (buf, "0x%04X", insn2);
       break;
       
