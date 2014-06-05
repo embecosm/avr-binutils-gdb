@@ -1,3 +1,8 @@
+2014-06-05  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* scripttempl/avr.sc (SECTIONS): Allocate extra sections to model
+	minimal stack usage, and the reserved RAM area of the chosen mcu.
+
 2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* testsuite/ld-avr: New directory.

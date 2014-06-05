@@ -203,6 +203,20 @@ SECTIONS
     ${RELOCATING+ PROVIDE (__heap_start = .) ; }
   } ${RELOCATING+ > data}
 
+  /* When linking, a region 'data' overflow if we exceeded the RAM size or
+     we don't have a byte left for heap and stack.  */
+  ${RELOCATING+
+    .heap_stack :
+    {
+      . = 1;
+      
+    \} > data
+    .reserved_ram :
+    {
+      . = (DEFINED(__stack) ? $DATA_LENGTH - __stack - 1 : .);
+    \} > data
+  }
+
   .eeprom ${RELOCATING-0}:
   {
     /* See .data above...  */
