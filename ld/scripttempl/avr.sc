@@ -136,6 +136,7 @@ SECTIONS
     KEEP (*(.init8))
     *(.init9)  /* Call main().  */
     KEEP (*(.init9))
+    *(SORT(.text.stdio.*))
     *(.text)
     ${RELOCATING+. = ALIGN(2);}
     ${RELOCATING+ *(.text.*)}

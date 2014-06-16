@@ -1,3 +1,7 @@
+2014-06-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* scripttempl/avr.sc (SECTIONS): Sort .text.stdio.*.
+
 2014-06-05  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* scripttempl/avr.sc (SECTIONS): Allocate extra sections to model
