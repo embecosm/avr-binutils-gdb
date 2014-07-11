@@ -1,5 +1,14 @@
 2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
 
+	* avr-tdep.c (gdbarch_tdep): Add symbol_types hash table.
+	(avr_symbol_type_from_section): Lookup symbol_types for each new types
+	we create so that we do not create to equivalent types.
+	(avr_hash_type_entry): New type hashing function.
+	(avr_eq_type_entry): New type equivalence function.
+	(avr_gdbarch_init): Initialize symbol_types.
+
+2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
+
 	* avr-tdep.c (avr_symbol_type_from_section): New function.
 	(avr_gdbarch_init): Set symbol_type_from_section.
 

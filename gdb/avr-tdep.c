@@ -198,6 +198,9 @@ struct gdbarch_tdep
      own. */
   struct type *code_ptr_type;	/* 32 bits for PC */
   struct type *data_ptr_type;	/* 16 bits for SP, X, Y, Z */
+  /* Hash table keeping track of types for which we have created a pointer type
+     with an address space qualifier.  */
+  struct htab *symbol_types;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1633,15 +1636,51 @@ avr_symbol_type_from_section (struct gdbarch *gdbarch,
     {
       /* We need to copy the type to allow changing TYPE_POINTER_TYPE without
 	 affecting other types.  */
-      struct type *new_type = copy_type (type);
+      struct type *copied_type = copy_type (type);
+      struct type **new_type_p;
 
-      TYPE_POINTER_TYPE (new_type) =
+      /* Assign a new pointer type to this symbol with the appropriate address
+	 space.  */
+      TYPE_POINTER_TYPE (copied_type) =
 	make_type_with_address_space (make_pointer_type (type, NULL),
 				      space_flags);
-      return new_type;
+
+      /* We may have already created such a type for another symbol.  Look for
+	 it in symbol_types.  */
+      new_type_p =
+	(struct type **) htab_find_slot (gdbarch_tdep (gdbarch)->symbol_types,
+					 copied_type, INSERT);
+      /* If there is no such type, add it to the htab_t.  */
+      if (*new_type_p == NULL_TYPE)
+	*new_type_p = copied_type;
+
+      return *new_type_p;
     }
   else
     return type;
+}
+
+/* Create a hash from the TYPE_NAME of a type.  */
+
+static hashval_t
+avr_hash_type_entry (const void *a)
+{
+  const struct type *a_type = a;
+
+  return htab_hash_string (TYPE_NAME (a_type));
+}
+
+/* Two types are considered equal in the hash table if their pointer type are
+   deeply equals.  */
+
+static int
+avr_eq_type_entry (const void *a, const void *b)
+{
+  const struct type *a_type = a;
+  const struct type *b_type = b;
+
+  return types_deeply_equal (TYPE_POINTER_TYPE (a_type),
+			     TYPE_POINTER_TYPE (b_type));
 }
 
 /* Initialize the gdbarch structure for the AVR's.  */
@@ -1713,6 +1752,10 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   tdep->data_ptr_type = arch_type (gdbarch, TYPE_CODE_PTR, 2, "data pointer");
   TYPE_TARGET_TYPE (tdep->data_ptr_type) = void_type;
   TYPE_UNSIGNED (tdep->data_ptr_type) = 1;
+
+  tdep->symbol_types =
+    htab_create_alloc (10, avr_hash_type_entry, avr_eq_type_entry, NULL,
+		       xcalloc, xfree);
 
   set_gdbarch_short_bit (gdbarch, 2 * TARGET_CHAR_BIT);
   set_gdbarch_int_bit (gdbarch, 2 * TARGET_CHAR_BIT);
