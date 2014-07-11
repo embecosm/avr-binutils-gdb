@@ -393,7 +393,7 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
 			    "avr_address_to_pointer: data %s -> %s.\n",
 			    hex_string (addr), hex_string (ptr));
 
-      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, addr);
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, ptr);
     }
 }	/* avr_address_to_pointer () */
 
