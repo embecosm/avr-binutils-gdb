@@ -1614,6 +1614,36 @@ avr_address_class_name_to_type_flags (struct gdbarch *gdbarch,
     return 0;
 }
 
+/* Add address space flags to the type of symbols according to their
+   bfd_section.  This is only done for symbols with
+   SYMBOL_CLASS (symbol) == LOC_STATIC.  */
+
+static struct type*
+avr_symbol_type_from_section (struct gdbarch *gdbarch,
+			      struct type *type,
+			      struct bfd_section *bfd_section)
+{
+  int space_flags = 0;
+
+  /* Is the symbol in code space?  */
+  if (strcmp (bfd_section->name, ".text") == 0)
+    space_flags = AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH;
+
+  if (space_flags != 0)
+    {
+      /* We need to copy the type to allow changing TYPE_POINTER_TYPE without
+	 affecting other types.  */
+      struct type *new_type = copy_type (type);
+
+      TYPE_POINTER_TYPE (new_type) =
+	make_type_with_address_space (make_pointer_type (type, NULL),
+				      space_flags);
+      return new_type;
+    }
+  else
+    return type;
+}
+
 /* Initialize the gdbarch structure for the AVR's.  */
 
 static struct gdbarch *
@@ -1747,6 +1777,8 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     (gdbarch, avr_address_class_name_to_type_flags);
   set_gdbarch_address_class_type_flags_to_name
     (gdbarch, avr_address_class_type_flags_to_name);
+
+  set_gdbarch_symbol_type_from_section (gdbarch, avr_symbol_type_from_section);
 
   return gdbarch;
 }

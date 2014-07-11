@@ -1,5 +1,10 @@
 2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
 
+	* gdb.arch/avr-address-space-from-section.c: New.
+	* gdb.arch/avr-address-space-from-section.exp: New.
+
+2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
+
 	* gdb.arch/avr-flash-qualifer.c: New.
 	* gdb.arch/avr-flash-qualifer.exp: New.
 

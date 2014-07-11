@@ -1,5 +1,10 @@
 2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
 
+	* avr-tdep.c (avr_symbol_type_from_section): New function.
+	(avr_gdbarch_init): Set symbol_type_from_section.
+
+2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
+
 	* dwarf2read.c (new_symbol_full): Call
 	gdbarch_symbol_type_from_section if the class of the symbol is
 	LOC_STATIC.
