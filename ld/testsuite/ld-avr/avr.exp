@@ -43,7 +43,8 @@ if {![ld_compile $CC "-O $srcdir/$subdir/in1.c" tmpdir/in1.o]
     if ![ld_simple_link $ld tmpdir/in1 "tmpdir/in1.o tmpdir/in-crt.o"] {
 	fail $link_in
     } else {
-	if {![$objdump -S tmpdir/in1|grep -q 'in[ 	]*r[0-9]*,[ 	]*0x22']} {
+	if { [catch { exec $env(SHELL) -c "$objdump -S tmpdir/in1|grep -q 'in\[ 	\]*r\[0-9\]*,\[ 	\]*0x\[02\]2'" } ] } {
+	exec $objdump -S tmpdir/in1
 	    fail $link_in
 	} else {
 	    pass $link_in
@@ -58,7 +59,7 @@ if {![ld_compile $CC "-O -mrelax $srcdir/$subdir/in2.c" tmpdir/in2.o]
     if ![ld_simple_link $ld tmpdir/in2 "-relax tmpdir/in2.o tmpdir/in-crt.o"] {
 	fail $relax_in
     } else {
-	if {![$objdump -S tmpdir/in1|grep -q 'in[ 	]*r[0-9]*,[ 	]*0x22']} {
+	if { [catch { exec $env(SHELL) -c "$objdump -S tmpdir/in1|grep -q 'in\[ 	\]*r\[0-9\]*,\[ 	\]*0x\[02\]2'" } ] } {
 	    fail $relax_in
 	} else {
 	    pass $relax_in

@@ -1,3 +1,7 @@
+2014-07-17  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* testsuite/ld-avr/avr.exp: Fix objdump test.
+
 2014-06-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* scripttempl/avr.sc (SECTIONS): Sort .text.stdio.*.
