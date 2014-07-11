@@ -72,6 +72,16 @@
 
 /* Constants: prefixed with AVR_ to avoid name space clashes */
 
+/* Address space flags */
+
+/* We are assigning the TYPE_INSTANCE_FLAG_ADDRESS_CLASS_1 to the flash address
+   space.  */
+
+#define AVR_TYPE_ADDRESS_CLASS_FLASH TYPE_ADDRESS_CLASS_1
+#define AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH  \
+  TYPE_INSTANCE_FLAG_ADDRESS_CLASS_1
+
+
 enum
 {
   /* Raw (i.e real) registers */
@@ -371,11 +381,26 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
-  /* Is it a code address?  */
-  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
-      || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
+  /* Is it a data address in flash?  */
+  if (AVR_TYPE_ADDRESS_CLASS_FLASH (type))
     {
+      /* A data address in flash is always byte addressed.  */
       CORE_ADDR ptr = avr_make_code_ptr (addr);
+
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_address_to_pointer: code %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
+
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, ptr);
+    }
+  /* Is it a code address?  */
+  else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
+	   || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD)
+    {
+      /* A code address, either a function pointer or the program counter, is
+	 word (16 bits) addressed.  */
+      CORE_ADDR ptr = avr_make_code_ptr (addr >> 1);
 
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
@@ -415,12 +440,23 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
   CORE_ADDR ptr = extract_unsigned_integer (buf, TYPE_LENGTH (type),
 					    byte_order);
 
-  /* Is it a code pointer?  */
-  if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
-      || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
-      || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
+  /* Is it a data address in flash?  */
+  if (AVR_TYPE_ADDRESS_CLASS_FLASH (type))
     {
       CORE_ADDR addr = avr_make_code_addr (ptr);
+
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_pointer_to_address: code %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
+      return addr;
+    }
+  /* Is it a code pointer?  */
+  else if (TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC
+	   || TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_METHOD
+	   || TYPE_CODE_SPACE (TYPE_TARGET_TYPE (type)))
+    {
+      CORE_ADDR addr = avr_make_code_addr (ptr << 1);
 
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
@@ -1539,6 +1575,45 @@ avr_dwarf_reg_to_regnum (struct gdbarch *gdbarch, int reg)
   return -1;
 }
 
+/* Map DW_AT_address_class attributes to a type_instance_flag_value.  Note that
+   this attribute is only valid with pointer types and therefore the flag is set
+   to the pointer type and not its target type.  */
+
+static int
+avr_address_class_type_flags (int byte_size, int dwarf2_addr_class)
+{
+  // __flash qualifier
+  if (dwarf2_addr_class == 1 && byte_size == 2)
+    return AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH;
+  return 0;
+}
+
+/* Convert a type_instance_flag_value to an address space qualifier and
+   vice-versa.  */
+
+static const char*
+avr_address_class_type_flags_to_name (struct gdbarch *gdbarch, int type_flags)
+{
+  if (type_flags & AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH)
+    return "flash";
+  else
+    return NULL;
+}
+
+static int
+avr_address_class_name_to_type_flags (struct gdbarch *gdbarch,
+                                      const char* name,
+                                      int *type_flags_ptr)
+{
+  if (strcmp (name, "flash") == 0)
+    {
+      *type_flags_ptr = AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH;
+      return 1;
+    }
+  else
+    return 0;
+}
+
 /* Initialize the gdbarch structure for the AVR's.  */
 
 static struct gdbarch *
@@ -1666,6 +1741,12 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   set_gdbarch_unwind_pc (gdbarch, avr_unwind_pc);
   set_gdbarch_unwind_sp (gdbarch, avr_unwind_sp);
+
+  set_gdbarch_address_class_type_flags (gdbarch, avr_address_class_type_flags);
+  set_gdbarch_address_class_name_to_type_flags
+    (gdbarch, avr_address_class_name_to_type_flags);
+  set_gdbarch_address_class_type_flags_to_name
+    (gdbarch, avr_address_class_type_flags_to_name);
 
   return gdbarch;
 }

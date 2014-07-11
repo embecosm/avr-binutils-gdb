@@ -1,3 +1,8 @@
+2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
+
+	* gdb.arch/avr-flash-qualifer.c: New.
+	* gdb.arch/avr-flash-qualifer.exp: New.
+
 2014-01-06  Jeremy Bennett  <jeremy.bennett@embecosm.com>
 
 	* lib/gdb.exp (skip_cplus_tests): Not supported at present for AVR.
