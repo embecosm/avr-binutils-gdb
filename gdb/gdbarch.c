@@ -225,6 +225,7 @@ struct gdbarch
   gdbarch_pointer_to_address_ftype *pointer_to_address;
   gdbarch_address_to_pointer_ftype *address_to_pointer;
   gdbarch_integer_to_address_ftype *integer_to_address;
+  gdbarch_symbol_type_from_section_ftype *symbol_type_from_section;
   gdbarch_return_value_ftype *return_value;
   gdbarch_return_in_first_hidden_param_p_ftype *return_in_first_hidden_param_p;
   gdbarch_skip_prologue_ftype *skip_prologue;
@@ -402,6 +403,7 @@ struct gdbarch startup_gdbarch =
   unsigned_pointer_to_address,  /* pointer_to_address */
   unsigned_address_to_pointer,  /* address_to_pointer */
   0,  /* integer_to_address */
+  0,  /* symbol_type_from_section */
   0,  /* return_value */
   default_return_in_first_hidden_param_p,  /* return_in_first_hidden_param_p */
   0,  /* skip_prologue */
@@ -711,6 +713,7 @@ verify_gdbarch (struct gdbarch *gdbarch)
   /* Skip verify of pointer_to_address, invalid_p == 0 */
   /* Skip verify of address_to_pointer, invalid_p == 0 */
   /* Skip verify of integer_to_address, has predicate.  */
+  /* Skip verify of symbol_type_from_section, has predicate.  */
   /* Skip verify of return_value, has predicate.  */
   /* Skip verify of return_in_first_hidden_param_p, invalid_p == 0 */
   if (gdbarch->skip_prologue == 0)
@@ -1445,6 +1448,12 @@ gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file)
   fprintf_unfiltered (file,
                       "gdbarch_dump: static_transform_name = <%s>\n",
                       host_address_to_string (gdbarch->static_transform_name));
+  fprintf_unfiltered (file,
+                      "gdbarch_dump: gdbarch_symbol_type_from_section_p() = %d\n",
+                      gdbarch_symbol_type_from_section_p (gdbarch));
+  fprintf_unfiltered (file,
+                      "gdbarch_dump: symbol_type_from_section = <%s>\n",
+                      host_address_to_string (gdbarch->symbol_type_from_section));
   fprintf_unfiltered (file,
                       "gdbarch_dump: target_desc = %s\n",
                       host_address_to_string (gdbarch->target_desc));
@@ -2627,6 +2636,30 @@ set_gdbarch_integer_to_address (struct gdbarch *gdbarch,
                                 gdbarch_integer_to_address_ftype integer_to_address)
 {
   gdbarch->integer_to_address = integer_to_address;
+}
+
+int
+gdbarch_symbol_type_from_section_p (struct gdbarch *gdbarch)
+{
+  gdb_assert (gdbarch != NULL);
+  return gdbarch->symbol_type_from_section != NULL;
+}
+
+struct type *
+gdbarch_symbol_type_from_section (struct gdbarch *gdbarch, struct type *type, struct bfd_section *bfd_section)
+{
+  gdb_assert (gdbarch != NULL);
+  gdb_assert (gdbarch->symbol_type_from_section != NULL);
+  if (gdbarch_debug >= 2)
+    fprintf_unfiltered (gdb_stdlog, "gdbarch_symbol_type_from_section called\n");
+  return gdbarch->symbol_type_from_section (gdbarch, type, bfd_section);
+}
+
+void
+set_gdbarch_symbol_type_from_section (struct gdbarch *gdbarch,
+                                      gdbarch_symbol_type_from_section_ftype symbol_type_from_section)
+{
+  gdbarch->symbol_type_from_section = symbol_type_from_section;
 }
 
 int

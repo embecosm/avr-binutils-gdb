@@ -509,6 +509,18 @@ m:CORE_ADDR:pointer_to_address:struct type *type, const gdb_byte *buf:type, buf:
 m:void:address_to_pointer:struct type *type, gdb_byte *buf, CORE_ADDR addr:type, buf, addr::unsigned_address_to_pointer::0
 M:CORE_ADDR:integer_to_address:struct type *type, const gdb_byte *buf:type, buf
 
+# Use this hook to change the type of a symbol when it is created according to
+# the bfd_section it is located in.  This can be used for architectures with
+# multiple address spaces mapped in different sections.
+#
+# For example, if we had a certain space in memory with the address class
+# TYPE_INSTANCE_FLAG_ADDRESS_CLASS_1, we can use this hook to set it.  Note that
+# these flags should be set on the pointer_type of this type, and therefore you
+# need to copy the struct type with copy_type.  Otherwise it will affect other
+# types with the same pointer type.  See avr_symbol_type_from_section for its
+# use with the AVR harvard architecture.
+M:struct type *:symbol_type_from_section:struct type *type, struct bfd_section *bfd_section:type, bfd_section
+
 # Return the return-value convention that will be used by FUNCTION
 # to return a value of type VALTYPE.  FUNCTION may be NULL in which
 # case the return convention is computed based only on VALTYPE.

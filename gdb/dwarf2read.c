@@ -17393,6 +17393,7 @@ new_symbol_full (struct die_info *die, struct type *type, struct dwarf2_cu *cu,
   struct attribute *attr2 = NULL;
   CORE_ADDR baseaddr;
   struct pending **list_to_add = NULL;
+  struct gdbarch *gdbarch = get_objfile_arch (cu->objfile);
 
   int inlined_func = (die->tag == DW_TAG_inlined_subroutine);
 
@@ -17547,6 +17548,22 @@ new_symbol_full (struct die_info *die, struct type *type, struct dwarf2_cu *cu,
 	      if (cu->language == language_fortran && die->parent
 		  && die->parent->tag == DW_TAG_common_block)
 		attr2 = NULL;
+
+	      /* Allow an architecture to modify the type of the symbol
+		 according to the section it is in.  */
+              if (SYMBOL_CLASS (sym) == LOC_STATIC
+                  && gdbarch_symbol_type_from_section_p (gdbarch))
+                {
+                  struct obj_section *obj_section = SYMBOL_OBJ_SECTION (objfile,
+									sym);
+                  struct bfd_section *bfd_section =
+		    obj_section->the_bfd_section;
+
+		  SYMBOL_TYPE (sym) =
+		    gdbarch_symbol_type_from_section (gdbarch,
+						      SYMBOL_TYPE (sym),
+						      bfd_section);
+                }
 
 	      if (SYMBOL_CLASS (sym) == LOC_STATIC
 		  && SYMBOL_VALUE_ADDRESS (sym) == 0
