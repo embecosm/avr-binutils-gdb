@@ -75,11 +75,15 @@
 /* Address space flags */
 
 /* We are assigning the TYPE_INSTANCE_FLAG_ADDRESS_CLASS_1 to the flash address
-   space.  */
+   space and TYPE_INSTANCE_FLAG_ADDRESS_CLASS_2 to the eeprom address space.  */
 
 #define AVR_TYPE_ADDRESS_CLASS_FLASH TYPE_ADDRESS_CLASS_1
+#define AVR_TYPE_ADDRESS_CLASS_EEPROM TYPE_ADDRESS_CLASS_2
+
 #define AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH  \
   TYPE_INSTANCE_FLAG_ADDRESS_CLASS_1
+#define AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_EEPROM  \
+  TYPE_INSTANCE_FLAG_ADDRESS_CLASS_2
 
 
 enum
@@ -310,29 +314,28 @@ avr_make_data_ptr (CORE_ADDR ptr)
 }	/* avr_make_data_ptr () */
 
 
-/* EEPROM address checks and convertions.  I don't know if these will ever
-   actually be used, but I've added them just the same.  TRoth */
+/* Convert architectural eeprom pointer to an internal GDB byte address.
 
-/* TRoth/2002-04-08: Commented out for now to allow fix for problem with large
-   programs in the mega128.  */
+   See avr_address_to_pointer for an explanation of how addresses and
+   pointers work for AVR. */
 
-/*  static CORE_ADDR */
-/*  avr_make_eaddr (CORE_ADDR x) */
-/*  { */
-/*    return ((x) | AVR_EEPROM_START); */
-/*  } */
+static CORE_ADDR
+avr_make_eeprom_addr (CORE_ADDR addr)
+{
+  return ((addr & ~AVR_MEM_MASK) | AVR_EEPROM_START);
+}
 
-/*  static int */
-/*  avr_eaddr_p (CORE_ADDR x) */
-/*  { */
-/*    return (((x) & AVR_MEM_MASK) == AVR_EEPROM_START); */
-/*  } */
 
-/*  static CORE_ADDR */
-/*  avr_convert_eaddr_to_raw (CORE_ADDR x) */
-/*  { */
-/*    return ((x) & 0xffffffff); */
-/*  } */
+/* Convert internal GDB byte address to architectural eeprom pointer.
+
+   See avr_address_to_pointer for an explanation of how addresses and
+   pointers work for AVR. */
+
+static CORE_ADDR
+avr_make_eeprom_ptr (CORE_ADDR ptr)
+{
+  return ((ptr & ~AVR_MEM_MASK) | AVR_EEPROM_START);
+}
 
 
 /* Extract and convert byte address to architectural pointer.
@@ -412,6 +415,17 @@ avr_address_to_pointer (struct gdbarch *gdbarch,
 
       store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, ptr);
     }
+  else if (AVR_TYPE_ADDRESS_CLASS_EEPROM (type))
+    {
+      CORE_ADDR ptr = avr_make_eeprom_ptr (addr);
+
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_address_to_pointer: data %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
+
+      store_unsigned_integer (buf, TYPE_LENGTH (type), byte_order, ptr);
+    }
   else
     {
       CORE_ADDR ptr = avr_make_data_ptr (addr);
@@ -464,6 +478,16 @@ avr_pointer_to_address (struct gdbarch *gdbarch,
       if (avr_debug >= 2)
 	fprintf_unfiltered (gdb_stdlog,
 			    "avr_pointer_to_address: code %s -> %s.\n",
+			    hex_string (addr), hex_string (ptr));
+      return addr;
+    }
+  else if (AVR_TYPE_ADDRESS_CLASS_EEPROM (type))
+    {
+      CORE_ADDR addr = avr_make_eeprom_addr (ptr);
+
+      if (avr_debug >= 2)
+	fprintf_unfiltered (gdb_stdlog,
+			    "avr_pointer_to_address: data %s -> %s.\n",
 			    hex_string (addr), hex_string (ptr));
       return addr;
     }
@@ -1599,6 +1623,8 @@ avr_address_class_type_flags_to_name (struct gdbarch *gdbarch, int type_flags)
 {
   if (type_flags & AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH)
     return "flash";
+  else if (type_flags & AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_EEPROM)
+    return "eeprom";
   else
     return NULL;
 }
@@ -1611,6 +1637,11 @@ avr_address_class_name_to_type_flags (struct gdbarch *gdbarch,
   if (strcmp (name, "flash") == 0)
     {
       *type_flags_ptr = AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH;
+      return 1;
+    }
+  else if (strcmp (name, "eeprom") == 0)
+    {
+      *type_flags_ptr = AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_EEPROM;
       return 1;
     }
   else
@@ -1631,6 +1662,9 @@ avr_symbol_type_from_section (struct gdbarch *gdbarch,
   /* Is the symbol in code space?  */
   if (strcmp (bfd_section->name, ".text") == 0)
     space_flags = AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_FLASH;
+  /* Is the symbol in EEPROM memory?  */
+  else if (strcmp (bfd_section->name, ".eeprom") == 0)
+    space_flags = AVR_TYPE_INSTANCE_FLAG_ADDRESS_CLASS_EEPROM;
 
   if (space_flags != 0)
     {

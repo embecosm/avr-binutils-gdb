@@ -21,6 +21,8 @@ const __flash char data_in_flash = 0xab;
 const char data_in_flash __attribute__((__progmem__)) = 0xab;
 #endif
 
+const char data_in_eeprom __attribute__((section(".eeprom"))) = 0xcd;
+
 int
 main (void)
 {

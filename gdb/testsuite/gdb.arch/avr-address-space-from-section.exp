@@ -38,3 +38,9 @@ gdb_test "print &data_in_flash" \
 
 gdb_test "ptype &data_in_flash" \
   "type = const char \\* @flash"
+
+gdb_test "print &data_in_eeprom" \
+  " = $hex <data_in_eeprom> .*"
+
+gdb_test "ptype &data_in_eeprom" \
+  "type = const char \\* @eeprom"

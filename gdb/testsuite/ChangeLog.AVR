@@ -1,5 +1,12 @@
 2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
 
+	* gdb.arch/avr-address-space-from-section.c (data_in_eeprom): New
+	global.
+	* gdb.arch/avr-address-space-from-section.exp: Add test cases for
+	data_in_eeprom.
+
+2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
+
 	* gdb.arch/avr-address-space-from-section.c: New.
 	* gdb.arch/avr-address-space-from-section.exp: New.
 
