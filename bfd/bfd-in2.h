@@ -4465,6 +4465,10 @@ out instruction.  */
 sbic or sbis instruction.  */
   BFD_RELOC_AVR_5_IO,
 
+/* This is a reloc of indeterminate size to subtract a symbol from the value
+that the subsequent relocation will install.  */
+  BFD_RELOC_AVR_SYM_DIFF,
+
 /* Renesas RL78 Relocations.  */
   BFD_RELOC_RL78_NEG8,
   BFD_RELOC_RL78_NEG16,

@@ -1,3 +1,11 @@
+2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* reloc.c (BFD_RELOC_AVR_SYM_DIFF): New relocation.
+	* elf32-avr.c (R_AVR_SYM_DIFF): New HOWTO.
+	(avr_reloc_map): Add BFD_RELOC_AVR_SYM_DIFF / R_AVR_SYM_DIFF entry.
+	(avr_final_link_relocate): Handle R_AVR_SYM_DIFF.
+	* bfd-in2.h, libbfd: Regenerate.
+
 2014-05-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* reloc.c (BFD_RELOC_AVR_5_IO): New reloc.

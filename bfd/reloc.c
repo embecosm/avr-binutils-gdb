@@ -4793,6 +4793,11 @@ ENUM
 ENUMDOC
   This is a 5 bit reloc for the AVR that stores an address for an cbi, sbi,
   sbic or sbis instruction.
+ENUM
+  BFD_RELOC_AVR_SYM_DIFF
+ENUMDOC
+  This is a reloc of indeterminate size to subtract a symbol from the value
+  that the subsequent relocation will install.
 
 ENUM
   BFD_RELOC_RL78_NEG8

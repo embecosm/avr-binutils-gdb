@@ -1169,7 +1169,9 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
   unsigned long insn;
   long value = *valP;
 
-  if (fixP->fx_addsy == (symbolS *) NULL)
+  if (fixP->fx_addsy == (symbolS *) NULL
+      && fixP->fx_subsy == (symbolS *) NULL)
+
     fixP->fx_done = 1;
 
   else if (fixP->fx_pcrel)
@@ -1182,10 +1184,6 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
 	  fixP->fx_done = 1;
 	}
     }
-
-  /* We don't actually support subtracting a symbol.  */
-  if (fixP->fx_subsy != (symbolS *) NULL)
-    as_bad_where (fixP->fx_file, fixP->fx_line, _("expression too complex"));
 
   switch (fixP->fx_r_type)
     {
@@ -1421,31 +1419,39 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
 /* If while processing a fixup, a reloc really needs to be created
    then it is done here.  */
 
-arelent *
+arelent **
 tc_gen_reloc (asection *seg ATTRIBUTE_UNUSED,
 	      fixS *fixp)
 {
+  static arelent *relocs[MAX_RELOC_EXPANSION + 1];
   arelent *reloc;
+
+  reloc = xmalloc (sizeof (arelent));
+  relocs[0] = reloc;
+  relocs[1] = NULL;
+  reloc->address = fixp->fx_frag->fr_address + fixp->fx_where;
 
   if (fixp->fx_subsy != NULL)
     {
-      as_bad_where (fixp->fx_file, fixp->fx_line, _("expression too complex"));
-      return NULL;
-    }
+      reloc->howto = bfd_reloc_type_lookup (stdoutput, BFD_RELOC_AVR_SYM_DIFF);
+      reloc->addend = - S_GET_VALUE (fixp->fx_subsy);
+      reloc->sym_ptr_ptr = xmalloc (sizeof (asymbol *));
+      *reloc->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_subsy);
 
-  reloc = xmalloc (sizeof (arelent));
+      relocs[1] = reloc = xmalloc (sizeof (arelent));
+      reloc->address = relocs[0]->address;
+    }
 
   reloc->sym_ptr_ptr = xmalloc (sizeof (asymbol *));
   *reloc->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_addsy);
 
-  reloc->address = fixp->fx_frag->fr_address + fixp->fx_where;
   reloc->howto = bfd_reloc_type_lookup (stdoutput, fixp->fx_r_type);
   if (reloc->howto == (reloc_howto_type *) NULL)
     {
       as_bad_where (fixp->fx_file, fixp->fx_line,
 		    _("reloc %d not supported by object file format"),
 		    (int) fixp->fx_r_type);
-      return NULL;
+      return &relocs[MAX_RELOC_EXPANSION];
     }
 
   if (fixp->fx_r_type == BFD_RELOC_VTABLE_INHERIT
@@ -1454,7 +1460,7 @@ tc_gen_reloc (asection *seg ATTRIBUTE_UNUSED,
 
   reloc->addend = fixp->fx_offset;
 
-  return reloc;
+  return relocs;
 }
 
 void

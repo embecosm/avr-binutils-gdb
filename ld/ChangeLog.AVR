@@ -1,4 +1,10 @@
-2014-07-17  Joern Rennecke  <joern.rennecke@embecosm.com>
+2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* testsuite/ld-avr/avr.exp: Add symdiff dump test.
+	* testsuite/ld-avr/symdiff.S, testsuite/ld-avr/symdiff.d: New files.
+	* testsuite/ld-avr/symdiff.s: Likewise.
+
+2014-07-11  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* testsuite/ld-avr/avr.exp: Fix objdump test.
 

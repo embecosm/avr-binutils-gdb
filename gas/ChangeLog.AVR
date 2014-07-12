@@ -1,3 +1,10 @@
+2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/tc-avr.h (TC_VALIDATE_FIX_SUB, DIFF_EXPR_OK): Define.
+	(RELOC_EXPANSION_POSSIBLE, MAX_RELOC_EXPANSION): Likewise.
+	* config/tc-avr.c (md_apply_fix): Allow differences.
+	(tc_gen_reloc): Encode differences as two relocations.
+
 2014-05-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	 * config/tc-avr.c (avr_operand) <'p'>: Create a fixup for

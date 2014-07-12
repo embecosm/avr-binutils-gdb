@@ -601,6 +601,20 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 0x0000,		/* src_mask */
 	 0x00f8,		/* dst_mask */
 	 FALSE),		/* pcrel_offset */
+  /* A symbol to subtract from the value of the following relocation.  */
+  HOWTO (R_AVR_SYM_DIFF,	/* type */
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 32,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont, /* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_SYM_DIFF",	/* name */
+	 FALSE,			/* partial_inplace */
+	 0xffffffff,		/* src_mask */
+	 0xffffffff,		/* dst_mask */
+	 FALSE), 		/* pcrel_offset */
 };
 
 /* Map BFD reloc types to AVR ELF reloc types.  */
@@ -646,6 +660,7 @@ static const struct avr_reloc_map avr_reloc_map[] =
   { BFD_RELOC_AVR_6_IO,             R_AVR_6_IO },
   { BFD_RELOC_AVR_16_LDST,          R_AVR_16_LDST },
   { BFD_RELOC_AVR_5_IO,             R_AVR_5_IO },
+  { BFD_RELOC_AVR_SYM_DIFF,         R_AVR_SYM_DIFF },
 };
 
 /* Meant to be filled one day with the wrap around address for the
@@ -857,6 +872,8 @@ avr_final_link_relocate (reloc_howto_type *                 howto,
                          struct elf32_avr_link_hash_table * htab)
 {
   bfd_reloc_status_type r = bfd_reloc_ok;
+  static asection	*sym_diff_section;
+  static bfd_vma	sym_diff_value;
   bfd_vma               x;
   bfd_signed_vma	srel;
   bfd_signed_vma	reloc_addr;
@@ -867,9 +884,22 @@ avr_final_link_relocate (reloc_howto_type *                 howto,
   /* Absolute addr of the reloc in the final excecutable.  */
   reloc_addr = rel->r_offset + input_section->output_section->vma
 	       + input_section->output_offset;
+  if (sym_diff_section != NULL)
+    {
+      BFD_ASSERT (sym_diff_section == input_section);
+      relocation -= sym_diff_value;
+      sym_diff_section = NULL;
+    }
 
   switch (howto->type)
     {
+    case R_AVR_SYM_DIFF:
+      BFD_ASSERT (rel->r_addend == 0);
+      /* Cache the input section and value.  */
+      sym_diff_section = input_section;
+      sym_diff_value = relocation;
+      return bfd_reloc_ok;
+
     case R_AVR_7_PCREL:
       contents += rel->r_offset;
       srel = (bfd_signed_vma) relocation;

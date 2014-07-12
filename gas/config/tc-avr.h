@@ -51,6 +51,8 @@
    will point to the start of the expression.  */
 #define md_operand(x)
 
+#define TC_VALIDATE_FIX_SUB(FIX, SEG) 1
+
 /* You may define this macro to parse an expression used in a data
    allocation pseudo-op such as `.word'.  You can use this to
    recognize relocation directives that may appear in such directives.  */
@@ -83,11 +85,15 @@ extern void avr_cons_fix_new (fragS *,int, int, expressionS *);
    and define `md_create_long_jump' to create a long jump.  */
 #define WORKING_DOT_WORD
 
+#define DIFF_EXPR_OK
+
 /* If you define this macro, it means that `tc_gen_reloc' may return
    multiple relocation entries for a single fixup.  In this case, the
    return value of `tc_gen_reloc' is a pointer to a null terminated
    array.  */
-#undef RELOC_EXPANSION_POSSIBLE
+#define RELOC_EXPANSION_POSSIBLE
+
+#define MAX_RELOC_EXPANSION 2
 
 /* No shared lib support, so we don't need to ensure externally
    visible symbols can be overridden.  */

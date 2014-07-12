@@ -1,8 +1,12 @@
+2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* elf/avr.h (R_AVR_SYM_DIFF): New RELOC_NUMBER.
+
 2014-05-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
-	 * elf/avr.h (R_AVR_5_IO): New RELOC_NUMBER.
+	* elf/avr.h (R_AVR_5_IO): New RELOC_NUMBER.
 
 2014-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
 
-	 * elf/avr.h (R_AVR_6_IO, R_AVR_16_LDST): New RELOC_NUMBERs.
+	* elf/avr.h (R_AVR_6_IO, R_AVR_16_LDST): New RELOC_NUMBERs.
 	* opcode/avr.h (lds,sts): Use 'D' for address.
