@@ -509,8 +509,11 @@ m:CORE_ADDR:pointer_to_address:struct type *type, const gdb_byte *buf:type, buf:
 m:void:address_to_pointer:struct type *type, gdb_byte *buf, CORE_ADDR addr:type, buf, addr::unsigned_address_to_pointer::0
 M:CORE_ADDR:integer_to_address:struct type *type, const gdb_byte *buf:type, buf
 
-# Use this hook to change the type of a symbol when it is created according to
-# the bfd_section it is located in.  This can be used for architectures with
+# This hook only looks at sections and we should use segments to set the address
+# space of a type.
+#
+# Use it hook to change the type of a symbol when it is created according to the
+# bfd_section it is located in.  This can be used for architectures with
 # multiple address spaces mapped in different sections.
 #
 # For example, if we had a certain space in memory with the address class

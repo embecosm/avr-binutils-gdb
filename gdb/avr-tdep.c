@@ -1648,7 +1648,10 @@ avr_address_class_name_to_type_flags (struct gdbarch *gdbarch,
     return 0;
 }
 
-/* Add address space flags to the type of symbols according to their
+/* This hook only looks at sections and we should use segments to set the
+   address space of a type.
+
+   Add address space flags to the type of symbols according to their
    bfd_section.  This is only done for symbols with
    SYMBOL_CLASS (symbol) == LOC_STATIC.  */
 

@@ -1,3 +1,10 @@
+2014-07-29  Pierre Langlois  <pierre.langlois@embecosm.com>
+
+	* gdbarch.h: Regenerate.
+	* gdbarch.sh (symbol_type_from_section): Add a comment about using
+	segments instead of sections.
+	* avr-tdep.c (avr_symbol_type_from_section): Likewise.
+
 2014-07-11  Pierre Langlois  <pierre.langlois@embecosm.com>
 
 	* avr-tdep.c (AVR_TYPE_ADDRESS_CLASS_EEPROM): New macro.
