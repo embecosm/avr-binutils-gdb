@@ -1,3 +1,218 @@
+2014-04-09  Nick Clifton  <nickc@redhat.com>
+
+	* Makefile.am (default-manifest.o): Remove rule.
+	(EMUL_EXTRA_BINARIES): Delete.
+	(ALL_EMUL_EXTRA_BINARIES): Delete.
+	(ld_new_DEPENDENCIES): Remove EMUL_EXTRA_BINARIES.
+	(install-data-local): Remove EMUL_EXTRA_BINARIES.
+	* Makefile.in: Regenerate.
+	* configure.in (all_emul_extra_binaries): Delete.
+	(EMUL_EXTRA_BINARIES): Remove.
+	* configure: Regenerate.
+	* configure.tgt (target_extra_binaries): Delete.
+	* emultempl/default-manifest.rc: Delete.
+	* ld.texinfo: Remove discussion of default manifest.
+	* emulparams/i386pe.sh (DEFAULT_MANIFEST): Delete.
+	* emulparams/i386pep.sh (DEFAULT_MANIFEST): Delete.
+
+2014-04-09  Alan Modra  <amodra@gmail.com>
+
+	* emultempl/spuelf.em: Include safe-ctype.h, remove duplicate errno.h.
+	* emultempl/nds32elf.em: Include bfd_stdint.h.
+	* po/POTFILES.in: Regenerate.
+
+2014-04-09  Alan Modra  <amodra@gmail.com>
+
+	* emultempl/ppc32elf.em (no_zero_padding, ppc_finish): New functions.
+	(LDEMUL_FINISH): Define.
+
+2014-04-08  Nick Clifton  <nickc@redhat.com>
+
+	* scripttempl/pe.sc (R_RSRC): Remove default manifest.
+	* scripttempl/pep.sc (R_RSRC): Remove default manifest.
+
+2014-04-08  Jon TURNEY  <jon.turney@dronecode.org.uk>
+
+	* emultempl/elf32.em (id_note_section_size, read_hex, write_build_id):
+	Move code for parsing build-id option and calculating the build-id to...
+	* ldbuildid.c: New file.
+	* ldbuildid.h: New file.
+	* Makefile.am (CFILES, HFILES, OFILES, ld_new_SOURCES): Add new
+	files.
+	* Makefile.in: Regenerate.
+	* ld.texinfo: Update --build-id description to mention COFF
+	support.
+	* NEWS: Mention support for COFF build ids.
+	* emultempl/pe.em (gld${EMULATION_NAME}_handle_option):
+	(pecoff_checksum_contents, write_build_id, setup_build_id)
+	(gld_${EMULATION_NAME}_after_open):  Handle and implement
+	build-id option.
+	* emultempl/pep.em: Likewise.
+
+2014-04-04  Cary Coutant  <ccoutant@google.com>
+
+	PR gold/16804
+	* ld.texinfo: Document optional comma following output section
+	command and overlay command.
+
+2014-04-04  Alan Modra  <amodra@gmail.com>
+
+	* ldlang.c (lang_size_sections_1 <lang_input_section_enum>): Use
+	current "fill", not "output_section_statement->fill".
+
+2014-03-31  Nick Clifton  <nickc@redhat.com>
+
+	PR ld/16744
+	* emultempl/elf32.em (_after_open): Create a .note.GNU-stack
+	section when performing a relocatable link with -z [no]execstack
+	specified.
+
+2014-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR ld/16756
+	* ldmain.c (symbol_warning): New function.
+	(warning_callback): Use it.  Scan all input files for a reference
+	to SYMBOL.
+
+2014-03-21  Christopher Faylor  <me.cygwin2013@cgf.cx>
+
+	* ld.texinfo: Document change in handling of --enable-auto-image-base.
+	* emultempl/pe.em (pe_auto_image_base): Set to default base.
+	(gld_${EMULATION_NAME}_list_options): Change usage message to reflect
+	optional --enable-auto-image-base argument.
+	(gld${EMULATION_NAME}_handle_option): Handle optional
+	--enable-auto-image-base argument.
+	(compute_dll_image_base): Eliminate constant.  Use pe_auto_image_base.
+
+2014-03-19  Nick Clifton  <nickc@redhat.com>
+
+	* Makefile.am (default-manifest.o): Use WINDRES_FOR_TARGET.
+	* Makefile.in: Regenerate.
+	* emultempl/default-manifest.rc: Fix typo.
+	* scripttempl/pe.sc (R_RSRC): Fix default-manifest exclusion.
+	(.rsrc): Add SUBALIGN(4).  Remove SORT.
+	* scripttempl/pep.sc: Likewise.
+
+2014-03-17  Christopher Faylor  <me.cygwin2014@cgf.cx>
+
+	* Makefile.am: Use host version of windres.
+	* Makefile.in: Regenerate.
+
+2014-03-14  Romain Geissler  <romain.geissler@amadeus.com>
+	    Alan Modra  <amodra@gmail.com>
+
+	* ldlang.h (full_name_provided): New input flag.
+	* ldlang.c (new_afile): Don't use lang_input_file_is_search_file_enum
+	for -l:namespec.  Instead use lang_input_file_is_l_enum with
+	full_name_provided flag.
+	* ldlfile.c (ldfile_open_file_search): Don't complete lib name if
+	full_name_provided flag is set.
+	* emultempl/elf32.em (gld${EMULATION_NAME}_open_dynamic_archive):
+	Handle full_name_provided libraries.  Tidy EXTRA_SHLIB_EXTENSION
+	support.  Set DT_NEEDED for -l:namespec as namespec.
+	* emultempl/aix.em (ppc_after_open_output): Handle full_name_provided.
+	* emultempl/linux.em (gld${EMULATION_NAME}_open_dynamic_archive):
+	Don't handle full_name_provided libraries.
+	* emultempl/pe.em (gld${EMULATION_NAME}_open_dynamic_archive): Ditto.
+	* emultempl/pep.em (gld${EMULATION_NAME}_open_dynamic_archive): Ditto.
+	* emultempl/vms.em (gld${EMULATION_NAME}_open_dynamic_archive): Ditto.
+
+2014-03-12  Alan Modra  <amodra@gmail.com>
+
+	* Makefile.in: Regenerate.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	Update copyright years.
+
+2014-03-04  Nick Clifton  <nickc@redhat.com>
+
+	* Makefile.am (ALL_EMUL_EXTRA_BINARIES): Remove default-manifest.
+	* Makefile.in: Regenerate.
+
+2014-02-27  Yuri Gribov  <y.gribov@samsung.com>
+
+	* emultempl/armelf.em (OPTION_LONG_PLT): Define.
+	(PARSE_AND_LIST_LONGOPTS): Add long-plt.
+	(PARSE_AND_LIST_OPTIONS): Likewise.
+	(PARSE_AND_LIST_ARGS_CASES): Handle long-plt.
+	* ld.texinfo: Document --long-plt.
+
+2014-02-27  Alan Modra  <amodra@gmail.com>
+
+	* emulparams/elf32ppcvxworks.sh: Source plt_unwind.sh and
+	use ppc32elf.em.
+	* emultempl/ppc32elf.em (ppc_after_open): Don't compile for
+	vxworks.
+	(LDEMUL_AFTER_OPEN): Don't set for vxworks.
+	(PARSE_AND_LIST_LONGOPTS, PARSE_AND_LIST_OPTIONS): Exclude
+	-secure-plt, -bss-plt and -sdata-got when vxworks.
+
+2014-02-27  Nick Clifton  <nickc@redhat.com>
+
+	* configure.in (all_emul_extra_binaries): New variable.  Populated
+	by invoking configure.tgt.
+	(EMUL_EXTRA_BINARIES): New substitution.
+	* configure: Regenerate.
+	* configure.tgt (target_extra_binaries): New variable.  Set to
+	default-manifest.o for Cygwin and MinGW targets.
+	* Makefile.am (EMUL_EXTRA_BINARIES): New variable.  Initialised
+	by the configure script.
+	(ALL_EMUL_EXTRA_BINARIES): New variable.
+	(default-manifest.o): New rule to build the default manifest.
+	(ld_new_DEPENDENCIES): Add EMUL_EXTRA_BINARIES.
+	(install-data-local): Add EMUL_EXTRA_BINARIES.
+	* Makefile.in: Regenerate.
+	* ld.texinfo: Document default manifest support.
+	* emulparams/i386pe.sh (DEFAULT_MANIFEST): Define.
+	* emulparams/i386pep.sh (DEFAULT_MANIFEST): Define.
+	* emultempl/default-manifest.rc: New file.
+	* scripttempl/pe.sc (R_RSRC): Include DEFAULT_MANIFEST, if defined.
+	* scripttempl/pep.sc (R_RSRC): Likewise.
+
+2014-02-26  Dan Mick  <dan.mick@inktank.com>
+
+	PR ld/16569
+	* ldcref.c (cref_sort_array): Compare unmangled names unless
+	demanglng has been requiested.
+	(output_one_cref): Output unmangled name unless demangling has
+	been requested.
+
+2014-02-19  Igor Zamyatin  <igor.zamyatin@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* emulparams/elf_x86_64.sh (TINY_READONLY_SECTION): New.
+
+2014-02-19  Alan Modra  <amodra@gmail.com>
+
+	* emultempl/ppc64elf.em (params): Init new field.
+	(ppc_create_output_section_statements): Set params.save_restore_funcs
+	default.
+	(PARSE_AND_LIST_*): Add support for --save-restore-funcs and
+	--no-save-restore-funcs.
+
+2014-02-17  Alan Modra  <amodra@gmail.com>
+
+	* emultemps/ppc64elf.em (params): New static struct replacing
+	various other static vars.  Adjust code throughout file.
+
+2014-02-17  Alan Modra  <amodra@gmail.com>
+
+	* emultempl/ppc32elf.em (ppc_after_open_output): Really enable
+	ppc476 workaround for ld -r.
+
+2014-02-12  Alan Modra  <amodra@gmail.com>
+
+	* emultempl/ppc32elf.em (pagesize): New static var.
+	(ppc_after_open_output): Set params.pagesize_p2 from pagesize.
+	(PARSE_AND_LIST_ARGS_CASES): Adjust to use pagesize.
+
+2014-02-11  Andrew Pinski  <apinski@cavium.com>
+
+	* emulparams/aarch64linux32.sh (LIBPATH_SUFFIX): Change to ilp32.
+	(ELF_INTERPRETER_NAME): Define.
+	* emulparams/aarch64linux32b.sh (ELF_INTERPRETER_NAME): Define.
+
 2014-02-10  Alan Modra  <amodra@gmail.com>
 
 	* po/ld.pot: Regenerate.

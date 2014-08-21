@@ -1,3 +1,163 @@
+2014-04-04  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gas/i386/i386.exp: Run SE1 tests.
+	* gas/i386/se1.d: New file.
+	* gas/i386/se1.s: Ditto.
+	* gas/i386/x86-64-se1.d: Ditto.
+	* gas/i386/x86-64-se1.s: Ditto.
+
+2014-03-21  David Weatherford <weath@cadence.com>
+            Max Filippov <jcmvbkbc@gmail.com>
+
+	* gas/xtensa/all.exp: Add test for trampoline relaxation.
+	* gas/xtensa/trampoline.d: Trampoline relaxation expected dump.
+	* gas/xtensa/trampoline.s: Trampoline relaxation test source.
+
+2014-03-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gas/all/gas.exp: Remove XFAIL of forward.d for MIPS.
+	* gas/mips/pcrel-1.s, gas/mips/pcrel-1.d, gas/mips/pcrel-2.s,
+	gas/mips/pcrel-2.d, gas/mips/pcrel-3.s, gas/mips/pcrel-3.l,
+	gas/mips/pcrel-4.s, gas/mips/pcrel-4-32.d, gas/mips/pcrel-4-n32.d,
+	gas/mips/pcrel-4-64.d: New tests.
+	* gas/mips/mips.exp: Run them.
+	* gas/mips/lui-2.l: Tweak error message for line 7.
+
+2014-03-20  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gas/i386/avx512pf-intel.d: Change memory size for vgatherpf0qps,
+	vgatherpf1qps, vscatterpf0qps, vscatterpf1qps.
+	* gas/i386/avx512pf.s: Ditto.
+	* gas/i386/x86-64-avx512pf-intel.d: Ditto.
+	* gas/i386/x86-64-avx512pf.s: Ditto.
+	* gas/i386/avx512f-intel.d: Change memory size for vgatherqps,
+	vpgatherqd, vpscatterqd, vscatterqps.
+	* gas/i386/avx512f.s: Ditto.
+	* gas/i386/x86-64-avx512f-intel.d: Ditto.
+	* gas/i386/x86-64-avx512f.s: Ditto.
+
+2014-03-19  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* gas/sparc/ldd_std.d: Fix objdump invocation in order to get
+	the old opcodes for the ldtw, ldtwa, stw and stwa instructions.
+
+	* gas/sparc/rdhpr.s: Test rd %hstick_offset and %hstick_enable.
+	* gas/sparc/rdhpr.d: Likewise.
+
+	* gas/sparc/wrhpr.s: Test wr %hstick_offset and %hstick_enable.
+	* gas/sparc/wrhpr.d: Likewise.
+
+2014-03-19  Daniel Gutson <daniel.gutson@tallertechnologies.com>
+	    Nick Clifton  <nickc@redhat.com>
+
+	* gas/arm/ccs.s: New test case.
+	* gas/arm/ccs.d: New expected disassembly.
+
+2014-03-19  Nick Clifton  <nickc@redhat.com>
+
+	* gas/rx/mov.d: Update expected disassembly.
+
+2014-03-18  Jiong Wang  <jiong.wang@arm.com>
+
+	* gas/aarch64/illegal.d: Pass -mno-verbose-error.
+	* gas/aarch64/verbose-error.s: Add more verbose message testcases.
+	* gas/aarch64/verbose-error.l: Ditto.
+
+2014-03-17  Nick Clifton  <nickc@redhat.com>
+
+	PR gas/16694
+	* gas/cfi/cfi-arm-1.s: Add checks of VFP registers.
+	* gas/cfi/cfi-arm-1.d: Update expected output.
+
+2014-03-13  Nick Clifton  <nickc@redhat.com>
+
+	* gas/aarch64/litpool.s: Make the test endian agnostic.
+	* gas/aarch64/litpool.d: Update expected disassembly.
+
+2014-03-13  Tristan Gingold  <gingold@adacore.com>
+
+	* gas/pe/big-obj.d, gas/pe/big-obj.s: Add test.
+	* gas/pe/pe.exp: Add test.
+
+2014-03-12  Nick Clifton  <nickc@redhat.com>
+
+	PR gas/16688
+	* gas/aarch64/litpool.s: New test case.
+	* gas/aarch64/litpool.d: Expected disassembly.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	Update copyright years.
+
+2014-03-03  Nick Clifton  <nickc@redhat.com>
+
+	* gas/msp430/bad.d: Add -mz option.
+	* gas/msp430/bad.s: Add more cases where warnings should be
+	generated.
+	* gas/msp430/bad.l: Add expected warning messages.
+
+2014-02-27  Jiong Wang  <jiong.wang@arm.com>
+
+	* gas/aarch64/fp-const0-parsing.s: New test.
+	* gas/aarch64/fp-const0-parsing.d: Likewise.
+
+2014-02-27  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gas/aarch64/ldst-reg-reg-offset.s: Add tests.
+	* gas/aarch64/ldst-reg-reg-offset.d: Update.
+
+2014-02-21  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gas/i386/avx512pf-intel.d: Remove prefetchwt1.
+	* gas/i386/avx512pf.s: Ditto.
+	* gas/i386/avx512pf.d: Ditto.
+	* gas/i386/x86-64-avx512pf-intel.d: Ditto.
+	* gas/i386/x86-64-avx512pf.s: Ditto.
+	* gas/i386/x86-64-avx512pf.d: Ditto.
+	* gas/i386/prefetchwt1-intel.d: New file.
+	* gas/i386/prefetchwt1.s: Ditto.
+	* gas/i386/prefetchwt1.d: Ditto.
+	* gas/i386/x86-64-prefetchwt1-intel.d: Ditto.
+	* gas/i386/x86-64-prefetchwt1.s: Ditto.
+	* gas/i386/x86-64-prefetchwt1.d: Ditto.
+
+2014-02-20  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gas/i386/avx512cd-intel.d: Remove vptestnmq, vptestnmd.
+	* gas/i386/avx512cd.s: Ditto.
+	* gas/i386/avx512cd.d: Ditto.
+	* gas/i386/x86-64-avx512cd-intel.d: Ditto.
+	* gas/i386/x86-64-avx512cd.s: Ditto.
+	* gas/i386/x86-64-avx512cd.d: Ditto.
+	* gas/i386/avx512f-intel.d: Add vptestnmq, vptestnmd.
+	* gas/i386/avx512f.s: Ditto.
+	* gas/i386/avx512f.d: Ditto.
+	* gas/i386/x86-64-avx512f-intel.d: Ditto.
+	* gas/i386/x86-64-avx512f.s: Ditto.
+	* gas/i386/x86-64-avx512f.d: Ditto.
+
+2014-02-12  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gas/i386/clflushopt-intel.d: New.
+	* gas/i386/clflushopt.d: Ditto.
+	* gas/i386/clflushopt.s: Ditto.
+	* gas/i386/i386.exp: Run new tests.
+	* gas/i386/x86-64-clflushopt-intel.d: New.
+	* gas/i386/x86-64-clflushopt.d: Ditto.
+	* gas/i386/x86-64-clflushopt.s: Ditto.
+	* gas/i386/x86-64-xsavec-intel.d: Ditto.
+	* gas/i386/x86-64-xsavec.d: Ditto.
+	* gas/i386/x86-64-xsavec.s: Ditto.
+	* gas/i386/x86-64-xsaves-intel.d: Ditto.
+	* gas/i386/x86-64-xsaves.d: Ditto.
+	* gas/i386/x86-64-xsaves.s: Ditto.
+	* gas/i386/xsavec-intel.d: Ditto.
+	* gas/i386/xsavec.d: Ditto.
+	* gas/i386/xsavec.s: Ditto.
+	* gas/i386/xsaves-intel.d: Ditto.
+	* gas/i386/xsaves.d: Ditto.
+	* gas/i386/xsaves.s: Ditto.
+
 2014-01-31  Michael Zolotukhin  <michael.v.zolotukhin@gmail.com>
 
 	PR gas/16488

@@ -843,6 +843,7 @@ proc mi_run_cmd_full {use_mi_command args} {
 	    send_gdb "${run_prefix}continue\n"
 	    gdb_expect 60 {
 		-re "${run_match}\\^running\[\r\n\]+\\*running,thread-id=\"\[^\"\]+\"\r\n$mi_gdb_prompt" {}
+		-re "${run_match}\\^error.*$mi_gdb_prompt" {return -1}
 		default {}
 	    }
 	    return 0
@@ -1028,6 +1029,8 @@ proc mi_expect_stop { reason func args file line extra test } {
     global thread_selected_re
     global breakpoint_re
 
+    set any "\[^\n\]*"
+
     set after_stopped ""
     set after_reason ""
     if { [llength $extra] == 2 } {
@@ -1070,6 +1073,20 @@ proc mi_expect_stop { reason func args file line extra test } {
 	return
     }
 
+    if { $reason == "solib-event" } {
+	set pattern "\\*stopped,reason=\"solib-event\",thread-id=\"$decimal\",stopped-threads=$any\r\n($thread_selected_re|$breakpoint_re)*$prompt_re"
+	verbose -log "mi_expect_stop: expecting: $pattern"
+	gdb_expect {
+	    -re "$pattern" {
+		pass "$test"
+	    }
+	    timeout {
+		fail "$test (unknown output after running)"
+	    }
+	}
+	return
+    }
+
     set args "\\\[$args\\\]"
 
     set bn ""
@@ -1086,8 +1103,6 @@ proc mi_expect_stop { reason func args file line extra test } {
 
 
     set a $after_reason
-
-    set any "\[^\n\]*"
 
     verbose -log "mi_expect_stop: expecting: \\*stopped,${r}${a}${bn}frame=\{addr=\"$hex\",func=\"$func\",args=$args,(?:file=\"$any$file\",fullname=\"${fullname_syntax}$file\",line=\"$line\"|from=\"$file\")\}$after_stopped,thread-id=\"$decimal\",stopped-threads=$any\r\n($thread_selected_re|$breakpoint_re)*$prompt_re"
     gdb_expect {

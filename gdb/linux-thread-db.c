@@ -565,16 +565,16 @@ enable_thread_event (int event, CORE_ADDR *bp)
 static int
 inferior_has_bug (const char *ver_symbol, int ver_major_min, int ver_minor_min)
 {
-  struct minimal_symbol *version_msym;
+  struct bound_minimal_symbol version_msym;
   CORE_ADDR version_addr;
   char *version;
   int err, got, retval = 0;
 
   version_msym = lookup_minimal_symbol (ver_symbol, NULL, NULL);
-  if (version_msym == NULL)
+  if (version_msym.minsym == NULL)
     return 0;
 
-  version_addr = SYMBOL_VALUE_ADDRESS (version_msym);
+  version_addr = BMSYMBOL_VALUE_ADDRESS (version_msym);
   got = target_read_string (version_addr, &version, 32, &err);
   if (err == 0 && memchr (version, 0, got) == &version[got -1])
     {
@@ -1772,7 +1772,8 @@ thread_db_pid_to_str (struct target_ops *ops, ptid_t ptid)
    INFO.  */
 
 static char *
-thread_db_extra_thread_info (struct thread_info *info)
+thread_db_extra_thread_info (struct target_ops *self,
+			     struct thread_info *info)
 {
   if (info->private == NULL)
     return NULL;
@@ -1874,7 +1875,7 @@ thread_db_find_thread_from_tid (struct thread_info *thread, void *data)
 /* Implement the to_get_ada_task_ptid target method for this target.  */
 
 static ptid_t
-thread_db_get_ada_task_ptid (long lwp, long thread)
+thread_db_get_ada_task_ptid (struct target_ops *self, long lwp, long thread)
 {
   struct thread_info *thread_info;
 

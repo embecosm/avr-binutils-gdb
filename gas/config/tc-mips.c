@@ -1,7 +1,5 @@
 /* tc-mips.c -- assemble code for a MIPS chip.
-   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013
-   Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
    Contributed by the OSF and Ralph Campbell.
    Written by Keith Knowles and Ralph Campbell, working independently.
    Modified for ECOFF and R4000 support by Ian Lance Taylor of Cygnus
@@ -14059,15 +14057,7 @@ md_pcrel_from (fixS *fixP)
       /* Return the address of the delay slot.  */
       return addr + 4;
 
-    case BFD_RELOC_32_PCREL:
-      return addr;
-
     default:
-      /* We have no relocation type for PC relative MIPS16 instructions.  */
-      if (fixP->fx_addsy && S_GET_SEGMENT (fixP->fx_addsy) != now_seg)
-	as_bad_where (fixP->fx_file, fixP->fx_line,
-		      _("PC relative MIPS16 instruction references"
-			" a different section"));
       return addr;
     }
 }
@@ -14264,13 +14254,38 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
   unsigned long insn;
   reloc_howto_type *howto;
 
-  /* We ignore generic BFD relocations we don't know about.  */
-  howto = bfd_reloc_type_lookup (stdoutput, fixP->fx_r_type);
-  if (! howto)
-    return;
+  if (fixP->fx_pcrel)
+    switch (fixP->fx_r_type)
+      {
+      case BFD_RELOC_16_PCREL_S2:
+      case BFD_RELOC_MICROMIPS_7_PCREL_S1:
+      case BFD_RELOC_MICROMIPS_10_PCREL_S1:
+      case BFD_RELOC_MICROMIPS_16_PCREL_S1:
+      case BFD_RELOC_32_PCREL:
+	break;
+
+      case BFD_RELOC_32:
+	fixP->fx_r_type = BFD_RELOC_32_PCREL;
+	break;
+
+      default:
+	as_bad_where (fixP->fx_file, fixP->fx_line,
+		      _("PC-relative reference to a different section"));
+	break;
+      }
+
+  /* Handle BFD_RELOC_8, since it's easy.  Punt on other bfd relocations
+     that have no MIPS ELF equivalent.  */
+  if (fixP->fx_r_type != BFD_RELOC_8)
+    {
+      howto = bfd_reloc_type_lookup (stdoutput, fixP->fx_r_type);
+      if (!howto)
+	return;
+    }
 
   gas_assert (fixP->fx_size == 2
 	      || fixP->fx_size == 4
+	      || fixP->fx_r_type == BFD_RELOC_8
 	      || fixP->fx_r_type == BFD_RELOC_16
 	      || fixP->fx_r_type == BFD_RELOC_64
 	      || fixP->fx_r_type == BFD_RELOC_CTOR
@@ -14281,12 +14296,6 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 	      || fixP->fx_r_type == BFD_RELOC_MIPS_TLS_DTPREL64);
 
   buf = fixP->fx_frag->fr_literal + fixP->fx_where;
-
-  gas_assert (!fixP->fx_pcrel || fixP->fx_r_type == BFD_RELOC_16_PCREL_S2
-	      || fixP->fx_r_type == BFD_RELOC_MICROMIPS_7_PCREL_S1
-	      || fixP->fx_r_type == BFD_RELOC_MICROMIPS_10_PCREL_S1
-	      || fixP->fx_r_type == BFD_RELOC_MICROMIPS_16_PCREL_S1
-	      || fixP->fx_r_type == BFD_RELOC_32_PCREL);
 
   /* Don't treat parts of a composite relocation as done.  There are two
      reasons for this:
@@ -14437,6 +14446,7 @@ md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
     case BFD_RELOC_32:
     case BFD_RELOC_32_PCREL:
     case BFD_RELOC_16:
+    case BFD_RELOC_8:
       /* If we are deleting this reloc entry, we must fill in the
 	 value now.  This can happen if we have a .word which is not
 	 resolved when it appears but is later defined.  */
@@ -17892,6 +17902,8 @@ static const struct mips_cpu_info mips_cpu_info_table[] =
   { "1004kf2_1",      0, ASE_DSP | ASE_MT,	ISA_MIPS32R2, CPU_MIPS32R2 },
   { "1004kf",         0, ASE_DSP | ASE_MT,	ISA_MIPS32R2, CPU_MIPS32R2 },
   { "1004kf1_1",      0, ASE_DSP | ASE_MT,	ISA_MIPS32R2, CPU_MIPS32R2 },
+  /* P5600 with EVA and Virtualization ASEs, other ASEs are optional.  */
+  { "p5600",          0, ASE_VIRT | ASE_EVA, 	ISA_MIPS32R2, CPU_MIPS32R2 },
 
   /* MIPS 64 */
   { "5kc",            0, 0,			ISA_MIPS64,   CPU_MIPS64 },
@@ -17904,7 +17916,7 @@ static const struct mips_cpu_info mips_cpu_info_table[] =
   /* Broadcom SB-1A CPU core */
   { "sb1a",           0, ASE_MIPS3D | ASE_MDMX,	ISA_MIPS64,   CPU_SB1 },
   
-  { "loongson3a",     0, 0,			ISA_MIPS64,   CPU_LOONGSON_3A },
+  { "loongson3a",     0, 0,			ISA_MIPS64R2, CPU_LOONGSON_3A },
 
   /* MIPS 64 Release 2 */
 

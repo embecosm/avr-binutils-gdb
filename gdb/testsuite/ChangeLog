@@ -1,3 +1,451 @@
+2014-04-08  Pierre Muller  <muller@sourceware.org>
+
+	* gdb.base/printcmds.exp (test_artificial_arrays): Disable
+	Ctrl-V use for mingw hosts.
+
+2014-04-07  Siva Chandra Reddy  <sivachandra@google.com>
+
+	* gdb.python/py-value.c: Improve test case.
+	* gdb.python/py-value.exp: Add new test.
+
+2014-04-07  David Blaikie  <dblaikie@gmail.com>
+
+	* lib/compiler.c: Identify the clang compiler.
+	* lib/compiler.cc: Ditto.
+
+2014-04-03  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.base/setshow.exp: Invoke string_to_regexp to HOME and PWD.
+
+2014-04-01  Anton Blanchard  <anton@samba.org>
+
+	* gdb.arch/ppc64-atomic-inst.exp: Use untested.  Make test
+	messages unique.
+
+2014-04-01  Anton Blanchard  <anton@samba.org>
+
+	* gdb.arch/ppc64-atomic-inst.exp: Use standard_testfile,
+	prepare_for_testing.
+
+2014-04-01  Anton Blanchard  <anton@samba.org>
+
+	* gdb.arch/ppc64-atomic-inst.c: Remove.
+	* gdb.arch/ppc64-atomic-inst.S: New file.
+	* gdb.arch/ppc64-atomic-inst.exp: Adapt for asm based testcase.
+
+2014-03-31  Doug Evans  <dje@google.com>
+
+	* gdb.base/print-symbol-loading-lib.c: New file.
+	* gdb.base/print-symbol-loading-main.c: New file.
+	* gdb.base/print-symbol-loading.exp: New file.
+
+2014-03-31  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.base/source-dir.exp: Allow ';' as a directory separator.
+
+2014-03-28  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/mi_dyn_arr: New testcase.
+
+2014-03-27  Doug Evans  <dje@google.com>
+
+	* gdb.dwarf2/dw2-abs-hi-pc.exp: Build tests with "nodebug".
+
+2014-03-27  Yao Qi  <yao@codesourcery.com>
+
+	* lib/gdb.exp (can_single_step_to_signal_handler): Return zero
+	if target is nios2-*-*.
+
+2014-03-26  Yao Qi  <yao@codesourcery.com>
+
+	* lib/gdb.exp (readline_is_used): New proc.
+	* gdb.base/completion.exp: Move tests on command complete up.
+	Skip the rest of tests if readline is not used.
+	* gdb.ada/complete.exp: Skp the test if readline is not
+	used.
+	* gdb.base/filesym.exp: Likewise.
+	* gdb.base/macscp.exp: Likewise.
+	* gdb.base/readline-ask.exp: Likewise.
+	* gdb.base/readline.exp: Likewise.
+	* gdb.python/py-cmd.exp: Likewise.
+	* gdb.trace/tfile.exp: Likewise.
+
+2014-03-26  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.base/macscp.exp: Fix code format issues.
+
+2014-03-25  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gdb.asm/asm-source.exp: Handle powerpc64le-* targets.
+	* gdb.asm/powerpc64le.inc: New file.
+
+2014-03-25  Pedro Alves  <palves@redhat.com>
+	    Doug Evans  <dje@google.com>
+
+	* gdb.base/source-execution.c: New file.
+	* gdb.base/source-execution.exp: New file.
+	* gdb.base/source-execution.gdb: New file.
+
+2014-03-24  Doug Evans  <dje@google.com>
+
+	* gdb.linespec/macro-relative.exp: Mark the test as unsupported if
+	using fission.
+
+2014-03-24  Hui Zhu  <hui@codesourcery.com>
+	    Pedro Alves  <palves@redhat.com>
+
+	PR breakpoints/16101
+	* gdb.base/dprintf.exp: Use unsupported rather than changing the
+	test pass/fail messages.  Detect missing support for dprintf when
+	breakpoints are actually inserted.
+	* gdb.base/mi-dprintf.exp: Detect missing support for dprintf when
+	breakpoints are actually inserted.
+	* lib/mi-support.exp (mi_run_cmd_full): Return -1 if continue
+	fails.
+
+2014-03-24  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* gdb.base/gdb-sigterm.exp (do_test): Remove "set debug lin-lwp 1".
+
+2014-03-22  Doug Evans  <xdje42@gmail.com>
+
+	* gdb.python/python.exp (python not supported): Verify multi-line
+	python command issues an error.
+	* gdb.guile/guile.exp (guile not supported): Verify multi-line
+	guile command issues an error.
+
+2014-03-21  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* gdb.threads/thread-specific.exp: Handle the lack of usable
+	$this_breakpoint and $this_thread.
+
+2014-03-21  Hui Zhu  <hui@codesourcery.com>
+
+	* gdb.base/attach.exp (do_command_attach_tests): New.
+
+2014-03-20  Tom Tromey  <tromey@redhat.com>
+	    Pedro Alves  <palves@redhat.com>
+
+	PR cli/15718
+	* gdb.base/condbreak-call-false.c: New file.
+	* gdb.base/condbreak-call-false.exp: New file.
+
+2014-03-20  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/signal-while-stepping-over-bp-other-thread.c (pid):
+	Delete.
+	(block_signals, unblock_signals): Delete.
+	(child_function_2, main): Remove references to deleted variable
+	and functions.
+
+2014-03-20  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/signal-while-stepping-over-bp-other-thread.c (main):
+	Use pthread_kill to signal thread 2.
+	* gdb.threads/signal-while-stepping-over-bp-other-thread.exp:
+	Adjust to make the test send itself a signal rather than using the
+	host's "kill" command.
+
+2014-03-20  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/multiple-step-overs.c: New file.
+	* gdb.threads/multiple-step-overs.exp: New file.
+	* gdb.threads/signal-while-stepping-over-bp-other-thread.exp:
+	Adjust expected infrun debug output.
+
+2014-03-20  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/step-over-trips-on-watchpoint.c: New file.
+	* gdb.threads/step-over-trips-on-watchpoint.exp: New file.
+
+2014-03-20  Pedro Alves  <palves@redhat.com>
+
+	PR breakpoints/7143
+	* gdb.base/watchpoint.exp: Mention bugzilla bug number instead of
+	old gnats gdb/38.  Remove kfail.  Adjust to use gdb_test instead
+	of gdb_test_multiple.
+	* gdb.cp/annota2.exp: Remove kfail for gdb/38.
+	* gdb.cp/annota3.exp: Remove kfail for gdb/38.
+
+2014-03-20  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/step-over-lands-on-breakpoint.c: New file.
+	* gdb.threads/step-over-lands-on-breakpoint.exp: New file.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.exp: Remove early return.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.exp (step& tests): Pass explicit test messages.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.exp (test_background): Expect \r\n after
+	"completed." in the fail pattern.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.exp (test_background): New procedure.
+	Use it for all background execution command tests.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.exp: Use prepare_for_testing.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.c (foo): Make 'x' volatile.  Write to it twice in
+	the same line.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.c (main): Add "jump here" and "until here" line
+	marker comments.
+	* gdb.base/async.exp (jump_here): New global.
+	(jump& test): Use it.
+	(until_here): New global.
+	(until& test): Use it.
+
+2014-03-19  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/async.exp: Don't frob gdb_protocol.
+
+2014-03-18  Doug Evans  <xdje42@gmail.com>
+
+	* gdb.base/async.exp: Whitespace fixes.  Turn on target-async.
+	Fix spelling of exec-done-display.
+
+2014-03-18  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	PR gdb/15358
+	* gdb.base/gdb-sigterm.c: New file.
+	* gdb.base/gdb-sigterm.exp: New file.
+
+2014-03-18  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/13860
+	* gdb.mi/mi-solib.exp: Remove gdb/13860 kfail.
+	* lib/mi-support.exp (mi_expect_stop): Add special handling for
+	solib-event.
+
+2014-03-17  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/pckd_arr_ren: New testcase.
+
+2014-03-13  Doug Evans  <xdje42@gmail.com>
+
+	PR guile/16612
+	* gdb.guile/scm-value.ep (test_value_after_death): Do a garbage
+	collect after discarding symbols.
+
+2014-03-13  Ludovic Courtès  <ludo@gnu.org>
+	    Doug Evans  <xdje42@gmail.com>
+
+	* gdb.guile/scm-value.exp (test_value_in_inferior): Verify value added
+	to history survives a gc.
+
+2014-03-13  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/default.exp: Don't test "target procfs".
+
+2014-03-13  Pedro Alves  <palves@redhat.com>
+
+	* gdb.base/default.exp: Update "target child" and "target procfs"
+	tests to not expect "Unix".
+
+2014-03-12  Tom Tromey  <tromey@redhat.com>
+
+	* gdb.base/corefile.exp (corefile_test_run, corefile_test_attach):
+	New procs.  Add target-async tests.
+	* gdb.reverse/break-precsave.exp (precsave_tests): New proc.
+	Add target-async tests.
+
+2014-03-12  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* gdb.dwarf2/dw2-ifort-parameter.c (func): Define labels
+	'func_start' and 'func_end' for the beginning and end of the
+	function code, respectively.
+	* gdb.dwarf2/dw2-ifort-parameter.exp: Use 'func_start' and
+	'func_end' instead of 'func' and 'main'.
+
+2014-03-12  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* gdb.dwarf2/dw2-ifort-parameter-debug.S: Remove.
+	* gdb.dwarf2/dw2-ifort-parameter.exp: Use Dwarf::assemble to
+	generate the debug info assembler source.
+
+2014-03-12  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* gdb.dwarf2/arr-stride.exp: Exploit 'prepare_for_testing'.
+	* gdb.dwarf2/arr-subrange.exp: Likewise.
+	* gdb.dwarf2/dwz.exp: Likewise.
+	* gdb.dwarf2/method-ptr.exp: Likewise.
+	* gdb.dwarf2/missing-sig-type.exp: Likewise.
+	* gdb.dwarf2/subrange.exp: Likewise.
+	* gdb.dwarf2/implptrconst.exp: Exploit 'build_executable'.
+	* gdb.dwarf2/implptrpiece.exp: Likewise.
+	* gdb.dwarf2/nostaticblock.exp: Likewise.
+
+2014-03-12  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* lib/gdb.exp (build_executable_from_specs): Don't prepend source
+	directory to absolute path name arguments.
+
+2014-03-10  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/tagged_access: New testcase.
+
+2014-03-07  Markus Metzger  <markus.t.metzger@intel.com>
+
+	* gdb.btrace/data.exp: Update expected output.
+
+2014-03-06  Yao Qi  <yao@codesourcery.com>
+
+	* gdb.trace/pr16508.exp: New file.
+
+2014-03-05  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/16575
+	* gdb.base/breakpoint-shadow.exp (compare_disassembly): New
+	procedure.
+	(top level): Adjust to use it.  Add tests that exercise breakpoint
+	interaction with the code-cache.
+
+2014-02-26  Ludovic Courtès  <ludo@gnu.org>
+
+	* gdb.guile/scm-value.exp (test_value_in_inferior): Add
+	test for 'history-append!'.
+
+2014-02-26  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.dwarf2/dw2-abs-hi-pc-hello-dbg.S: New file.
+	* gdb.dwarf2/dw2-abs-hi-pc-hello.c: New file.
+	* gdb.dwarf2/dw2-abs-hi-pc-world-dbg.S: New file.
+	* gdb.dwarf2/dw2-abs-hi-pc-world.c: New file.
+	* gdb.dwarf2/dw2-abs-hi-pc.c: New file.
+	* gdb.dwarf2/dw2-abs-hi-pc.exp: New file.
+
+2014-02-26  Joel Brobecker  <brobecker@adacore.com>
+
+	* testsuite/gdb.python/py-pp-re-notag.c: New file.
+	* testsuite/gdb.python/py-pp-re-notag.ex: New file.
+	* testsuite/gdb.python/py-pp-re-notag.p: New file.
+
+2014-02-26  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.dwarf2/arr-subrange.c, gdb.dwarf2/arr-subrange.exp: New files.
+
+2014-02-26  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.dwarf2/arr-stride.c: New file.
+	* gdb.dwarf2/arr-stride.exp: New file.
+
+2014-02-26  Pedro Alves  <palves@redhat.com>
+
+	* gdb.ada/tasks.exp: Set a task-specific breakpoint at break_me
+	that won't ever trigger.  Make sure that GDB reports the correct
+	breakpoint that caused the stop.
+
+2014-02-25  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	PR gdb/16626
+	* gdb.base/auto-load-script: New file.
+	* gdb.base/auto-load.c: New file.
+	* gdb.base/auto-load.exp: New file.
+
+	PR gdb/16626
+	* gdb.base/auto-load.exp: Fix out-of-srctree run.
+
+2014-02-25  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	Fix dw2-icycle.exp -fsanitize=address GDB crash.
+	* gdb.dwarf2/dw2-icycle.S: Remove all DW_AT_sibling.
+
+2014-02-24  Doug Evans  <dje@google.com>
+
+	* lib/gdb.exp (run_on_host): Log error output if program fails.
+
+2014-02-21  Pedro Alves  <palves@redhat.com>
+
+	* gdb.threads/step-after-sr-lock.c: Rename to ...
+	* gdb.threads/signal-while-stepping-over-bp-other-thread.c: ... this.
+	* gdb.threads/step-after-sr-lock.exp: Rename to ...
+	* gdb.threads/signal-while-stepping-over-bp-other-thread.exp:
+	... this.
+
+2014-02-20  Sergio Durigan Junior  <sergiodj@redhat.com>
+
+	PR tdep/16397
+	* gdb.arch/amd64-stap-special-operands.exp: New file.
+	* gdb.arch/amd64-stap-three-arg-disp.S: Likewise.
+	* gdb.arch/amd64-stap-three-arg-disp.c: Likewise.
+	* gdb.arch/amd64-stap-triplet.S: Likewise.
+	* gdb.arch/amd64-stap-triplet.c: Likewise.
+
+2014-02-20  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.dwarf2/dw2-icycle.S: Remove second and third parameters
+	in .section pseudo-op.
+
+2014-02-20  lin zuojian  <manjian2006@gmail.com>
+	    Joel Brobecker  <brobecker@adacore.com>
+	    Doug Evans  <xdje42@gmail.com>
+
+	PR symtab/16581
+	* gdb.dwarf2/dw2-icycle.S: New file.
+	* gdb.dwarf2/dw2-icycle.c: New file.
+	* gdb.dwarf2/dw2-icycle.exp: New file.
+
+2014-02-19  Siva Chandra Reddy  <sivachandra@google.com>
+
+	* gdb.python/py-value-cc.cc: Improve test case to enable testing
+	operations on gdb.Value objects.
+	* gdb.python/py-value-cc.exp: Add new test to test operations on
+	gdb.Value objects.
+
+2014-02-18  Doug Evans  <dje@google.com>
+
+	* Makefile.in (TESTS): New variable.
+	(expanded_tests, expanded_tests_or_none): New variables
+	(check-single): Pass $(expanded_tests_or_none) to runtest.
+	(check-parallel): Only run tests in $(TESTS) if non-empty.
+	(check/no-matching-tests-found): New rule.
+	* README: Document TESTS makefile variable.
+
+2014-02-18  Doug Evans  <dje@google.com>
+
+	* Makefile.in (check-parallel): rm -rf outputs temp.
+
+2014-02-16  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	Fix "ERROR: no fileid for" in the testsuite.
+	* lib/gdb.exp (gdb_finish): Check gdb_spawn_id.
+
+2014-02-12  Doug Evans  <dje@google.com>
+
+	* gdb.dwarf2/Makefile.in (EXECUTABLES): Add dwp-symlink.
+	(MISCELLANEOUS): New variable.
+	(clean): rm -rf $(MISCELLANEOUS).
+	* gdb.dwarf2/dwp-symlink.exp: Test the case where the executable and
+	dwp live in the same directory as symlinks, with each symlink pointed
+	to a differently named file in a different directory.
+
+2014-02-11  Doug Evans  <dje@google.com>
+
+	* gdb.dwarf2/dwp-symlink.exp: Rewrite to use remote_* commands instead
+	of Tcl file commands.
+
+2014-02-10  Mark Kettenis  <kettenis@gnu.org>
+
+	* gdb.threads/step-after-sr-lock.exp: Avoid executing
+	"kill -SIGUSR1 -1".
+
+2014-02-10  Joel Brobecker  <brobecker@adacore.com>
+
+	* gdb.ada/tick_length_array_enum_idx: New testcase.
+
 2014-02-10  Doug Evans  <xdje42@gmail.com>
 
 	* configure.ac (AC_OUTPUT): Add gdb.guile.

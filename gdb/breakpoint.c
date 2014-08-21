@@ -165,11 +165,6 @@ static void describe_other_breakpoints (struct gdbarch *,
 					struct program_space *, CORE_ADDR,
 					struct obj_section *, int);
 
-static int breakpoint_address_match (struct address_space *aspace1,
-				     CORE_ADDR addr1,
-				     struct address_space *aspace2,
-				     CORE_ADDR addr2);
-
 static int watchpoint_locations_match (struct bp_location *loc1,
 				       struct bp_location *loc2);
 
@@ -232,9 +227,6 @@ static void stopat_command (char *arg, int from_tty);
 static void tcatch_command (char *arg, int from_tty);
 
 static void detach_single_step_breakpoints (void);
-
-static int single_step_breakpoint_inserted_here_p (struct address_space *,
-						   CORE_ADDR pc);
 
 static void free_bp_location (struct bp_location *loc);
 static void incref_bp_location (struct bp_location *loc);
@@ -300,6 +292,12 @@ static struct breakpoint_ops bkpt_probe_breakpoint_ops;
 
 /* Dynamic printf class type.  */
 struct breakpoint_ops dprintf_breakpoint_ops;
+
+/* One (or perhaps two) breakpoints used for software single
+   stepping.  */
+
+static void *single_step_breakpoints[2];
+static struct gdbarch *single_step_gdbarch[2];
 
 /* The style in which to perform a dynamic printf.  This is a user
    option because different output options have different tradeoffs;
@@ -1417,6 +1415,100 @@ bp_location_has_shadow (struct bp_location *bl)
   return 1;
 }
 
+/* Update BUF, which is LEN bytes read from the target address
+   MEMADDR, by replacing a memory breakpoint with its shadowed
+   contents.
+
+   If READBUF is not NULL, this buffer must not overlap with the of
+   the breakpoint location's shadow_contents buffer.  Otherwise, a
+   failed assertion internal error will be raised.  */
+
+static void
+one_breakpoint_xfer_memory (gdb_byte *readbuf, gdb_byte *writebuf,
+			    const gdb_byte *writebuf_org,
+			    ULONGEST memaddr, LONGEST len,
+			    struct bp_target_info *target_info,
+			    struct gdbarch *gdbarch)
+{
+  /* Now do full processing of the found relevant range of elements.  */
+  CORE_ADDR bp_addr = 0;
+  int bp_size = 0;
+  int bptoffset = 0;
+
+  if (!breakpoint_address_match (target_info->placed_address_space, 0,
+				 current_program_space->aspace, 0))
+    {
+      /* The breakpoint is inserted in a different address space.  */
+      return;
+    }
+
+  /* Addresses and length of the part of the breakpoint that
+     we need to copy.  */
+  bp_addr = target_info->placed_address;
+  bp_size = target_info->shadow_len;
+
+  if (bp_addr + bp_size <= memaddr)
+    {
+      /* The breakpoint is entirely before the chunk of memory we are
+	 reading.  */
+      return;
+    }
+
+  if (bp_addr >= memaddr + len)
+    {
+      /* The breakpoint is entirely after the chunk of memory we are
+	 reading.  */
+      return;
+    }
+
+  /* Offset within shadow_contents.  */
+  if (bp_addr < memaddr)
+    {
+      /* Only copy the second part of the breakpoint.  */
+      bp_size -= memaddr - bp_addr;
+      bptoffset = memaddr - bp_addr;
+      bp_addr = memaddr;
+    }
+
+  if (bp_addr + bp_size > memaddr + len)
+    {
+      /* Only copy the first part of the breakpoint.  */
+      bp_size -= (bp_addr + bp_size) - (memaddr + len);
+    }
+
+  if (readbuf != NULL)
+    {
+      /* Verify that the readbuf buffer does not overlap with the
+	 shadow_contents buffer.  */
+      gdb_assert (target_info->shadow_contents >= readbuf + len
+		  || readbuf >= (target_info->shadow_contents
+				 + target_info->shadow_len));
+
+      /* Update the read buffer with this inserted breakpoint's
+	 shadow.  */
+      memcpy (readbuf + bp_addr - memaddr,
+	      target_info->shadow_contents + bptoffset, bp_size);
+    }
+  else
+    {
+      const unsigned char *bp;
+      CORE_ADDR placed_address = target_info->placed_address;
+      int placed_size = target_info->placed_size;
+
+      /* Update the shadow with what we want to write to memory.  */
+      memcpy (target_info->shadow_contents + bptoffset,
+	      writebuf_org + bp_addr - memaddr, bp_size);
+
+      /* Determine appropriate breakpoint contents and size for this
+	 address.  */
+      bp = gdbarch_breakpoint_from_pc (gdbarch, &placed_address, &placed_size);
+
+      /* Update the final write buffer with this inserted
+	 breakpoint's INSN.  */
+      memcpy (writebuf + bp_addr - memaddr, bp + bptoffset, bp_size);
+    }
+}
+
 /* Update BUF, which is LEN bytes read from the target address MEMADDR,
    by replacing any memory breakpoints with their shadowed contents.
 
@@ -1443,6 +1535,7 @@ breakpoint_xfer_memory (gdb_byte *readbuf, gdb_byte *writebuf,
   /* Left boundary, right boundary and median element of our binary
      search.  */
   unsigned bc_l, bc_r, bc;
+  size_t i;
 
   /* Find BC_L which is a leftmost element which may affect BUF
      content.  It is safe to report lower value but a failure to
@@ -1516,74 +1609,27 @@ breakpoint_xfer_memory (gdb_byte *readbuf, gdb_byte *writebuf,
 
     if (!bp_location_has_shadow (bl))
       continue;
-    if (!breakpoint_address_match (bl->target_info.placed_address_space, 0,
-				   current_program_space->aspace, 0))
-      continue;
 
-    /* Addresses and length of the part of the breakpoint that
-       we need to copy.  */
-    bp_addr = bl->target_info.placed_address;
-    bp_size = bl->target_info.shadow_len;
-
-    if (bp_addr + bp_size <= memaddr)
-      /* The breakpoint is entirely before the chunk of memory we
-         are reading.  */
-      continue;
-
-    if (bp_addr >= memaddr + len)
-      /* The breakpoint is entirely after the chunk of memory we are
-         reading.  */
-      continue;
-
-    /* Offset within shadow_contents.  */
-    if (bp_addr < memaddr)
-      {
-	/* Only copy the second part of the breakpoint.  */
-	bp_size -= memaddr - bp_addr;
-	bptoffset = memaddr - bp_addr;
-	bp_addr = memaddr;
-      }
-
-    if (bp_addr + bp_size > memaddr + len)
-      {
-	/* Only copy the first part of the breakpoint.  */
-	bp_size -= (bp_addr + bp_size) - (memaddr + len);
-      }
-
-    if (readbuf != NULL)
-      {
-	/* Verify that the readbuf buffer does not overlap with
-	   the shadow_contents buffer.  */
-	gdb_assert (bl->target_info.shadow_contents >= readbuf + len
-		    || readbuf >= (bl->target_info.shadow_contents
-				   + bl->target_info.shadow_len));
-
-	/* Update the read buffer with this inserted breakpoint's
-	   shadow.  */
-	memcpy (readbuf + bp_addr - memaddr,
-		bl->target_info.shadow_contents + bptoffset, bp_size);
-      }
-    else
-      {
-	struct gdbarch *gdbarch = bl->gdbarch;
-	const unsigned char *bp;
-	CORE_ADDR placed_address = bl->target_info.placed_address;
-	int placed_size = bl->target_info.placed_size;
-
-	/* Update the shadow with what we want to write to memory.  */
-	memcpy (bl->target_info.shadow_contents + bptoffset,
-		writebuf_org + bp_addr - memaddr, bp_size);
-
-	/* Determine appropriate breakpoint contents and size for this
-	   address.  */
-	bp = gdbarch_breakpoint_from_pc (gdbarch, &placed_address, &placed_size);
-
-	/* Update the final write buffer with this inserted
-	   breakpoint's INSN.  */
-	memcpy (writebuf + bp_addr - memaddr, bp + bptoffset, bp_size);
-      }
+    one_breakpoint_xfer_memory (readbuf, writebuf, writebuf_org,
+				memaddr, len, &bl->target_info, bl->gdbarch);
   }
+
+  /* Now process single-step breakpoints.  These are not found in the
+     bp_location array.  */
+  for (i = 0; i < 2; i++)
+    {
+      struct bp_target_info *bp_tgt = single_step_breakpoints[i];
+
+      if (bp_tgt != NULL)
+	{
+	  struct gdbarch *gdbarch = single_step_gdbarch[i];
+
+	  one_breakpoint_xfer_memory (readbuf, writebuf, writebuf_org,
+				      memaddr, len, bp_tgt, gdbarch);
+	}
+    }
 }
+
 
 
 /* Return true if BPT is either a software breakpoint or a hardware
@@ -2032,6 +2078,14 @@ should_be_inserted (struct bp_location *bl)
      the child could still trip on the parent's breakpoints.  Since
      the parent is blocked anyway, it won't miss any breakpoint.  */
   if (bl->pspace->breakpoints_not_allowed)
+    return 0;
+
+  /* Don't insert a breakpoint if we're trying to step past its
+     location.  */
+  if ((bl->loc_type == bp_loc_software_breakpoint
+       || bl->loc_type == bp_loc_hardware_breakpoint)
+      && stepping_past_instruction_at (bl->pspace->aspace,
+				       bl->address))
     return 0;
 
   return 1;
@@ -3146,10 +3200,10 @@ static const char *const longjmp_names[] =
 struct breakpoint_objfile_data
 {
   /* Minimal symbol for "_ovly_debug_event" (if any).  */
-  struct minimal_symbol *overlay_msym;
+  struct bound_minimal_symbol overlay_msym;
 
   /* Minimal symbol(s) for "longjmp", "siglongjmp", etc. (if any).  */
-  struct minimal_symbol *longjmp_msym[NUM_LONGJMP_NAMES];
+  struct bound_minimal_symbol longjmp_msym[NUM_LONGJMP_NAMES];
 
   /* True if we have looked for longjmp probes.  */
   int longjmp_searched;
@@ -3158,10 +3212,10 @@ struct breakpoint_objfile_data
   VEC (probe_p) *longjmp_probes;
 
   /* Minimal symbol for "std::terminate()" (if any).  */
-  struct minimal_symbol *terminate_msym;
+  struct bound_minimal_symbol terminate_msym;
 
   /* Minimal symbol for "_Unwind_DebugHook" (if any).  */
-  struct minimal_symbol *exception_msym;
+  struct bound_minimal_symbol exception_msym;
 
   /* True if we have looked for exception probes.  */
   int exception_searched;
@@ -3226,24 +3280,24 @@ create_overlay_event_breakpoint (void)
 
       bp_objfile_data = get_breakpoint_objfile_data (objfile);
 
-      if (msym_not_found_p (bp_objfile_data->overlay_msym))
+      if (msym_not_found_p (bp_objfile_data->overlay_msym.minsym))
 	continue;
 
-      if (bp_objfile_data->overlay_msym == NULL)
+      if (bp_objfile_data->overlay_msym.minsym == NULL)
 	{
-	  struct minimal_symbol *m;
+	  struct bound_minimal_symbol m;
 
 	  m = lookup_minimal_symbol_text (func_name, objfile);
-	  if (m == NULL)
+	  if (m.minsym == NULL)
 	    {
 	      /* Avoid future lookups in this objfile.  */
-	      bp_objfile_data->overlay_msym = &msym_not_found;
+	      bp_objfile_data->overlay_msym.minsym = &msym_not_found;
 	      continue;
 	    }
 	  bp_objfile_data->overlay_msym = m;
 	}
 
-      addr = SYMBOL_VALUE_ADDRESS (bp_objfile_data->overlay_msym);
+      addr = BMSYMBOL_VALUE_ADDRESS (bp_objfile_data->overlay_msym);
       b = create_internal_breakpoint (get_objfile_arch (objfile), addr,
                                       bp_overlay_event,
 				      &internal_breakpoint_ops);
@@ -3323,7 +3377,9 @@ create_longjmp_master_breakpoint (void)
 	    {
 	      struct breakpoint *b;
 
-	      b = create_internal_breakpoint (gdbarch, probe->address,
+	      b = create_internal_breakpoint (gdbarch,
+					      get_probe_address (probe,
+								 objfile),
 					      bp_longjmp_master,
 					      &internal_breakpoint_ops);
 	      b->addr_string = xstrdup ("-probe-stap libc:longjmp");
@@ -3342,25 +3398,25 @@ create_longjmp_master_breakpoint (void)
 	  const char *func_name;
 	  CORE_ADDR addr;
 
-	  if (msym_not_found_p (bp_objfile_data->longjmp_msym[i]))
+	  if (msym_not_found_p (bp_objfile_data->longjmp_msym[i].minsym))
 	    continue;
 
 	  func_name = longjmp_names[i];
-	  if (bp_objfile_data->longjmp_msym[i] == NULL)
+	  if (bp_objfile_data->longjmp_msym[i].minsym == NULL)
 	    {
-	      struct minimal_symbol *m;
+	      struct bound_minimal_symbol m;
 
 	      m = lookup_minimal_symbol_text (func_name, objfile);
-	      if (m == NULL)
+	      if (m.minsym == NULL)
 		{
 		  /* Prevent future lookups in this objfile.  */
-		  bp_objfile_data->longjmp_msym[i] = &msym_not_found;
+		  bp_objfile_data->longjmp_msym[i].minsym = &msym_not_found;
 		  continue;
 		}
 	      bp_objfile_data->longjmp_msym[i] = m;
 	    }
 
-	  addr = SYMBOL_VALUE_ADDRESS (bp_objfile_data->longjmp_msym[i]);
+	  addr = BMSYMBOL_VALUE_ADDRESS (bp_objfile_data->longjmp_msym[i]);
 	  b = create_internal_breakpoint (gdbarch, addr, bp_longjmp_master,
 					  &internal_breakpoint_ops);
 	  b->addr_string = xstrdup (func_name);
@@ -3397,25 +3453,25 @@ create_std_terminate_master_breakpoint (void)
 
       bp_objfile_data = get_breakpoint_objfile_data (objfile);
 
-      if (msym_not_found_p (bp_objfile_data->terminate_msym))
+      if (msym_not_found_p (bp_objfile_data->terminate_msym.minsym))
 	continue;
 
-      if (bp_objfile_data->terminate_msym == NULL)
+      if (bp_objfile_data->terminate_msym.minsym == NULL)
 	{
-	  struct minimal_symbol *m;
+	  struct bound_minimal_symbol m;
 
 	  m = lookup_minimal_symbol (func_name, NULL, objfile);
-	  if (m == NULL || (MSYMBOL_TYPE (m) != mst_text
-			    && MSYMBOL_TYPE (m) != mst_file_text))
+	  if (m.minsym == NULL || (MSYMBOL_TYPE (m.minsym) != mst_text
+				   && MSYMBOL_TYPE (m.minsym) != mst_file_text))
 	    {
 	      /* Prevent future lookups in this objfile.  */
-	      bp_objfile_data->terminate_msym = &msym_not_found;
+	      bp_objfile_data->terminate_msym.minsym = &msym_not_found;
 	      continue;
 	    }
 	  bp_objfile_data->terminate_msym = m;
 	}
 
-      addr = SYMBOL_VALUE_ADDRESS (bp_objfile_data->terminate_msym);
+      addr = BMSYMBOL_VALUE_ADDRESS (bp_objfile_data->terminate_msym);
       b = create_internal_breakpoint (get_objfile_arch (objfile), addr,
                                       bp_std_terminate_master,
 				      &internal_breakpoint_ops);
@@ -3484,7 +3540,9 @@ create_exception_master_breakpoint (void)
 	    {
 	      struct breakpoint *b;
 
-	      b = create_internal_breakpoint (gdbarch, probe->address,
+	      b = create_internal_breakpoint (gdbarch,
+					      get_probe_address (probe,
+								 objfile),
 					      bp_exception_master,
 					      &internal_breakpoint_ops);
 	      b->addr_string = xstrdup ("-probe-stap libgcc:unwind");
@@ -3496,26 +3554,26 @@ create_exception_master_breakpoint (void)
 
       /* Otherwise, try the hook function.  */
 
-      if (msym_not_found_p (bp_objfile_data->exception_msym))
+      if (msym_not_found_p (bp_objfile_data->exception_msym.minsym))
 	continue;
 
       gdbarch = get_objfile_arch (objfile);
 
-      if (bp_objfile_data->exception_msym == NULL)
+      if (bp_objfile_data->exception_msym.minsym == NULL)
 	{
-	  struct minimal_symbol *debug_hook;
+	  struct bound_minimal_symbol debug_hook;
 
 	  debug_hook = lookup_minimal_symbol (func_name, NULL, objfile);
-	  if (debug_hook == NULL)
+	  if (debug_hook.minsym == NULL)
 	    {
-	      bp_objfile_data->exception_msym = &msym_not_found;
+	      bp_objfile_data->exception_msym.minsym = &msym_not_found;
 	      continue;
 	    }
 
 	  bp_objfile_data->exception_msym = debug_hook;
 	}
 
-      addr = SYMBOL_VALUE_ADDRESS (bp_objfile_data->exception_msym);
+      addr = BMSYMBOL_VALUE_ADDRESS (bp_objfile_data->exception_msym);
       addr = gdbarch_convert_from_func_ptr_addr (gdbarch, addr,
 						 &current_target);
       b = create_internal_breakpoint (gdbarch, addr, bp_exception_master,
@@ -5159,7 +5217,6 @@ bpstat_check_watchpoint (bpstat bs)
 static void
 bpstat_check_breakpoint_conditions (bpstat bs, ptid_t ptid)
 {
-  int thread_id = pid_to_thread_id (ptid);
   const struct bp_location *bl;
   struct breakpoint *b;
   int value_is_zero = 0;
@@ -5184,9 +5241,12 @@ bpstat_check_breakpoint_conditions (bpstat bs, ptid_t ptid)
       return;
     }
 
-  /* If this is a thread-specific breakpoint, don't waste cpu evaluating the
-     condition if this isn't the specified thread.  */
-  if (b->thread != -1 && b->thread != thread_id)
+  /* If this is a thread/task-specific breakpoint, don't waste cpu
+     evaluating the condition if this isn't the specified
+     thread/task.  */
+  if ((b->thread != -1 && b->thread != pid_to_thread_id (ptid))
+      || (b->task != 0 && b->task != ada_get_task_number (ptid)))
+
     {
       bs->stop = 0;
       return;
@@ -6786,12 +6846,9 @@ watchpoint_locations_match (struct bp_location *loc1,
 	  && loc1->length == loc2->length);
 }
 
-/* Returns true if {ASPACE1,ADDR1} and {ASPACE2,ADDR2} represent the
-   same breakpoint location.  In most targets, this can only be true
-   if ASPACE1 matches ASPACE2.  On targets that have global
-   breakpoints, the address space doesn't really matter.  */
+/* See breakpoint.h.  */
 
-static int
+int
 breakpoint_address_match (struct address_space *aspace1, CORE_ADDR addr1,
 			  struct address_space *aspace2, CORE_ADDR addr2)
 {
@@ -9021,7 +9078,8 @@ add_location_to_breakpoint (struct breakpoint *b,
   loc->requested_address = sal->pc;
   loc->address = adjusted_address;
   loc->pspace = sal->pspace;
-  loc->probe = sal->probe;
+  loc->probe.probe = sal->probe;
+  loc->probe.objfile = sal->objfile;
   gdb_assert (loc->pspace != NULL);
   loc->section = sal->section;
   loc->gdbarch = loc_gdbarch;
@@ -9990,7 +10048,7 @@ resolve_sal_pc (struct symtab_and_line *sal)
 
 	      msym = lookup_minimal_symbol_by_pc (sal->pc);
 	      if (msym.minsym)
-		sal->section = SYMBOL_OBJ_SECTION (msym.objfile, msym.minsym);
+		sal->section = MSYMBOL_OBJ_SECTION (msym.objfile, msym.minsym);
 
 	      do_cleanups (old_chain);
 	    }
@@ -13338,7 +13396,9 @@ bkpt_probe_insert_location (struct bp_location *bl)
     {
       /* The insertion was successful, now let's set the probe's semaphore
 	 if needed.  */
-      bl->probe->pops->set_semaphore (bl->probe, bl->gdbarch);
+      bl->probe.probe->pops->set_semaphore (bl->probe.probe,
+					    bl->probe.objfile,
+					    bl->gdbarch);
     }
 
   return v;
@@ -13348,7 +13408,9 @@ static int
 bkpt_probe_remove_location (struct bp_location *bl)
 {
   /* Let's clear the semaphore before removing the location.  */
-  bl->probe->pops->clear_semaphore (bl->probe, bl->gdbarch);
+  bl->probe.probe->pops->clear_semaphore (bl->probe.probe,
+					  bl->probe.objfile,
+					  bl->gdbarch);
 
   return bkpt_remove_location (bl);
 }
@@ -15028,12 +15090,6 @@ deprecated_remove_raw_breakpoint (struct gdbarch *gdbarch, void *bp)
   return ret;
 }
 
-/* One (or perhaps two) breakpoints used for software single
-   stepping.  */
-
-static void *single_step_breakpoints[2];
-static struct gdbarch *single_step_gdbarch[2];
-
 /* Create and insert a breakpoint for software single step.  */
 
 void
@@ -15137,7 +15193,7 @@ detach_single_step_breakpoints (void)
 /* Check whether a software single-step breakpoint is inserted at
    PC.  */
 
-static int
+int
 single_step_breakpoint_inserted_here_p (struct address_space *aspace, 
 					CORE_ADDR pc)
 {
@@ -15521,7 +15577,7 @@ trace_pass_command (char *args, int from_tty)
     }
   else if (*args == '\0')
     {
-      t1 = get_tracepoint_by_number (&args, NULL, 1);
+      t1 = get_tracepoint_by_number (&args, NULL);
       if (t1)
 	trace_pass_set_count (t1, count, from_tty);
     }
@@ -15532,7 +15588,7 @@ trace_pass_command (char *args, int from_tty)
       init_number_or_range (&state, args);
       while (!state.finished)
 	{
-	  t1 = get_tracepoint_by_number (&args, &state, 1);
+	  t1 = get_tracepoint_by_number (&args, &state);
 	  if (t1)
 	    trace_pass_set_count (t1, count, from_tty);
 	}
@@ -15573,12 +15629,12 @@ get_tracepoint_by_number_on_target (int num)
 
 /* Utility: parse a tracepoint number and look it up in the list.
    If STATE is not NULL, use, get_number_or_range_state and ignore ARG.
-   If OPTIONAL_P is true, then if the argument is missing, the most
-   recent tracepoint (tracepoint_count) is returned.  */
+   If the argument is missing, the most recent tracepoint
+   (tracepoint_count) is returned.  */
+
 struct tracepoint *
 get_tracepoint_by_number (char **arg,
-			  struct get_number_or_range_state *state,
-			  int optional_p)
+			  struct get_number_or_range_state *state)
 {
   struct breakpoint *t;
   int tpnum;
@@ -15590,12 +15646,7 @@ get_tracepoint_by_number (char **arg,
       tpnum = get_number_or_range (state);
     }
   else if (arg == NULL || *arg == NULL || ! **arg)
-    {
-      if (optional_p)
-	tpnum = tracepoint_count;
-      else
-	error_no_arg (_("tracepoint number"));
-    }
+    tpnum = tracepoint_count;
   else
     tpnum = get_number (arg);
 
@@ -15605,8 +15656,7 @@ get_tracepoint_by_number (char **arg,
 	printf_filtered (_("bad tracepoint number at or near '%s'\n"), 
 			 instring);
       else
-	printf_filtered (_("Tracepoint argument missing "
-			   "and no previous tracepoint\n"));
+	printf_filtered (_("No previous tracepoint\n"));
       return NULL;
     }
 

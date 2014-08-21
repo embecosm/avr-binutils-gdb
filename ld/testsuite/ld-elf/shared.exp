@@ -1,6 +1,5 @@
 # Expect script for various ELF tests.
-#   Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2012
-#   Free Software Foundation, Inc.
+#   Copyright (C) 2006-2014 Free Software Foundation, Inc.
 #
 # This file is part of the GNU Binutils.
 #
@@ -227,6 +226,9 @@ set build_tests {
   {"Build rdynamic-1"
    "-rdynamic -Wl,--gc-sections" "-ffunction-sections"
    {rdynamic-1.c} {{readelf {-s} rdynamic-1.rd}} "rdynamic-1"}
+  {"Build dynamic-1"
+   "-Wl,--dynamic-list,dynamic-1.syms -Wl,--gc-sections" "-ffunction-sections"
+   {dynamic-1.c} {{readelf {-s} dynamic-1.rd}} "dynamic-1"}
 }
 
 run_cc_link_tests $build_tests

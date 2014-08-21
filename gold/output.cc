@@ -1,7 +1,6 @@
 // output.cc -- manage the output file for gold
 
-// Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013
-// Free Software Foundation, Inc.
+// Copyright (C) 2006-2014 Free Software Foundation, Inc.
 // Written by Ian Lance Taylor <iant@google.com>.
 
 // This file is part of gold.
@@ -1795,6 +1794,10 @@ Output_data_dynamic::Dynamic_entry::write(
 
     case DYNAMIC_STRING:
       val = pool->get_offset(this->u_.str);
+      break;
+
+    case DYNAMIC_CUSTOM:
+      val = parameters->target().dynamic_tag_custom_value(this->tag_);
       break;
 
     default:

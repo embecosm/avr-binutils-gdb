@@ -291,6 +291,7 @@ SUBDIR_GUILE_OBS = \
 	scm-disasm.o \
 	scm-exception.o \
 	scm-frame.o \
+	scm-gsmob.o \
 	scm-iterator.o \
 	scm-lazy-string.o \
 	scm-objfile.o \
@@ -298,7 +299,6 @@ SUBDIR_GUILE_OBS = \
 	scm-ports.o \
 	scm-pretty-print.o \
 	scm-safe-call.o \
-	scm-gsmob.o \
 	scm-string.o \
 	scm-symbol.o \
 	scm-symtab.o \
@@ -314,6 +314,7 @@ SUBDIR_GUILE_SRCS = \
 	guile/scm-disasm.c \
 	guile/scm-exception.c \
 	guile/scm-frame.c \
+	guile/scm-gsmob.c \
 	guile/scm-iterator.c \
 	guile/scm-lazy-string.c \
 	guile/scm-objfile.c \
@@ -321,7 +322,6 @@ SUBDIR_GUILE_SRCS = \
 	guile/scm-ports.c \
 	guile/scm-pretty-print.c \
 	guile/scm-safe-call.c \
-	guile/scm-gsmob.c \
 	guile/scm-string.c \
 	guile/scm-symbol.c \
 	guile/scm-symtab.c \
@@ -584,7 +584,7 @@ SER_HARDWIRE = @SER_HARDWIRE@
 # The `remote' debugging target is supported for most architectures,
 # but not all (e.g. 960)
 REMOTE_OBS = remote.o dcache.o tracepoint.o ax-general.o ax-gdb.o remote-fileio.o \
-	remote-notif.o ctf.o
+	remote-notif.o ctf.o tracefile.o tracefile-tfile.o
 
 # This is remote-sim.o if a simulator is to be linked in.
 SIM_OBS = @SIM_OBS@
@@ -766,7 +766,8 @@ TARGET_FLAGS_TO_PASS = \
 	"MAKEHTML=$(MAKEHTML)" \
 	"RUNTEST=$(RUNTEST)" \
 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
-	"FORCE_PARALLEL=$(FORCE_PARALLEL)"
+	"FORCE_PARALLEL=$(FORCE_PARALLEL)" \
+	"TESTS=$(TESTS)"
 
 # All source files that go into linking GDB.
 # Links made at configuration time should not be specified here, since
@@ -839,7 +840,7 @@ SFILES = ada-exp.y ada-lang.c ada-typeprint.c ada-valprint.c ada-tasks.c \
 	common/gdb_vecs.c common/common-utils.c common/xml-utils.c \
 	common/ptid.c common/buffer.c gdb-dlfcn.c common/agent.c \
 	common/format.c common/filestuff.c btrace.c record-btrace.c ctf.c \
-	target/waitstatus.c
+	target/waitstatus.c common/print-utils.c common/rsp-low.c
 
 LINTFILES = $(SFILES) $(YYFILES) $(CONFIG_SRCS) init.c
 
@@ -864,7 +865,7 @@ gnulib/import/string.in.h gnulib/import/str-two-way.h \
 gnulib/import/stdint.in.h remote.h remote-notif.h gdb.h sparc-nat.h \
 gdbthread.h dwarf2-frame.h dwarf2-frame-tailcall.h nbsd-nat.h dcache.h \
 amd64-nat.h s390-linux-tdep.h arm-linux-tdep.h exceptions.h macroscope.h \
-gdbarch.h bsd-uthread.h memory-map.h memrange.h \
+gdbarch.h bsd-uthread.h memory-map.h memrange.h obsd-nat.h \
 mdebugread.h m88k-tdep.h stabsread.h hppa-linux-offsets.h linux-fork.h \
 ser-unix.h inf-ptrace.h terminal.h ui-out.h frame-base.h \
 f-lang.h dwarf2loc.h value.h sparc-tdep.h defs.h target-descriptions.h \
@@ -894,7 +895,7 @@ doublest.h regset.h hppa-tdep.h ppc-linux-tdep.h ppc64-tdep.h \
 rs6000-tdep.h rs6000-aix-tdep.h \
 common/gdb_locale.h arch-utils.h trad-frame.h gnu-nat.h \
 language.h nbsd-tdep.h solib-svr4.h \
-macroexp.h ui-file.h regcache.h tracepoint.h i386-tdep.h \
+macroexp.h ui-file.h regcache.h tracepoint.h tracefile.h i386-tdep.h \
 inf-child.h p-lang.h event-top.h gdbtypes.h user-regs.h \
 regformats/regdef.h config/alpha/nm-osf3.h  config/i386/nm-i386gnu.h \
 config/i386/nm-fbsd.h \
@@ -921,7 +922,8 @@ common/format.h common/host-defs.h utils.h common/queue.h \
 common/linux-osdata.h gdb-dlfcn.h auto-load.h probe.h stap-probe.h \
 gdb_bfd.h sparc-ravenscar-thread.h ppc-ravenscar-thread.h common/linux-btrace.h \
 ctf.h common/i386-cpuid.h common/i386-gcc-cpuid.h target/resume.h \
-target/wait.h target/waitstatus.h nat/linux-nat.h nat/linux-waitpid.h
+target/wait.h target/waitstatus.h nat/linux-nat.h nat/linux-waitpid.h \
+common/print-utils.h common/rsp-low.h
 
 # Header files that already have srcdir in them, or which are in objdir.
 
@@ -1019,7 +1021,8 @@ COMMON_OBS = $(DEPFILES) $(CONFIG_OBS) $(YYOBJ) \
 	inferior.o osdata.o gdb_usleep.o record.o record-full.o gcore.o \
 	gdb_vecs.o jit.o progspace.o skip.o probe.o \
 	common-utils.o buffer.o ptid.o gdb-dlfcn.o common-agent.o \
-	format.o registry.o btrace.o record-btrace.o waitstatus.o
+	format.o registry.o btrace.o record-btrace.o waitstatus.o \
+	print-utils.o rsp-low.o
 
 TSOBS = inflow.o
 
@@ -1637,7 +1640,7 @@ ALLDEPFILES = \
 	mips64obsd-nat.c mips64obsd-tdep.c \
 	msp430-tdep.c \
 	nios2-tdep.c nios2-linux-tdep.c \
-	nbsd-nat.c nbsd-tdep.c obsd-tdep.c \
+	nbsd-nat.c nbsd-tdep.c obsd-nat.c obsd-tdep.c \
 	solib-osf.c \
 	somread.c solib-som.c \
 	posix-hdep.c \
@@ -1664,7 +1667,8 @@ ALLDEPFILES = \
 	sparc-sol2-nat.c sparc-sol2-tdep.c sparc64-sol2-tdep.c \
 	sparc-nat.c sparc-tdep.c sparc64-linux-nat.c sparc64-linux-tdep.c \
 	sparc64-nat.c sparc64-tdep.c sparc64fbsd-nat.c sparc64fbsd-tdep.c \
-	sparc64nbsd-nat.c sparc64nbsd-tdep.c sparc64obsd-tdep.c \
+	sparc64nbsd-nat.c sparc64nbsd-tdep.c \
+	sparc64obsd-nat.c sparc64obsd-tdep.c \
 	sparcnbsd-nat.c sparcnbsd-tdep.c sparcobsd-tdep.c \
 	sparc-ravenscar-thread.c \
 	spu-linux-nat.c spu-tdep.c spu-multiarch.c solib-spu.c \
@@ -2140,6 +2144,14 @@ mips-linux-watch.o: ${srcdir}/common/mips-linux-watch.c
 	$(COMPILE) $(srcdir)/common/mips-linux-watch.c
 	$(POSTCOMPILE)
 
+print-utils.o: ${srcdir}/common/print-utils.c
+	$(COMPILE) $(srcdir)/common/print-utils.c
+	$(POSTCOMPILE)
+
+rsp-low.o: ${srcdir}/common/rsp-low.c
+	$(COMPILE) $(srcdir)/common/rsp-low.c
+	$(POSTCOMPILE)
+
 #
 # gdb/target/ dependencies
 #
@@ -2270,6 +2282,10 @@ scm-frame.o: $(srcdir)/guile/scm-frame.c
 	$(COMPILE) $(srcdir)/guile/scm-frame.c
 	$(POSTCOMPILE)
 
+scm-gsmob.o: $(srcdir)/guile/scm-gsmob.c
+	$(COMPILE) $(srcdir)/guile/scm-gsmob.c
+	$(POSTCOMPILE)
+
 scm-iterator.o: $(srcdir)/guile/scm-iterator.c
 	$(COMPILE) $(srcdir)/guile/scm-iterator.c
 	$(POSTCOMPILE)
@@ -2296,10 +2312,6 @@ scm-pretty-print.o: $(srcdir)/guile/scm-pretty-print.c
 
 scm-safe-call.o: $(srcdir)/guile/scm-safe-call.c
 	$(COMPILE) $(srcdir)/guile/scm-safe-call.c
-	$(POSTCOMPILE)
-
-scm-gsmob.o: $(srcdir)/guile/scm-gsmob.c
-	$(COMPILE) $(srcdir)/guile/scm-gsmob.c
 	$(POSTCOMPILE)
 
 scm-string.o: $(srcdir)/guile/scm-string.c

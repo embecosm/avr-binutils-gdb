@@ -1,6 +1,5 @@
 /* This file is tc-avr.h
-   Copyright 1999, 2000, 2001, 2002, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
    Contributed by Denis Chertykov <denisc@overta.ru>
 
@@ -53,16 +52,36 @@
 
 #define TC_VALIDATE_FIX_SUB(FIX, SEG) 1
 
+typedef struct
+{
+  /* Name of the expression modifier allowed with .byte, .word, etc.  */
+  const char *name;
+
+  /* Only allowed with n bytes of data.  */
+  int nbytes;
+
+  /* Associated RELOC.  */
+  bfd_reloc_code_real_type reloc;
+
+  /* Part of the error message.  */
+  const char *error;
+} exp_mod_data_t;
+
+extern const exp_mod_data_t exp_mod_data[];
+#define TC_PARSE_CONS_RETURN_TYPE const exp_mod_data_t *
+#define TC_PARSE_CONS_RETURN_NONE exp_mod_data
+
 /* You may define this macro to parse an expression used in a data
    allocation pseudo-op such as `.word'.  You can use this to
    recognize relocation directives that may appear in such directives.  */
 #define TC_PARSE_CONS_EXPRESSION(EXPR,N) avr_parse_cons_expression (EXPR, N)
-extern void avr_parse_cons_expression (expressionS *, int);
+extern const exp_mod_data_t *avr_parse_cons_expression (expressionS *, int);
 
 /* You may define this macro to generate a fixup for a data
    allocation pseudo-op.  */
-#define TC_CONS_FIX_NEW(FRAG,WHERE,N,EXP) avr_cons_fix_new (FRAG, WHERE, N, EXP)
-extern void avr_cons_fix_new (fragS *,int, int, expressionS *);
+#define TC_CONS_FIX_NEW avr_cons_fix_new
+extern void avr_cons_fix_new (fragS *,int, int, expressionS *,
+			      const exp_mod_data_t *);
 
 /* This should just call either `number_to_chars_bigendian' or
    `number_to_chars_littleendian', whichever is appropriate.  On

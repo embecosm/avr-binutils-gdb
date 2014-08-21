@@ -99,7 +99,7 @@ struct stap_probe
   struct probe p;
 
   /* If the probe has a semaphore associated, then this is the value of
-     it.  */
+     it, relative to SECT_OFF_DATA.  */
   CORE_ADDR sem_addr;
 
   /* One if the arguments have been parsed.  */
@@ -601,12 +601,12 @@ stap_parse_register_operand (struct stap_parse_info *p)
       p->arg = endp;
 
       /* Generating the expression for the displacement.  */
-      write_exp_elt_opcode (OP_LONG);
-      write_exp_elt_type (builtin_type (gdbarch)->builtin_long);
-      write_exp_elt_longcst (displacement);
-      write_exp_elt_opcode (OP_LONG);
+      write_exp_elt_opcode (&p->pstate, OP_LONG);
+      write_exp_elt_type (&p->pstate, builtin_type (gdbarch)->builtin_long);
+      write_exp_elt_longcst (&p->pstate, displacement);
+      write_exp_elt_opcode (&p->pstate, OP_LONG);
       if (got_minus)
-	write_exp_elt_opcode (UNOP_NEG);
+	write_exp_elt_opcode (&p->pstate, UNOP_NEG);
     }
 
   /* Getting rid of register indirection prefix.  */
@@ -660,23 +660,23 @@ stap_parse_register_operand (struct stap_parse_info *p)
     error (_("Invalid register name `%s' on expression `%s'."),
 	   regname, p->saved_arg);
 
-  write_exp_elt_opcode (OP_REGISTER);
+  write_exp_elt_opcode (&p->pstate, OP_REGISTER);
   str.ptr = regname;
   str.length = len;
-  write_exp_string (str);
-  write_exp_elt_opcode (OP_REGISTER);
+  write_exp_string (&p->pstate, str);
+  write_exp_elt_opcode (&p->pstate, OP_REGISTER);
 
   if (indirect_p)
     {
       if (disp_p)
-	write_exp_elt_opcode (BINOP_ADD);
+	write_exp_elt_opcode (&p->pstate, BINOP_ADD);
 
       /* Casting to the expected type.  */
-      write_exp_elt_opcode (UNOP_CAST);
-      write_exp_elt_type (lookup_pointer_type (p->arg_type));
-      write_exp_elt_opcode (UNOP_CAST);
+      write_exp_elt_opcode (&p->pstate, UNOP_CAST);
+      write_exp_elt_type (&p->pstate, lookup_pointer_type (p->arg_type));
+      write_exp_elt_opcode (&p->pstate, UNOP_CAST);
 
-      write_exp_elt_opcode (UNOP_IND);
+      write_exp_elt_opcode (&p->pstate, UNOP_IND);
     }
 
   /* Getting rid of the register name suffix.  */
@@ -767,9 +767,9 @@ stap_parse_single_operand (struct stap_parse_info *p)
 	  ++p->arg;
 	  stap_parse_argument_conditionally (p);
 	  if (c == '-')
-	    write_exp_elt_opcode (UNOP_NEG);
+	    write_exp_elt_opcode (&p->pstate, UNOP_NEG);
 	  else if (c == '~')
-	    write_exp_elt_opcode (UNOP_COMPLEMENT);
+	    write_exp_elt_opcode (&p->pstate, UNOP_COMPLEMENT);
 	}
       else
 	{
@@ -807,10 +807,11 @@ stap_parse_single_operand (struct stap_parse_info *p)
 	  const char *int_suffix;
 
 	  /* We are dealing with a numeric constant.  */
-	  write_exp_elt_opcode (OP_LONG);
-	  write_exp_elt_type (builtin_type (gdbarch)->builtin_long);
-	  write_exp_elt_longcst (number);
-	  write_exp_elt_opcode (OP_LONG);
+	  write_exp_elt_opcode (&p->pstate, OP_LONG);
+	  write_exp_elt_type (&p->pstate,
+			      builtin_type (gdbarch)->builtin_long);
+	  write_exp_elt_longcst (&p->pstate, number);
+	  write_exp_elt_opcode (&p->pstate, OP_LONG);
 
 	  p->arg = tmp;
 
@@ -837,10 +838,10 @@ stap_parse_single_operand (struct stap_parse_info *p)
       number = strtol (p->arg, &endp, 10);
       p->arg = endp;
 
-      write_exp_elt_opcode (OP_LONG);
-      write_exp_elt_type (builtin_type (gdbarch)->builtin_long);
-      write_exp_elt_longcst (number);
-      write_exp_elt_opcode (OP_LONG);
+      write_exp_elt_opcode (&p->pstate, OP_LONG);
+      write_exp_elt_type (&p->pstate, builtin_type (gdbarch)->builtin_long);
+      write_exp_elt_longcst (&p->pstate, number);
+      write_exp_elt_opcode (&p->pstate, OP_LONG);
 
       if (stap_check_integer_suffix (gdbarch, p->arg, &int_suffix))
 	p->arg += strlen (int_suffix);
@@ -987,7 +988,7 @@ stap_parse_argument_1 (struct stap_parse_info *p, int has_lhs,
 	  stap_parse_argument_1 (p, 1, lookahead_prec);
 	}
 
-      write_exp_elt_opcode (opcode);
+      write_exp_elt_opcode (&p->pstate, opcode);
     }
 }
 
@@ -1028,8 +1029,8 @@ stap_parse_argument (const char **arg, struct type *atype,
   /* We need to initialize the expression buffer, in order to begin
      our parsing efforts.  The language here does not matter, since we
      are using our own parser.  */
-  initialize_expout (10, current_language, gdbarch);
-  back_to = make_cleanup (free_current_contents, &expout);
+  initialize_expout (&p.pstate, 10, current_language, gdbarch);
+  back_to = make_cleanup (free_current_contents, &p.pstate.expout);
 
   p.saved_arg = *arg;
   p.arg = *arg;
@@ -1044,16 +1045,17 @@ stap_parse_argument (const char **arg, struct type *atype,
   gdb_assert (p.inside_paren_p == 0);
 
   /* Casting the final expression to the appropriate type.  */
-  write_exp_elt_opcode (UNOP_CAST);
-  write_exp_elt_type (atype);
-  write_exp_elt_opcode (UNOP_CAST);
+  write_exp_elt_opcode (&p.pstate, UNOP_CAST);
+  write_exp_elt_type (&p.pstate, atype);
+  write_exp_elt_opcode (&p.pstate, UNOP_CAST);
 
-  reallocate_expout ();
+  reallocate_expout (&p.pstate);
 
   p.arg = skip_spaces_const (p.arg);
   *arg = p.arg;
 
-  return expout;
+  /* We can safely return EXPOUT here.  */
+  return p.pstate.expout;
 }
 
 /* Function which parses an argument string from PROBE, correctly splitting
@@ -1151,6 +1153,15 @@ stap_parse_probe_arguments (struct stap_probe *probe, struct gdbarch *gdbarch)
     }
 }
 
+/* Implementation of the get_probe_address method.  */
+
+static CORE_ADDR
+stap_get_probe_address (struct probe *probe, struct objfile *objfile)
+{
+  return probe->address + ANOFFSET (objfile->section_offsets,
+				    SECT_OFF_DATA (objfile));
+}
+
 /* Given PROBE, returns the number of arguments present in that probe's
    argument string.  */
 
@@ -1241,7 +1252,7 @@ static int
 stap_can_evaluate_probe_arguments (struct probe *probe_generic)
 {
   struct stap_probe *stap_probe = (struct stap_probe *) probe_generic;
-  struct gdbarch *gdbarch = get_objfile_arch (stap_probe->p.objfile);
+  struct gdbarch *gdbarch = stap_probe->p.arch;
 
   /* For SystemTap probes, we have to guarantee that the method
      stap_is_single_operand is defined on gdbarch.  If it is not, then it
@@ -1290,7 +1301,7 @@ stap_compile_to_ax (struct probe *probe_generic, struct agent_expr *expr,
 }
 
 /* Destroy (free) the data related to PROBE.  PROBE memory itself is not feed
-   as it is allocated from OBJFILE_OBSTACK.  */
+   as it is allocated on an obstack.  */
 
 static void
 stap_probe_destroy (struct probe *probe_generic)
@@ -1323,7 +1334,7 @@ compute_probe_arg (struct gdbarch *arch, struct internalvar *ivar,
   struct frame_info *frame = get_selected_frame (_("No frame selected"));
   CORE_ADDR pc = get_frame_pc (frame);
   int sel = (int) (uintptr_t) data;
-  struct probe *pc_probe;
+  struct bound_probe pc_probe;
   const struct sym_probe_fns *pc_probe_fns;
   unsigned n_args;
 
@@ -1331,10 +1342,10 @@ compute_probe_arg (struct gdbarch *arch, struct internalvar *ivar,
   gdb_assert (sel >= -1);
 
   pc_probe = find_probe_by_pc (pc);
-  if (pc_probe == NULL)
+  if (pc_probe.probe == NULL)
     error (_("No SystemTap probe at PC %s"), core_addr_to_string (pc));
 
-  n_args = get_probe_argument_count (pc_probe, frame);
+  n_args = get_probe_argument_count (pc_probe.probe, frame);
   if (sel == -1)
     return value_from_longest (builtin_type (arch)->builtin_int, n_args);
 
@@ -1342,7 +1353,7 @@ compute_probe_arg (struct gdbarch *arch, struct internalvar *ivar,
     error (_("Invalid probe argument %d -- probe has %u arguments available"),
 	   sel, n_args);
 
-  return evaluate_probe_argument (pc_probe, sel, frame);
+  return evaluate_probe_argument (pc_probe.probe, sel, frame);
 }
 
 /* This is called to compile one of the $_probe_arg* convenience
@@ -1354,7 +1365,7 @@ compile_probe_arg (struct internalvar *ivar, struct agent_expr *expr,
 {
   CORE_ADDR pc = expr->scope;
   int sel = (int) (uintptr_t) data;
-  struct probe *pc_probe;
+  struct bound_probe pc_probe;
   const struct sym_probe_fns *pc_probe_fns;
   int n_args;
   struct frame_info *frame = get_selected_frame (NULL);
@@ -1363,10 +1374,10 @@ compile_probe_arg (struct internalvar *ivar, struct agent_expr *expr,
   gdb_assert (sel >= -1);
 
   pc_probe = find_probe_by_pc (pc);
-  if (pc_probe == NULL)
+  if (pc_probe.probe == NULL)
     error (_("No SystemTap probe at PC %s"), core_addr_to_string (pc));
 
-  n_args = get_probe_argument_count (pc_probe, frame);
+  n_args = get_probe_argument_count (pc_probe.probe, frame);
 
   if (sel == -1)
     {
@@ -1381,7 +1392,7 @@ compile_probe_arg (struct internalvar *ivar, struct agent_expr *expr,
     error (_("Invalid probe argument %d -- probe has %d arguments available"),
 	   sel, n_args);
 
-  pc_probe->pops->compile_to_ax (pc_probe, expr, value, sel);
+  pc_probe.probe->pops->compile_to_ax (pc_probe.probe, expr, value, sel);
 }
 
 
@@ -1433,25 +1444,33 @@ stap_modify_semaphore (CORE_ADDR address, int set, struct gdbarch *gdbarch)
    the probes, but that is too rare to care.  */
 
 static void
-stap_set_semaphore (struct probe *probe_generic, struct gdbarch *gdbarch)
+stap_set_semaphore (struct probe *probe_generic, struct objfile *objfile,
+		    struct gdbarch *gdbarch)
 {
   struct stap_probe *probe = (struct stap_probe *) probe_generic;
+  CORE_ADDR addr;
 
   gdb_assert (probe_generic->pops == &stap_probe_ops);
 
-  stap_modify_semaphore (probe->sem_addr, 1, gdbarch);
+  addr = (probe->sem_addr
+	  + ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile)));
+  stap_modify_semaphore (addr, 1, gdbarch);
 }
 
 /* Clear a SystemTap semaphore.  SEM is the semaphore's address.  */
 
 static void
-stap_clear_semaphore (struct probe *probe_generic, struct gdbarch *gdbarch)
+stap_clear_semaphore (struct probe *probe_generic, struct objfile *objfile,
+		      struct gdbarch *gdbarch)
 {
   struct stap_probe *probe = (struct stap_probe *) probe_generic;
+  CORE_ADDR addr;
 
   gdb_assert (probe_generic->pops == &stap_probe_ops);
 
-  stap_modify_semaphore (probe->sem_addr, 0, gdbarch);
+  addr = (probe->sem_addr
+	  + ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile)));
+  stap_modify_semaphore (addr, 0, gdbarch);
 }
 
 /* Implementation of `$_probe_arg*' set of variables.  */
@@ -1489,9 +1508,9 @@ handle_stap_probe (struct objfile *objfile, struct sdt_note *el,
   const char *probe_args = NULL;
   struct stap_probe *ret;
 
-  ret = obstack_alloc (&objfile->objfile_obstack, sizeof (*ret));
+  ret = obstack_alloc (&objfile->per_bfd->storage_obstack, sizeof (*ret));
   ret->p.pops = &stap_probe_ops;
-  ret->p.objfile = objfile;
+  ret->p.arch = gdbarch;
 
   /* Provider and the name of the probe.  */
   ret->p.provider = (char *) &el->data[3 * size];
@@ -1520,13 +1539,9 @@ handle_stap_probe (struct objfile *objfile, struct sdt_note *el,
   /* Semaphore address.  */
   ret->sem_addr = extract_typed_address (&el->data[2 * size], ptr_type);
 
-  ret->p.address += (ANOFFSET (objfile->section_offsets,
-			       SECT_OFF_TEXT (objfile))
-		     + base - base_ref);
+  ret->p.address += base - base_ref;
   if (ret->sem_addr != 0)
-    ret->sem_addr += (ANOFFSET (objfile->section_offsets,
-				SECT_OFF_DATA (objfile))
-		      + base - base_ref);
+    ret->sem_addr += base - base_ref;
 
   /* Arguments.  We can only extract the argument format if there is a valid
      name for this probe.  */
@@ -1647,18 +1662,6 @@ stap_get_probes (VEC (probe_p) **probesp, struct objfile *objfile)
     }
 }
 
-static void
-stap_relocate (struct probe *probe_generic, CORE_ADDR delta)
-{
-  struct stap_probe *probe = (struct stap_probe *) probe_generic;
-
-  gdb_assert (probe_generic->pops == &stap_probe_ops);
-
-  probe->p.address += delta;
-  if (probe->sem_addr != 0)
-    probe->sem_addr += delta;
-}
-
 static int
 stap_probe_is_linespec (const char **linespecp)
 {
@@ -1688,7 +1691,7 @@ stap_gen_info_probes_table_values (struct probe *probe_generic,
 
   gdb_assert (probe_generic->pops == &stap_probe_ops);
 
-  gdbarch = get_objfile_arch (probe->p.objfile);
+  gdbarch = probe->p.arch;
 
   if (probe->sem_addr != 0)
     val = print_core_address (gdbarch, probe->sem_addr);
@@ -1702,7 +1705,7 @@ static const struct probe_ops stap_probe_ops =
 {
   stap_probe_is_linespec,
   stap_get_probes,
-  stap_relocate,
+  stap_get_probe_address,
   stap_get_probe_argument_count,
   stap_can_evaluate_probe_arguments,
   stap_evaluate_probe_argument,

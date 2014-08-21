@@ -1,5 +1,5 @@
 /* Generic target-file-type support for the BFD library.
-   Copyright 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -896,6 +896,7 @@ extern const bfd_target w65_vec;
 extern const bfd_target we32kcoff_vec;
 extern const bfd_target x86_64pe_vec;
 extern const bfd_target x86_64pei_vec;
+extern const bfd_target x86_64pe_bigobj_vec;
 extern const bfd_target x86_64coff_vec;
 extern const bfd_target z80coff_vec;
 extern const bfd_target z8kcoff_vec;
@@ -1231,6 +1232,7 @@ static const bfd_target * const _bfd_target_vector[] =
 	&x86_64coff_vec,
 	&x86_64pe_vec,
 	&x86_64pei_vec,
+	&x86_64pe_bigobj_vec,
 #endif
 	&i860coff_vec,
 	&icoff_big_vec,

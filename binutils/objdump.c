@@ -1,5 +1,5 @@
 /* objdump.c -- dump information about an object file.
-   Copyright 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -2259,7 +2259,7 @@ load_specific_debug_section (enum dwarf_section_display_enum debug,
   if (section->start != NULL)
     return 1;
 
-  section->address = 0;
+  section->address = bfd_get_section_vma (abfd, sec);
   section->size = bfd_get_section_size (sec);
   section->start = NULL;
   ret = bfd_get_full_section_contents (abfd, sec, &section->start);

@@ -1,6 +1,100 @@
+2014-04-02  Sriraman Tallam  <tmsriram@google.com>
+
+	* icf.cc (get_section_contents): Replace copies of reloc
+	vectors with const references.
+
+2014-04-02  Cary Coutant  <ccoutant@google.com>
+
+	* configure.ac (HAVE_PUBNAMES): Use C instead of C++.
+	(HAVE_NO_USE_LINKER_PLUGIN): Check for -fno-use-linker-plugin.
+	* configure: Regenerate.
+	* testsuite/Makefile.am (OPT_NO_PLUGINS): New macro for
+	-fno-use-linker-plugin.
+	(LINK1, CXXLINK1): Add it to the link command.
+	* testsuite/Makefile.in: Regenerate.
+
+2014-03-12  Alan Modra  <amodra@gmail.com>
+
+	* Makefile.in: Regenerate.
+
+2014-03-10  Sasa Stankovic  <Sasa.Stankovic@imgtec.com>
+
+	* symtab.h (Symbol::set_nonvis): New function.
+
+2014-03-10  Sasa Stankovic  <Sasa.Stankovic@imgtec.com>
+
+	* symtab.cc (Sized_symbol<32>::init_output_data):
+	Instantiate the template.
+	(Sized_symbol<64>::init_output_data): Likewise.
+
+2014-03-10  Sasa Stankovic  <Sasa.Stankovic@imgtec.com>
+
+	* symtab.cc (Symbol_table::sized_write_globals): Allow a target to
+	adjust dynamic symbol value.
+	* target.h (Target::adjust_dyn_symbol): New function.
+	(Target::do_adjust_dyn_symbol): New function.
+
+2014-03-10  Sasa Stankovic  <Sasa.Stankovic@imgtec.com>
+  
+	* output.cc (Output_data_dynamic::Dynamic_entry::write):
+	Get the value of DYNAMIC_CUSTOM dynamic entry.
+	* output.h (Output_data_dynamic::add_custom): New function.
+	(Dynamic_entry::Dynamic_entry): New constructor for DYNAMIC_CUSTOM
+	dynamic entry.
+	(enum Dynamic_entry::Classification): Add DYNAMIC_CUSTOM.
+	* target.h (Target::dynamic_tag_custom_value): New function.
+	(Target::do_dynamic_tag_custom_value): New function.
+
+2014-03-10  Sasa Stankovic  <Sasa.Stankovic@imgtec.com>
+
+	* symtab.cc (Symbol_table::set_dynsym_indexes): Allow a target to set
+	dynsym indexes.
+	* target.h (Target::has_custom_set_dynsym_indexes): New function.
+	(Target::do_has_custom_set_dynsym_indexes): New function.
+	(Target::set_dynsym_indexes): New function.
+	(Target::do_set_dynsym_indexes): New function.
+
+2014-03-07  Alan Modra  <amodra@gmail.com>
+
+	* powerpc.cc (Powerpc_relocate_functions::Overflow_check): Add
+	CHECK_UNSIGNED, CHECK_LOW_INSN, CHECK_HIGH_INSN.
+	(Powerpc_relocate_functions::has_overflow_unsigned): New function.
+	(Powerpc_relocate_functions::has_overflow_bitfield,
+	overflowed): Use the above.
+	(Target_powerpc::Relocate::relocate): Correct overflow checking
+	for a number of relocations.  Modify overflow test for 16-bit
+	fields in instructions to signed/unsigned according to whether
+	the field takes a signed or unsigned value.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	Update copyright years.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	* powerpc.cc (Target_powerpc::Scan::local, global): Support
+	R_PPC64_ADDR64_LOCAL.
+	(Target_powerpc::Relocate::relocate): Likewise.
+
+2014-03-03  Alan Modra  <amodra@gmail.com>
+
+	* dwp.cc (print_version): Update copyright year to current.
+
 2014-02-10  Alan Modra  <amodra@gmail.com>
 
 	* po/gold.pot: Regenerate.
+
+2014-02-06  Cary Coutant  <ccoutant@google.com>
+
+	Fix problem where -u is ignored when a weak undef is seen.
+
+	* archive.cc (Library_base::should_include_member): Reorder
+	code to check for -u option if a weak undef has already been seen.
+	* testsuite/Makefile.am (weak_undef_test_2): New test case.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/weak_undef_file3.cc: New file.
+	* testsuite/weak_undef_file4.cc: New file.
+	* testsuite/weak_undef_test_2.cc: New file.
 
 2014-02-05  Cary Coutant  <ccoutant@google.com>
 
@@ -15566,7 +15660,7 @@
 
 	* Added source code to GNU binutils.
 
-Copyright (C) 2008-2013 Free Software Foundation, Inc.
+Copyright (C) 2008-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

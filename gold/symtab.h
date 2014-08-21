@@ -1,6 +1,6 @@
 // symtab.h -- the gold symbol table   -*- C++ -*-
 
-// Copyright 2006, 2007, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+// Copyright (C) 2006-2014 Free Software Foundation, Inc.
 // Written by Ian Lance Taylor <iant@google.com>.
 
 // This file is part of gold.
@@ -258,6 +258,11 @@ class Symbol
   unsigned char
   nonvis() const
   { return this->nonvis_; }
+
+  // Set the non-visibility part of the st_other field.
+  void
+  set_nonvis(unsigned int nonvis)
+  { this->nonvis_ = nonvis; }
 
   // Return whether this symbol is a forwarder.  This will never be
   // true of a symbol found in the hash table, but may be true of

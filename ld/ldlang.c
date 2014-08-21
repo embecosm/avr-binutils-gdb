@@ -1,5 +1,5 @@
 /* Linker command language support.
-   Copyright 1991-2013 Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
 
    This file is part of the GNU Binutils.
 
@@ -1063,13 +1063,6 @@ new_afile (const char *name,
   p->flags.whole_archive = input_flags.whole_archive;
   p->flags.sysrooted = input_flags.sysrooted;
 
-  if (file_type == lang_input_file_is_l_enum
-      && name[0] == ':' && name[1] != '\0')
-    {
-      file_type = lang_input_file_is_search_file_enum;
-      name = name + 1;
-    }
-
   switch (file_type)
     {
     case lang_input_file_is_symbols_only_enum:
@@ -1083,7 +1076,13 @@ new_afile (const char *name,
       p->local_sym_name = name;
       break;
     case lang_input_file_is_l_enum:
-      p->filename = name;
+      if (name[0] == ':' && name[1] != '\0')
+        {
+          p->filename = name + 1;
+          p->flags.full_name_provided = TRUE;
+        }
+      else
+        p->filename = name;
       p->local_sym_name = concat ("-l", name, (const char *) NULL);
       p->flags.maybe_archive = TRUE;
       p->flags.real = TRUE;
@@ -5214,7 +5213,7 @@ lang_size_sections_1
 		  *relax = TRUE;
 	      }
 	    dot = size_input_section (prev, output_section_statement,
-				      output_section_statement->fill, dot);
+				      fill, dot);
 	  }
 	  break;
 

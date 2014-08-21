@@ -113,22 +113,24 @@ static void procfs_attach (struct target_ops *, char *, int);
 static void procfs_detach (struct target_ops *, const char *, int);
 static void procfs_resume (struct target_ops *,
 			   ptid_t, int, enum gdb_signal);
-static void procfs_stop (ptid_t);
+static void procfs_stop (struct target_ops *self, ptid_t);
 static void procfs_files_info (struct target_ops *);
 static void procfs_fetch_registers (struct target_ops *,
 				    struct regcache *, int);
 static void procfs_store_registers (struct target_ops *,
 				    struct regcache *, int);
-static void procfs_pass_signals (int, unsigned char *);
+static void procfs_pass_signals (struct target_ops *self,
+				 int, unsigned char *);
 static void procfs_kill_inferior (struct target_ops *ops);
 static void procfs_mourn_inferior (struct target_ops *ops);
 static void procfs_create_inferior (struct target_ops *, char *,
 				    char *, char **, int);
 static ptid_t procfs_wait (struct target_ops *,
 			   ptid_t, struct target_waitstatus *, int);
-static int procfs_xfer_memory (CORE_ADDR, gdb_byte *, int, int,
-			       struct mem_attrib *attrib,
-			       struct target_ops *);
+static enum target_xfer_status procfs_xfer_memory (gdb_byte *,
+						   const gdb_byte *,
+						   ULONGEST, ULONGEST,
+						   ULONGEST *);
 static target_xfer_partial_ftype procfs_xfer_partial;
 
 static int procfs_thread_alive (struct target_ops *ops, ptid_t);
@@ -136,11 +138,14 @@ static int procfs_thread_alive (struct target_ops *ops, ptid_t);
 static void procfs_find_new_threads (struct target_ops *ops);
 static char *procfs_pid_to_str (struct target_ops *, ptid_t);
 
-static int proc_find_memory_regions (find_memory_region_ftype, void *);
+static int proc_find_memory_regions (struct target_ops *self,
+				     find_memory_region_ftype, void *);
 
-static char * procfs_make_note_section (bfd *, int *);
+static char * procfs_make_note_section (struct target_ops *self,
+					bfd *, int *);
 
-static int procfs_can_use_hw_breakpoint (int, int, int);
+static int procfs_can_use_hw_breakpoint (struct target_ops *self,
+					 int, int, int);
 
 static void procfs_info_proc (struct target_ops *, char *,
 			      enum info_proc_what);
@@ -179,10 +184,6 @@ procfs_target (void)
 {
   struct target_ops *t = inf_child_target ();
 
-  t->to_shortname = "procfs";
-  t->to_longname = "Unix /proc child process";
-  t->to_doc =
-    "Unix /proc child process (started by the \"run\" command).";
   t->to_create_inferior = procfs_create_inferior;
   t->to_kill = procfs_kill_inferior;
   t->to_mourn_inferior = procfs_mourn_inferior;
@@ -193,7 +194,6 @@ procfs_target (void)
   t->to_fetch_registers = procfs_fetch_registers;
   t->to_store_registers = procfs_store_registers;
   t->to_xfer_partial = procfs_xfer_partial;
-  t->deprecated_xfer_memory = procfs_xfer_memory;
   t->to_pass_signals = procfs_pass_signals;
   t->to_files_info = procfs_files_info;
   t->to_stop = procfs_stop;
@@ -3973,53 +3973,41 @@ wait_again:
 /* Perform a partial transfer to/from the specified object.  For
    memory transfers, fall back to the old memory xfer functions.  */
 
-static LONGEST
+static enum target_xfer_status
 procfs_xfer_partial (struct target_ops *ops, enum target_object object,
 		     const char *annex, gdb_byte *readbuf,
-		     const gdb_byte *writebuf, ULONGEST offset, ULONGEST len)
+		     const gdb_byte *writebuf, ULONGEST offset, ULONGEST len,
+		     ULONGEST *xfered_len)
 {
   switch (object)
     {
     case TARGET_OBJECT_MEMORY:
-      if (readbuf)
-	return (*ops->deprecated_xfer_memory) (offset, readbuf,
-					       len, 0/*read*/, NULL, ops);
-      if (writebuf)
-	return (*ops->deprecated_xfer_memory) (offset, (gdb_byte *) writebuf,
-					       len, 1/*write*/, NULL, ops);
-      return TARGET_XFER_E_IO;
+      return procfs_xfer_memory (readbuf, writebuf, offset, len, xfered_len);
 
 #ifdef NEW_PROC_API
     case TARGET_OBJECT_AUXV:
       return memory_xfer_auxv (ops, object, annex, readbuf, writebuf,
-			       offset, len);
+			       offset, len, xfered_len);
 #endif
 
     default:
       if (ops->beneath != NULL)
 	return ops->beneath->to_xfer_partial (ops->beneath, object, annex,
-					      readbuf, writebuf, offset, len);
+					      readbuf, writebuf, offset, len,
+					      xfered_len);
       return TARGET_XFER_E_IO;
     }
 }
 
+/* Helper for procfs_xfer_partial that handles memory transfers.
+   Arguments are like target_xfer_partial.  */
 
-/* Transfer LEN bytes between GDB address MYADDR and target address
-   MEMADDR.  If DOWRITE is non-zero, transfer them to the target,
-   otherwise transfer them from the target.  TARGET is unused.
-
-   The return value is 0 if an error occurred or no bytes were
-   transferred.  Otherwise, it will be a positive value which
-   indicates the number of bytes transferred between gdb and the
-   target.  (Note that the interface also makes provisions for
-   negative values, but this capability isn't implemented here.)  */
-
-static int
-procfs_xfer_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int dowrite,
-		    struct mem_attrib *attrib, struct target_ops *target)
+static enum target_xfer_status
+procfs_xfer_memory (gdb_byte *readbuf, const gdb_byte *writebuf,
+		    ULONGEST memaddr, ULONGEST len, ULONGEST *xfered_len)
 {
   procinfo *pi;
-  int nbytes = 0;
+  int nbytes;
 
   /* Find procinfo for main process.  */
   pi = find_procinfo_or_die (ptid_get_pid (inferior_ptid), 0);
@@ -4027,31 +4015,26 @@ procfs_xfer_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int dowrite,
       open_procinfo_files (pi, FD_AS) == 0)
     {
       proc_warn (pi, "xfer_memory, open_proc_files", __LINE__);
-      return 0;
+      return TARGET_XFER_E_IO;
     }
 
-  if (lseek (pi->as_fd, (off_t) memaddr, SEEK_SET) == (off_t) memaddr)
+  if (lseek (pi->as_fd, (off_t) memaddr, SEEK_SET) != (off_t) memaddr)
+    return TARGET_XFER_E_IO;
+
+  if (writebuf != NULL)
     {
-      if (dowrite)
-	{
-#ifdef NEW_PROC_API
-	  PROCFS_NOTE ("write memory:\n");
-#else
-	  PROCFS_NOTE ("write memory:\n");
-#endif
-	  nbytes = write (pi->as_fd, myaddr, len);
-	}
-      else
-	{
-	  PROCFS_NOTE ("read  memory:\n");
-	  nbytes = read (pi->as_fd, myaddr, len);
-	}
-      if (nbytes < 0)
-	{
-	  nbytes = 0;
-	}
+      PROCFS_NOTE ("write memory:\n");
+      nbytes = write (pi->as_fd, writebuf, len);
     }
-  return nbytes;
+  else
+    {
+      PROCFS_NOTE ("read  memory:\n");
+      nbytes = read (pi->as_fd, readbuf, len);
+    }
+  if (nbytes <= 0)
+    return TARGET_XFER_E_IO;
+  *xfered_len = nbytes;
+  return TARGET_XFER_OK;
 }
 
 /* Called by target_resume before making child runnable.  Mark cached
@@ -4224,7 +4207,8 @@ procfs_resume (struct target_ops *ops,
 /* Set up to trace signals in the child process.  */
 
 static void
-procfs_pass_signals (int numsigs, unsigned char *pass_signals)
+procfs_pass_signals (struct target_ops *self,
+		     int numsigs, unsigned char *pass_signals)
 {
   gdb_sigset_t signals;
   procinfo *pi = find_procinfo_or_die (ptid_get_pid (inferior_ptid), 0);
@@ -4260,7 +4244,7 @@ procfs_files_info (struct target_ops *ignore)
    kill(SIGINT) to the child's process group.  */
 
 static void
-procfs_stop (ptid_t ptid)
+procfs_stop (struct target_ops *self, ptid_t ptid)
 {
   kill (-inferior_process_group (), SIGINT);
 }
@@ -4832,7 +4816,8 @@ procfs_set_watchpoint (ptid_t ptid, CORE_ADDR addr, int len, int rwflag,
    target_can_use_hardware_watchpoint.  */
 
 static int
-procfs_can_use_hw_breakpoint (int type, int cnt, int othertype)
+procfs_can_use_hw_breakpoint (struct target_ops *self,
+			      int type, int cnt, int othertype)
 {
   /* Due to the way that proc_set_watchpoint() is implemented, host
      and target pointers must be of the same size.  If they are not,
@@ -4856,7 +4841,7 @@ procfs_can_use_hw_breakpoint (int type, int cnt, int othertype)
    fault, else returns zero.  */
 
 static int
-procfs_stopped_by_watchpoint (void)
+procfs_stopped_by_watchpoint (struct target_ops *ops)
 {
   procinfo *pi;
 
@@ -4895,7 +4880,8 @@ procfs_stopped_data_address (struct target_ops *targ, CORE_ADDR *addr)
 }
 
 static int
-procfs_insert_watchpoint (CORE_ADDR addr, int len, int type,
+procfs_insert_watchpoint (struct target_ops *self,
+			  CORE_ADDR addr, int len, int type,
 			  struct expression *cond)
 {
   if (!target_have_steppable_watchpoint
@@ -4917,14 +4903,16 @@ procfs_insert_watchpoint (CORE_ADDR addr, int len, int type,
 }
 
 static int
-procfs_remove_watchpoint (CORE_ADDR addr, int len, int type,
+procfs_remove_watchpoint (struct target_ops *self,
+			  CORE_ADDR addr, int len, int type,
 			  struct expression *cond)
 {
   return procfs_set_watchpoint (inferior_ptid, addr, 0, 0, 0);
 }
 
 static int
-procfs_region_ok_for_hw_watchpoint (CORE_ADDR addr, int len)
+procfs_region_ok_for_hw_watchpoint (struct target_ops *self,
+				    CORE_ADDR addr, int len)
 {
   /* The man page for proc(4) on Solaris 2.6 and up says that the
      system can support "thousands" of hardware watchpoints, but gives
@@ -5049,7 +5037,8 @@ find_memory_regions_callback (struct prmap *map,
    the callback.  */
 
 static int
-proc_find_memory_regions (find_memory_region_ftype func, void *data)
+proc_find_memory_regions (struct target_ops *self,
+			  find_memory_region_ftype func, void *data)
 {
   procinfo *pi = find_procinfo_or_die (ptid_get_pid (inferior_ptid), 0);
 
@@ -5464,7 +5453,7 @@ find_stop_signal (void)
 }
 
 static char *
-procfs_make_note_section (bfd *obfd, int *note_size)
+procfs_make_note_section (struct target_ops *self, bfd *obfd, int *note_size)
 {
   struct cleanup *old_chain;
   gdb_gregset_t gregs;
@@ -5534,7 +5523,7 @@ procfs_make_note_section (bfd *obfd, int *note_size)
 }
 #else /* !Solaris */
 static char *
-procfs_make_note_section (bfd *obfd, int *note_size)
+procfs_make_note_section (struct target_ops *self, bfd *obfd, int *note_size)
 {
   error (_("gcore not implemented for this host."));
   return NULL;	/* lint */

@@ -1,5 +1,5 @@
 /* dwarf.c -- display DWARF contents of a BFD binary file
-   Copyright 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -28,10 +28,6 @@
 #include "dwarf2.h"
 #include "dwarf.h"
 #include "gdb/gdb-index.h"
-
-#if !HAVE_DECL_STRNLEN
-size_t strnlen (const char *, size_t);
-#endif
 
 static const char *regname (unsigned int regno, int row);
 
@@ -1468,7 +1464,7 @@ read_and_display_attr_value (unsigned long attribute,
   unsigned char * orig_data = data;
   unsigned int bytes_read;
 
-  if (data == end)
+  if (data == end && form != DW_FORM_flag_present)
     {
       warn (_("corrupt attribute\n"));
       return data;

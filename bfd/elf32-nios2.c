@@ -1,5 +1,5 @@
 /* 32-bit ELF support for Nios II.
-   Copyright (C) 2012, 2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Nigel Gray (ngray@altera.com).
    Contributed by Mentor Graphics, Inc.
 
@@ -3147,9 +3147,13 @@ nios2_elf32_relocate_section (bfd *output_bfd,
 		  break;
 		}
 
-	      /* Adjust the relocation to be relative to the GOT pointer.  */
-	      relocation -= (sgot->output_section->vma
-			     + sgot->output_offset - got_base);
+	      /* Note that sgot->output_offset is not involved in this
+		 calculation.  We always want the start of .got.  */
+	      relocation -= sgot->output_section->vma;
+
+	      /* Now we adjust the relocation to be relative to the GOT pointer
+		 (the _gp_got symbol), which possibly contains the 0x8000 bias.  */
+	      relocation -= got_base;
 
 	      switch (howto->type)
 		{

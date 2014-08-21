@@ -1,3 +1,123 @@
+2014-04-04  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* i386-dis.c (rm_table): Add encls, enclu.
+	* i386-gen.c (cpu_flag_init): Add CPU_SE1_FLAGS,
+	(cpu_flags): Add CpuSE1.
+	* i386-opc.h (enum): Add CpuSE1.
+	(i386_cpu_flags): Add cpuse1.
+	* i386-opc.tbl: Add encls, enclu.
+	* i386-init.h: Regenerated.
+	* i386-tbl.h: Likewise.
+
+2014-04-02  Anthony Green  <green@moxielogic.com>
+
+	* moxie-opc.c (moxie_form1_opc_info): Add sign-extension
+	instructions, sex.b and sex.s.
+
+2014-03-26  Jiong Wang  <jiong.wang@arm.com>
+
+	* aarch64-dis.c (aarch64_ext_ldst_elemlist): Check H/S undefined
+	instructions.
+
+2014-03-20  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* i386-opc.tbl: Change memory size for vgatherpf0qps, vgatherpf1qps,
+	vscatterpf0qps, vscatterpf1qps, vgatherqps, vpgatherqd, vpscatterqd,
+	vscatterqps.
+	* i386-tbl.h: Regenerate.
+
+2014-03-19  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* sparc-dis.c (v9_hpriv_reg_names): Names for %hstick_offset and
+	%hstick_enable added.
+
+2014-03-19  Nick Clifton  <nickc@redhat.com>
+
+	* rx-decode.opc (bwl): Allow for bogus instructions with a size
+	field of 3.
+	(sbwl, ubwl, SCALE): Likewise.
+	* rx-decode.c: Regenerate.
+
+2014-03-12  Alan Modra  <amodra@gmail.com>
+
+	* Makefile.in: Regenerate.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	Update copyright years.
+
+2014-03-04  Heiher  <r@hev.cc>
+
+	* mips-dis.c (mips_arch_choices): Usee ISA_MIPS64R2 for Loongson-3A.
+
+2014-03-04  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* mips-opc.c (mips_builtin_opcodes): Move the udi* instructions
+	so that they come after the Loongson extensions.
+
+2014-03-03  Alan Modra  <amodra@gmail.com>
+
+	* i386-gen.c (process_copyright): Emit copyright notice on one line.
+
+2014-02-28  Alan Modra  <amodra@gmail.com>
+
+	* msp430-decode.c: Regenerate.
+
+2014-02-27  Jiong Wang  <jiong.wang@arm.com>
+
+	* aarch64-tbl.h (aarch64_opcode_table): Replace IMM0 with
+	FPIMM0 for fcmeq, fcmgt, fcmge, fcmlt and fcmle.
+
+2014-02-27  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* aarch64-opc.c (print_register_offset_address): Call
+	get_int_reg_name to prepare the register name.
+
+2014-02-25  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* i386-opc.tbl: Remove wrong variant of vcvtps2ph
+	* i386-tbl.h: Regenerate.
+
+2014-02-20  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* i386-gen.c (cpu_flag_init): Add CPU_PREFETCHWT1_FLAGS/
+	(cpu_flags): Add CpuPREFETCHWT1.
+	* i386-init.h: Regenerate.
+	* i386-opc.h (CpuPREFETCHWT1): New.
+	(i386_cpu_flags): Add cpuprefetchwt1.
+	* i386-opc.tbl: Cahnge CPU of prefetchwt1 from CpuAVX512PF to CpuPREFETCHWT1.
+	* i386-tbl.h: Regenerate.
+
+2014-02-20  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* i386-opc.tbl: Change CPU of vptestnmq, vptestnmd from CpuAVX512CD,
+	to CpuAVX512F.
+	* i386-tbl.h: Regenerate.
+
+2014-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* i386-gen.c (output_cpu_flags): Don't output trailing space.
+	(output_opcode_modifier): Likewise.
+	(output_operand_type): Likewise.
+	* i386-init.h: Regenerated.
+	* i386-tbl.h: Likewise.
+
+2014-02-12  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* i386-dis.c (MOD enum): Add MOD_0FC7_REG_3, MOD_0FC7_REG_4,
+	MOD_0FC7_REG_5.
+	(PREFIX enum): Add PREFIX_0FAE_REG_7.
+	(reg_table): Add MOD_0FC7_REG_3, MOD_0FC7_REG_4 MOD_0FC7_REG_5.
+	(prefix_table): Add clflusopt.
+	(mod_table): Add xrstors, xsavec, xsaves.
+	* i386-gen.c (cpu_flag_init): Add CPU_CLFLUSHOPT_FLAGS,
+	CPU_XSAVES_FLAGS, CPU_XSAVEC_FLAGS.
+	(cpu_flags): Add CpuClflushOpt, CpuXSAVES, CpuXSAVEC.
+	* i386-init.h: Regenerate.
+	* i386-opc.tbl: Add clflushopt, xrstors, xrstors64, xsaves,
+	xsaves64, xsavec, xsavec64.
+	* i386-tbl.h: Regenerate.
+
 2014-02-10  Alan Modra  <amodra@gmail.com>
 
 	* po/POTFILES.in: Regenerate.

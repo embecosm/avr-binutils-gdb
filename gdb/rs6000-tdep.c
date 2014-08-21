@@ -2169,9 +2169,9 @@ rs6000_skip_main_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
          to __eabi in case the GCC option "-fleading-underscore" was
 	 used to compile the program.  */
       if (s.minsym != NULL
-          && SYMBOL_LINKAGE_NAME (s.minsym) != NULL
-	  && (strcmp (SYMBOL_LINKAGE_NAME (s.minsym), "__eabi") == 0
-	      || strcmp (SYMBOL_LINKAGE_NAME (s.minsym), "___eabi") == 0))
+          && MSYMBOL_LINKAGE_NAME (s.minsym) != NULL
+	  && (strcmp (MSYMBOL_LINKAGE_NAME (s.minsym), "__eabi") == 0
+	      || strcmp (MSYMBOL_LINKAGE_NAME (s.minsym), "___eabi") == 0))
 	pc += 4;
     }
   return pc;
@@ -2255,7 +2255,7 @@ rs6000_skip_trampoline_code (struct frame_info *frame, CORE_ADDR pc)
   msymbol = lookup_minimal_symbol_by_pc (pc);
   if (msymbol.minsym
       && rs6000_in_solib_return_trampoline (gdbarch, pc,
-					    SYMBOL_LINKAGE_NAME (msymbol.minsym)))
+					    MSYMBOL_LINKAGE_NAME (msymbol.minsym)))
     {
       /* Double-check that the third instruction from PC is relative "b".  */
       op = read_memory_integer (pc + 8, 4, byte_order);
@@ -3257,12 +3257,14 @@ rs6000_frame_cache (struct frame_info *this_frame, void **this_cache)
 	{
 	  int i;
 	  CORE_ADDR ev_addr = cache->base + fdata.ev_offset;
+	  CORE_ADDR off = (byte_order == BFD_ENDIAN_BIG ? 4 : 0);
+
 	  for (i = fdata.saved_ev; i < ppc_num_gprs; i++)
 	    {
 	      cache->saved_regs[tdep->ppc_ev0_regnum + i].addr = ev_addr;
-              cache->saved_regs[tdep->ppc_gp0_regnum + i].addr = ev_addr + 4;
+	      cache->saved_regs[tdep->ppc_gp0_regnum + i].addr = ev_addr + off;
 	      ev_addr += register_size (gdbarch, tdep->ppc_ev0_regnum);
-            }
+	    }
 	}
     }
 
@@ -3651,10 +3653,6 @@ rs6000_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
 	"r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
 	"r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31"
-      };
-      static const char *const segment_regs[] = {
-	"sr0", "sr1", "sr2", "sr3", "sr4", "sr5", "sr6", "sr7",
-	"sr8", "sr9", "sr10", "sr11", "sr12", "sr13", "sr14", "sr15"
       };
       const struct tdesc_feature *feature;
       int i, valid_p;

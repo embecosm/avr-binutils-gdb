@@ -1,7 +1,5 @@
 /* nm.c -- Describe symbol table of a rel file.
-   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -177,7 +175,11 @@ static char other_format[] = "%02x";
 static char desc_format[] = "%04x";
 
 static char *target = NULL;
-static char *plugin_target = NULL;
+#if BFD_SUPPORTS_PLUGINS
+static const char *plugin_target = "plugin";
+#else
+static const char *plugin_target = NULL;
+#endif
 
 /* Used to cache the line numbers for a BFD.  */
 static bfd *lineno_cache_bfd;
@@ -1648,7 +1650,6 @@ main (int argc, char **argv)
 
 	case OPTION_PLUGIN:	/* --plugin */
 #if BFD_SUPPORTS_PLUGINS
-	  plugin_target = "plugin";
 	  bfd_plugin_set_plugin (optarg);
 #else
 	  fatal (_("sorry - this program has been built without plugin support\n"));

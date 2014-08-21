@@ -1,6 +1,6 @@
 /* ELF executable support for BFD.
 
-   Copyright 1993-2014 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -6259,7 +6259,7 @@ copy_elf_program_header (bfd *ibfd, bfd *obfd)
 	    phdr_included = TRUE;
 	}
 
-      lowest_section = first_section;
+      lowest_section = NULL;
       if (section_count != 0)
 	{
 	  unsigned int isec = 0;
@@ -6276,7 +6276,8 @@ copy_elf_program_header (bfd *ibfd, bfd *obfd)
 		    {
 		      bfd_vma seg_off;
 
-		      if (section->lma < lowest_section->lma)
+		      if (lowest_section == NULL
+			  || section->lma < lowest_section->lma)
 			lowest_section = section;
 
 		      /* Section lmas are set up from PT_LOAD header
@@ -7799,7 +7800,7 @@ _bfd_elf_set_section_contents (bfd *abfd,
 			       bfd_size_type count)
 {
   Elf_Internal_Shdr *hdr;
-  bfd_signed_vma pos;
+  file_ptr pos;
 
   if (! abfd->output_has_begun
       && ! _bfd_elf_compute_section_file_positions (abfd, NULL))
@@ -9907,11 +9908,12 @@ bfd *
 bfd_elf_bfd_from_remote_memory
   (bfd *templ,
    bfd_vma ehdr_vma,
+   bfd_size_type size,
    bfd_vma *loadbasep,
    int (*target_read_memory) (bfd_vma, bfd_byte *, bfd_size_type))
 {
   return (*get_elf_backend_data (templ)->elf_backend_bfd_from_remote_memory)
-    (templ, ehdr_vma, loadbasep, target_read_memory);
+    (templ, ehdr_vma, size, loadbasep, target_read_memory);
 }
 
 long

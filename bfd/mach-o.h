@@ -1,7 +1,5 @@
 /* Mach-O support for BFD.
-   Copyright 1999, 2000, 2001, 2002, 2003, 2005, 2007, 2008, 2009, 2011,
-   2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -377,6 +375,27 @@ bfd_mach_o_dysymtab_command;
 #define BFD_MACH_O_INDIRECT_SYMBOL_ABS   0x40000000
 #define BFD_MACH_O_INDIRECT_SYMBOL_SIZE  4
 
+/* For LC_TWOLEVEL_HINTS.  */
+
+typedef struct bfd_mach_o_twolevel_hints_command
+{
+  /* Offset to the hint table.  */
+  unsigned int offset;
+
+  /* Number of entries in the table.  */
+  unsigned int nhints;
+}
+bfd_mach_o_twolevel_hints_command;
+
+/* For LC_PREBIND_CKSUM.  */
+
+typedef struct bfd_mach_o_prebind_cksum_command
+{
+  /* Checksum or zero.  */
+  unsigned int cksum;
+}
+bfd_mach_o_prebind_cksum_command;
+
 /* For LC_THREAD or LC_UNIXTHREAD.  */
 
 typedef struct bfd_mach_o_thread_flavour
@@ -423,9 +442,12 @@ bfd_mach_o_dylib_command;
 
 typedef struct bfd_mach_o_prebound_dylib_command
 {
-  unsigned long name;                /* Library's path name.  */
-  unsigned long nmodules;            /* Number of modules in library.  */
-  unsigned long linked_modules;      /* Bit vector of linked modules.  */
+  unsigned int name_offset;           /* Library's path name.  */
+  unsigned int nmodules;              /* Number of modules in library.  */
+  unsigned int linked_modules_offset; /* Bit vector of linked modules.  */
+
+  char *name_str;
+  unsigned char *linked_modules;
 }
 bfd_mach_o_prebound_dylib_command;
 
@@ -537,6 +559,8 @@ typedef struct bfd_mach_o_load_command
     bfd_mach_o_dylib_command dylib;
     bfd_mach_o_dylinker_command dylinker;
     bfd_mach_o_prebound_dylib_command prebound_dylib;
+    bfd_mach_o_prebind_cksum_command prebind_cksum;
+    bfd_mach_o_twolevel_hints_command twolevel_hints;
     bfd_mach_o_uuid_command uuid;
     bfd_mach_o_linkedit_command linkedit;
     bfd_mach_o_str_command str;
@@ -657,6 +681,8 @@ unsigned int bfd_mach_o_section_get_nbr_indirect (bfd *, bfd_mach_o_section *);
 unsigned int bfd_mach_o_section_get_entry_size (bfd *, bfd_mach_o_section *);
 bfd_boolean bfd_mach_o_read_symtab_symbols (bfd *);
 bfd_boolean bfd_mach_o_read_symtab_strtab (bfd *abfd);
+
+bfd_vma bfd_mach_o_get_base_address (bfd *);
 
 /* A placeholder in case we need to suppress emitting the dysymtab for some
    reason (e.g. compatibility with older system versions).  */

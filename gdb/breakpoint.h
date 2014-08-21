@@ -25,6 +25,7 @@
 #include "ax.h"
 #include "command.h"
 #include "break-common.h"
+#include "probe.h"
 
 struct value;
 struct block;
@@ -437,7 +438,7 @@ struct bp_location
 
   /* If the location comes from a probe point, this is the probe associated
      with it.  */
-  struct probe *probe;
+  struct bound_probe probe;
 
   char *function_name;
 
@@ -1125,6 +1126,9 @@ extern int regular_breakpoint_inserted_here_p (struct address_space *,
 extern int software_breakpoint_inserted_here_p (struct address_space *, 
 						CORE_ADDR);
 
+extern int single_step_breakpoint_inserted_here_p (struct address_space *,
+						   CORE_ADDR);
+
 /* Returns true if there's a hardware watchpoint or access watchpoint
    inserted in the range defined by ADDR and LEN.  */
 extern int hardware_watchpoint_inserted_in_range (struct address_space *,
@@ -1133,6 +1137,16 @@ extern int hardware_watchpoint_inserted_in_range (struct address_space *,
 
 extern int breakpoint_thread_match (struct address_space *, 
 				    CORE_ADDR, ptid_t);
+
+/* Returns true if {ASPACE1,ADDR1} and {ASPACE2,ADDR2} represent the
+   same breakpoint location.  In most targets, this can only be true
+   if ASPACE1 matches ASPACE2.  On targets that have global
+   breakpoints, the address space doesn't really matter.  */
+
+extern int breakpoint_address_match (struct address_space *aspace1,
+				     CORE_ADDR addr1,
+				     struct address_space *aspace2,
+				     CORE_ADDR addr2);
 
 extern void until_break_command (char *, int, int);
 
@@ -1490,8 +1504,7 @@ extern struct tracepoint *get_tracepoint_by_number_on_target (int num);
 /* Find a tracepoint by parsing a number in the supplied string.  */
 extern struct tracepoint *
      get_tracepoint_by_number (char **arg, 
-			       struct get_number_or_range_state *state,
-			       int optional_p);
+			       struct get_number_or_range_state *state);
 
 /* Return a vector of all tracepoints currently defined.  The vector
    is newly allocated; the caller should free when done with it.  */

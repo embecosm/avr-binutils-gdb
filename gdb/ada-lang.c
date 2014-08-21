@@ -273,6 +273,45 @@ static void ada_forward_operator_length (struct expression *, int, int *,
 static struct type *ada_find_any_type (const char *name);
 
 
+/* The result of a symbol lookup to be stored in our symbol cache.  */
+
+struct cache_entry
+{
+  /* The name used to perform the lookup.  */
+  const char *name;
+  /* The namespace used during the lookup.  */
+  domain_enum namespace;
+  /* The symbol returned by the lookup, or NULL if no matching symbol
+     was found.  */
+  struct symbol *sym;
+  /* The block where the symbol was found, or NULL if no matching
+     symbol was found.  */
+  const struct block *block;
+  /* A pointer to the next entry with the same hash.  */
+  struct cache_entry *next;
+};
+
+/* The Ada symbol cache, used to store the result of Ada-mode symbol
+   lookups in the course of executing the user's commands.
+
+   The cache is implemented using a simple, fixed-sized hash.
+   The size is fixed on the grounds that there are not likely to be
+   all that many symbols looked up during any given session, regardless
+   of the size of the symbol table.  If we decide to go to a resizable
+   table, let's just use the stuff from libiberty instead.  */
+
+#define HASH_SIZE 1009
+
+struct ada_symbol_cache
+{
+  /* An obstack used to store the entries in our cache.  */
+  struct obstack cache_space;
+
+  /* The root of the hash table used to implement our symbol cache.  */
+  struct cache_entry *root[HASH_SIZE];
+};
+
+static void ada_free_symbol_cache (struct ada_symbol_cache *sym_cache);
 
 /* Maximum-sized dynamic type.  */
 static unsigned int varsize_limit;
@@ -396,6 +435,51 @@ ada_inferior_exit (struct inferior *inf)
 {
   ada_inferior_data_cleanup (inf, NULL);
   set_inferior_data (inf, ada_inferior_data, NULL);
+}
+
+
+			/* program-space-specific data.  */
+
+/* This module's per-program-space data.  */
+struct ada_pspace_data
+{
+  /* The Ada symbol cache.  */
+  struct ada_symbol_cache *sym_cache;
+};
+
+/* Key to our per-program-space data.  */
+static const struct program_space_data *ada_pspace_data_handle;
+
+/* Return this module's data for the given program space (PSPACE).
+   If not is found, add a zero'ed one now.
+
+   This function always returns a valid object.  */
+
+static struct ada_pspace_data *
+get_ada_pspace_data (struct program_space *pspace)
+{
+  struct ada_pspace_data *data;
+
+  data = program_space_data (pspace, ada_pspace_data_handle);
+  if (data == NULL)
+    {
+      data = XCNEW (struct ada_pspace_data);
+      set_program_space_data (pspace, ada_pspace_data_handle, data);
+    }
+
+  return data;
+}
+
+/* The cleanup callback for this module's per-program-space data.  */
+
+static void
+ada_pspace_data_cleanup (struct program_space *pspace, void *data)
+{
+  struct ada_pspace_data *pspace_data = data;
+
+  if (pspace_data->sym_cache != NULL)
+    ada_free_symbol_cache (pspace_data->sym_cache);
+  xfree (pspace_data);
 }
 
                         /* Utilities */
@@ -810,7 +894,7 @@ enum language
 ada_update_initial_language (enum language lang)
 {
   if (lookup_minimal_symbol ("adainit", (const char *) NULL,
-                             (struct objfile *) NULL) != NULL)
+                             (struct objfile *) NULL).minsym != NULL)
     return language_ada;
 
   return lang;
@@ -823,7 +907,7 @@ ada_update_initial_language (enum language lang)
 char *
 ada_main_name (void)
 {
-  struct minimal_symbol *msym;
+  struct bound_minimal_symbol msym;
   static char *main_program_name = NULL;
 
   /* For Ada, the name of the main procedure is stored in a specific
@@ -833,12 +917,12 @@ ada_main_name (void)
      in Ada.  */
   msym = lookup_minimal_symbol (ADA_MAIN_PROGRAM_SYMBOL_NAME, NULL, NULL);
 
-  if (msym != NULL)
+  if (msym.minsym != NULL)
     {
       CORE_ADDR main_program_name_addr;
       int err_code;
 
-      main_program_name_addr = SYMBOL_VALUE_ADDRESS (msym);
+      main_program_name_addr = BMSYMBOL_VALUE_ADDRESS (msym);
       if (main_program_name_addr == 0)
         error (_("Invalid address for Ada main program name."));
 
@@ -2166,14 +2250,14 @@ decode_constrained_packed_array (struct value *arr)
 {
   struct type *type;
 
-  arr = ada_coerce_ref (arr);
-
-  /* If our value is a pointer, then dererence it.  Make sure that
-     this operation does not cause the target type to be fixed, as
-     this would indirectly cause this array to be decoded.  The rest
-     of the routine assumes that the array hasn't been decoded yet,
-     so we use the basic "value_ind" routine to perform the dereferencing,
-     as opposed to using "ada_value_ind".  */
+  /* If our value is a pointer, then dereference it. Likewise if
+     the value is a reference.  Make sure that this operation does not
+     cause the target type to be fixed, as this would indirectly cause
+     this array to be decoded.  The rest of the routine assumes that
+     the array hasn't been decoded yet, so we use the basic "coerce_ref"
+     and "value_ind" routines to perform the dereferencing, as opposed
+     to using "ada_coerce_ref" or "ada_value_ind".  */
+  arr = coerce_ref (arr);
   if (TYPE_CODE (ada_check_typedef (value_type (arr))) == TYPE_CODE_PTR)
     arr = value_ind (arr);
 
@@ -4247,16 +4331,8 @@ make_array_descriptor (struct type *type, struct value *arr)
 
                                 /* Symbol Cache Module */
 
-/* This section implements a simple, fixed-sized hash table for those
-   Ada-mode symbols that get looked up in the course of executing the user's
-   commands.  The size is fixed on the grounds that there are not
-   likely to be all that many symbols looked up during any given
-   session, regardless of the size of the symbol table.  If we decide
-   to go to a resizable table, let's just use the stuff from libiberty
-   instead.  */
-
 /* Performance measurements made as of 2010-01-15 indicate that
-   this case does bring some noticeable improvements.  Depending
+   this cache does bring some noticeable improvements.  Depending
    on the type of entity being printed, the cache can make it as much
    as an order of magnitude faster than without it.
 
@@ -4265,40 +4341,52 @@ make_array_descriptor (struct type *type, struct value *arr)
    even in this case, some expensive name-based symbol searches are still
    sometimes necessary - to find an XVZ variable, mostly.  */
 
-#define HASH_SIZE 1009
+/* Initialize the contents of SYM_CACHE.  */
 
-/* The result of a symbol lookup to be stored in our cache.  */
-
-struct cache_entry
+static void
+ada_init_symbol_cache (struct ada_symbol_cache *sym_cache)
 {
-  /* The name used to perform the lookup.  */
-  const char *name;
-  /* The namespace used during the lookup.  */
-  domain_enum namespace;
-  /* The symbol returned by the lookup, or NULL if no matching symbol
-     was found.  */
-  struct symbol *sym;
-  /* The block where the symbol was found, or NULL if no matching
-     symbol was found.  */
-  const struct block *block;
-  /* A pointer to the next entry with the same hash.  */
-  struct cache_entry *next;
-};
+  obstack_init (&sym_cache->cache_space);
+  memset (sym_cache->root, '\000', sizeof (sym_cache->root));
+}
 
-/* An obstack used to store the entries in our cache.  */
-static struct obstack cache_space;
+/* Free the memory used by SYM_CACHE.  */
 
-/* The root of the hash table used to implement our symbol cache.  */
-static struct cache_entry *cache[HASH_SIZE];
+static void
+ada_free_symbol_cache (struct ada_symbol_cache *sym_cache)
+{
+  obstack_free (&sym_cache->cache_space, NULL);
+  xfree (sym_cache);
+}
+
+/* Return the symbol cache associated to the given program space PSPACE.
+   If not allocated for this PSPACE yet, allocate and initialize one.  */
+
+static struct ada_symbol_cache *
+ada_get_symbol_cache (struct program_space *pspace)
+{
+  struct ada_pspace_data *pspace_data = get_ada_pspace_data (pspace);
+  struct ada_symbol_cache *sym_cache = pspace_data->sym_cache;
+
+  if (sym_cache == NULL)
+    {
+      sym_cache = XCNEW (struct ada_symbol_cache);
+      ada_init_symbol_cache (sym_cache);
+    }
+
+  return sym_cache;
+}
 
 /* Clear all entries from the symbol cache.  */
 
 static void
 ada_clear_symbol_cache (void)
 {
-  obstack_free (&cache_space, NULL);
-  obstack_init (&cache_space);
-  memset (cache, '\000', sizeof (cache));
+  struct ada_symbol_cache *sym_cache
+    = ada_get_symbol_cache (current_program_space);
+
+  obstack_free (&sym_cache->cache_space, NULL);
+  ada_init_symbol_cache (sym_cache);
 }
 
 /* Search our cache for an entry matching NAME and NAMESPACE.
@@ -4307,10 +4395,12 @@ ada_clear_symbol_cache (void)
 static struct cache_entry **
 find_entry (const char *name, domain_enum namespace)
 {
+  struct ada_symbol_cache *sym_cache
+    = ada_get_symbol_cache (current_program_space);
   int h = msymbol_hash (name) % HASH_SIZE;
   struct cache_entry **e;
 
-  for (e = &cache[h]; *e != NULL; e = &(*e)->next)
+  for (e = &sym_cache->root[h]; *e != NULL; e = &(*e)->next)
     {
       if (namespace == (*e)->namespace && strcmp (name, (*e)->name) == 0)
         return e;
@@ -4346,6 +4436,8 @@ static void
 cache_symbol (const char *name, domain_enum namespace, struct symbol *sym,
               const struct block *block)
 {
+  struct ada_symbol_cache *sym_cache
+    = ada_get_symbol_cache (current_program_space);
   int h;
   char *copy;
   struct cache_entry *e;
@@ -4360,10 +4452,11 @@ cache_symbol (const char *name, domain_enum namespace, struct symbol *sym,
     return;
 
   h = msymbol_hash (name) % HASH_SIZE;
-  e = (struct cache_entry *) obstack_alloc (&cache_space, sizeof (*e));
-  e->next = cache[h];
-  cache[h] = e;
-  e->name = copy = obstack_alloc (&cache_space, strlen (name) + 1);
+  e = (struct cache_entry *) obstack_alloc (&sym_cache->cache_space,
+					    sizeof (*e));
+  e->next = sym_cache->root[h];
+  sym_cache->root[h] = e;
+  e->name = copy = obstack_alloc (&sym_cache->cache_space, strlen (name) + 1);
   strcpy (copy, name);
   e->sym = sym;
   e->namespace = namespace;
@@ -4568,7 +4661,7 @@ ada_lookup_simple_minsym (const char *name)
 
   ALL_MSYMBOLS (objfile, msymbol)
   {
-    if (match_name (SYMBOL_LINKAGE_NAME (msymbol), name, wild_match_p)
+    if (match_name (MSYMBOL_LINKAGE_NAME (msymbol), name, wild_match_p)
         && MSYMBOL_TYPE (msymbol) != mst_solib_trampoline)
       {
 	result.minsym = msymbol;
@@ -6089,7 +6182,7 @@ ada_make_symbol_completion_list (const char *text0, const char *word,
   ALL_MSYMBOLS (objfile, msymbol)
   {
     QUIT;
-    symbol_completion_add (&completions, SYMBOL_LINKAGE_NAME (msymbol),
+    symbol_completion_add (&completions, MSYMBOL_LINKAGE_NAME (msymbol),
 			   text, text_len, text0, word, wild_match_p,
 			   encoded_p);
   }
@@ -9785,6 +9878,7 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
   enum exp_opcode op;
   int tem;
   int pc;
+  int preeval_pos;
   struct value *arg1 = NULL, *arg2 = NULL, *arg3;
   struct type *type;
   int nargs, oplen;
@@ -10018,7 +10112,7 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
              The latter should be shown as usual (as a pointer), whereas
              a reference should mostly be transparent to the user.  */
           if (ada_is_tagged_type (type, 0)
-              || (TYPE_CODE(type) == TYPE_CODE_REF
+              || (TYPE_CODE (type) == TYPE_CODE_REF
                   && ada_is_tagged_type (TYPE_TARGET_TYPE (type), 0)))
           {
             /* Tagged types are a little special in the fact that the real
@@ -10410,10 +10504,15 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
             if (ada_is_constrained_packed_array_type (value_type (arg1)))
               arg1 = ada_coerce_to_simple_array (arg1);
 
-            type = ada_index_type (value_type (arg1), tem,
-				   ada_attribute_name (op));
-            if (type == NULL)
+            if (op == OP_ATR_LENGTH)
 	      type = builtin_type (exp->gdbarch)->builtin_int;
+	    else
+	      {
+		type = ada_index_type (value_type (arg1), tem,
+				       ada_attribute_name (op));
+		if (type == NULL)
+		  type = builtin_type (exp->gdbarch)->builtin_int;
+	      }
 
             if (noside == EVAL_AVOID_SIDE_EFFECTS)
               return allocate_value (type);
@@ -10466,9 +10565,14 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
             if (ada_is_constrained_packed_array_type (type_arg))
               type_arg = decode_constrained_packed_array_type (type_arg);
 
-            type = ada_index_type (type_arg, tem, ada_attribute_name (op));
-            if (type == NULL)
+	    if (op == OP_ATR_LENGTH)
 	      type = builtin_type (exp->gdbarch)->builtin_int;
+	    else
+	      {
+		type = ada_index_type (type_arg, tem, ada_attribute_name (op));
+		if (type == NULL)
+		  type = builtin_type (exp->gdbarch)->builtin_int;
+	      }
 
             if (noside == EVAL_AVOID_SIDE_EFFECTS)
               return allocate_value (type);
@@ -10610,6 +10714,7 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
         return arg1;
 
     case UNOP_IND:
+      preeval_pos = *pos;
       arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
         goto nosideret;
@@ -10630,10 +10735,26 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
                    /* In C you can dereference an array to get the 1st elt.  */
                    || TYPE_CODE (type) == TYPE_CODE_ARRAY)
             {
-              type = to_static_fixed_type
-                (ada_aligned_type
-                 (ada_check_typedef (TYPE_TARGET_TYPE (type))));
-              check_size (type);
+            /* As mentioned in the OP_VAR_VALUE case, tagged types can
+               only be determined by inspecting the object's tag.
+               This means that we need to evaluate completely the
+               expression in order to get its type.  */
+
+	      if ((TYPE_CODE (type) == TYPE_CODE_REF
+		   || TYPE_CODE (type) == TYPE_CODE_PTR)
+		  && ada_is_tagged_type (TYPE_TARGET_TYPE (type), 0))
+		{
+		  arg1 = evaluate_subexp (NULL_TYPE, exp, &preeval_pos,
+					  EVAL_NORMAL);
+		  type = value_type (ada_value_ind (arg1));
+		}
+	      else
+		{
+		  type = to_static_fixed_type
+		    (ada_aligned_type
+		     (ada_check_typedef (TYPE_TARGET_TYPE (type))));
+		}
+	      check_size (type);
               return value_zero (type, lval_memory);
             }
           else if (TYPE_CODE (type) == TYPE_CODE_INT)
@@ -10677,6 +10798,7 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
     case STRUCTOP_STRUCT:
       tem = longest_to_int (exp->elts[pc + 1].longconst);
       (*pos) += 3 + BYTES_TO_EXP_ELEM (tem + 1);
+      preeval_pos = *pos;
       arg1 = evaluate_subexp (NULL_TYPE, exp, pos, noside);
       if (noside == EVAL_SKIP)
         goto nosideret;
@@ -10689,13 +10811,21 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
               type = ada_lookup_struct_elt_type (type1,
                                                  &exp->elts[pc + 2].string,
                                                  1, 1, NULL);
+
+	      /* If the field is not found, check if it exists in the
+		 extension of this object's type. This means that we
+		 need to evaluate completely the expression.  */
+
               if (type == NULL)
-                /* In this case, we assume that the field COULD exist
-                   in some extension of the type.  Return an object of 
-                   "type" void, which will match any formal 
-                   (see ada_type_match).  */
-                return value_zero (builtin_type (exp->gdbarch)->builtin_void,
-				   lval_memory);
+		{
+		  arg1 = evaluate_subexp (NULL_TYPE, exp, &preeval_pos,
+					  EVAL_NORMAL);
+		  arg1 = ada_value_struct_elt (arg1,
+					       &exp->elts[pc + 2].string,
+					       0);
+		  arg1 = unwrap_value (arg1);
+		  type = value_type (ada_to_fixed_value (arg1));
+		}
             }
           else
             type =
@@ -11214,10 +11344,10 @@ ada_has_this_exception_support (const struct exception_support_info *einfo)
 	 the name of the exception being raised (this name is printed in
 	 the catchpoint message, and is also used when trying to catch
 	 a specific exception).  We do not handle this case for now.  */
-      struct minimal_symbol *msym
+      struct bound_minimal_symbol msym
 	= lookup_minimal_symbol (einfo->catch_exception_sym, NULL, NULL);
 
-      if (msym && MSYMBOL_TYPE (msym) != mst_solib_trampoline)
+      if (msym.minsym && MSYMBOL_TYPE (msym.minsym) != mst_solib_trampoline)
 	error (_("Your Ada runtime appears to be missing some debugging "
 		 "information.\nCannot insert Ada exception catchpoint "
 		 "in this configuration."));
@@ -12570,7 +12700,7 @@ ada_add_standard_exceptions (regex_t *preg, VEC(ada_exc_info) **exceptions)
 	  if (msymbol.minsym != NULL)
 	    {
 	      struct ada_exc_info info
-		= {standard_exc[i], SYMBOL_VALUE_ADDRESS (msymbol.minsym)};
+		= {standard_exc[i], BMSYMBOL_VALUE_ADDRESS (msymbol)};
 
 	      VEC_safe_push (ada_exc_info, *exceptions, &info);
 	    }
@@ -13246,10 +13376,10 @@ emit_char (int c, struct type *type, struct ui_file *stream, int quoter)
 }
 
 static int
-parse (void)
+parse (struct parser_state *ps)
 {
   warnings_issued = 0;
-  return ada_parse ();
+  return ada_parse (ps);
 }
 
 static const struct exp_descriptor ada_exp_descriptor = {
@@ -13501,9 +13631,11 @@ DWARF attribute."),
   /* The ada-lang observers.  */
   observer_attach_new_objfile (ada_new_objfile_observer);
   observer_attach_free_objfile (ada_free_objfile_observer);
-
-  /* Setup per-inferior data.  */
   observer_attach_inferior_exit (ada_inferior_exit);
+
+  /* Setup various context-specific data.  */
   ada_inferior_data
     = register_inferior_data_with_cleanup (NULL, ada_inferior_data_cleanup);
+  ada_pspace_data_handle
+    = register_program_space_data_with_cleanup (NULL, ada_pspace_data_cleanup);
 }

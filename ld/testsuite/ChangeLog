@@ -1,3 +1,167 @@
+2014-04-05  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* ld-plugin/lto.exp: Make "-Wp," prefix optional when filtering
+	out _FORTIFY_SOURCE.
+	("Build libdummy.a 9", "PR ld/12696"): Mark as c++.
+
+2014-04-04  Alan Modra  <amodra@gmail.com>
+
+	* ld-scripts/fill.d, * ld-scripts/fill.t, * ld-scripts/fill_0.s,
+	* ld-scripts/fill_1.s, * ld-scripts/fill_2.s: New test.
+	* ld-scripts/data.exp: Run it.
+
+2014-03-31  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* ld-aarch64/eh-frame.d: Adjust FDE pc address.
+
+2014-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR ld/16756
+	* ld-plugin/lto.exp: Expect filename and line number for PR
+	ld/12760 test.
+
+2014-03-27  Yury Gribov  <y.gribov@samsung.com>
+	    Pavel Fedin  <p.fedin@samsung.com>
+
+	* ld-arm/arm-app-abs32.d: Update expected disassembly, taking into
+	account the pretty printing of PLT entries.
+	* ld-arm/arm-app.d: Likewise.
+	* ld-arm/arm-lib-plt32.d: Likewise.
+	* ld-arm/arm-lib.d: Likewise.
+	* ld-arm/armthumb-lib.d: Likewise.
+	* ld-arm/cortex-a8-fix-b-plt.d: Likewise.
+	* ld-arm/cortex-a8-fix-bcc-plt.d: Likewise.
+	* ld-arm/cortex-a8-fix-bl-plt.d: Likewise.
+	* ld-arm/cortex-a8-fix-bl-rel-plt.d: Likewise.
+	* ld-arm/cortex-a8-fix-blx-plt.d: Likewise.
+	* ld-arm/farcall-mixed-app-v5.d: Likewise.
+	* ld-arm/farcall-mixed-app.d: Likewise.
+	* ld-arm/farcall-mixed-lib-v4t.d: Likewise.
+	* ld-arm/farcall-mixed-lib.d: Likewise.
+	* ld-arm/ifunc-10.dd: Likewise.
+	* ld-arm/ifunc-14.dd: Likewise.
+	* ld-arm/ifunc-15.dd: Likewise.
+	* ld-arm/ifunc-3.dd: Likewise.
+	* ld-arm/ifunc-4.dd: Likewise.
+	* ld-arm/ifunc-7.dd: Likewise.
+	* ld-arm/ifunc-8.dd: Likewise.
+	* ld-arm/ifunc-9.dd: Likewise.
+	* ld-arm/long-plt-format.d: Likewise.
+	* ld-arm/mixed-app-v5.d: Likewise.
+	* ld-arm/mixed-app.d: Likewise.
+	* ld-arm/mixed-lib.d: Likewise.
+	* ld-arm/thumb2-bl-undefweak.d: Likewise.
+	* ld-arm/thumb2-bl-undefweak1.d: Likewise.
+
+2014-03-26  Alan Modra  <amodra@gmail.com>
+
+	* ld-powerpc/startv1.s, * ld-powerpc/startv2.s, * ld-powerpc/funref.s,
+	* ld-powerpc/funv1.s, * ld-powerpc/funv2.s,
+	* ld-powerpc/ambiguousv1.d, * ld-powerpc/ambiguousv2.d: New test files.
+	* ld-powerpc/powerpc.exp: Run new tests.
+
+2014-03-25  Will Newton  <will.newton@linaro.org>
+
+	 * ld-aarch64/aarch64-elf.exp: Add relasz dump test.
+	 * ld-aarch64/relasz.d: New file.
+	 * ld-aarch64/relasz.s: Likewise.
+
+2014-03-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* ld-elf/merge.d: Remove MIPS XFAIL.
+
+2014-03-20  Will Newton  <will.newton@linaro.org>
+
+	* ld-arm/ifunc-14.rd: Update symbol values.
+
+2014-03-19  Nick Clifton  <nickc@redhat.com>
+
+	* config/default.exp (ASFLAGS): For the RX target add:
+	-muse-conventional-section-names.
+
+2014-03-15  Alan Modra  <amodra@gmail.com>
+
+	* ld-powerpc/vle-reloc-3.d: Remove addresses.
+
+2014-03-14  Alan Modra  <amodra@gmail.com>
+
+	* ld-powerpc/vle.ld: Place .PPC.EMB.sdata0 within 32k of 0.
+	* ld-powerpc/vle-reloc-3.d: Update.
+
+2014-03-06  Roland McGrath  <mcgrathr@google.com>
+
+	* ld-arm/gc-hidden-1.d: Remove target, add not-target to match
+	other ELF-only tests in this directory.  Loosen regexps so they
+	don't care what the exact addresses are.
+
+2014-03-06  Roland McGrath  <mcgrathr@google.com>
+
+	* ld-arm/arm-elf.exp (armelftests_common): Move long-plt case ...
+	(armelftests_nonacl): ... here.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	Update copyright years.
+
+2014-03-05  Alan Modra  <amodra@gmail.com>
+
+	* ld-powerpc/elfv2-2a.s, ld-powerpc/elfv2-2b.s: New files.
+	* ld-powerpc/elfv2-2exe.d, ld-powerpc/elfv2-2so.d: New files.
+	* ld-powerpc/powerpc.exp: Run new test.
+
+2014-03-03  Alan Modra  <amodra@gmail.com>
+
+	* ld-scripts/phdrs2.exp: Correct copyright punctuation.
+	* ld-v850/v850.exp: Correct copyright typo.
+
+2014-03-01  Yuri Gribov  <y.gribov@samsung.com>
+
+	* ld-arm/long-plt-format.d, ld-arm/arm-elf.exp: Adjust for arm-eabi.
+
+2014-02-27  Yuri Gribov  <y.gribov@samsung.com>
+
+	* ld-arm/long-plt-format.s: New test case.
+	* ld-arm/long-plt-format.d: Expected disassembly.
+	* ld-arm/arm-elf.exp: Run the new test.
+
+2014-02-27  Nick Clifton  <nickc@redhat.com>
+
+	* ld-pe/longsecn-1.d: Allow for extra sections.
+	* ld-pe/longsecn-2.d: Likewise.
+	* ld-pe/longsecn.d: Likewise.
+	* ld-pe/secrel.d: Likewise.
+
+2014-02-21  Alan Modra  <amodra@gmail.com>
+
+	* ld-bootstrap/bootstrap.exp: Add ppc476 workaround test.
+	* ld-bootstrap/ppc476.t: New file.
+
+2014-02-19  Igor Zamyatin  <igor.zamyatin@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ld-x86-64/mpx.exp: Run bnd-ifunc-1 and bnd-plt-1.
+	* ld-x86-64/bnd-ifunc-1.d: New file.
+	* ld-x86-64/bnd-ifunc-1.s: Likewise.
+	* ld-x86-64/bnd-plt-1.d: Likewise.
+
+2014-02-18  Jack Carter  <jack.carter@imgtec.com>
+
+	* ld-mips-elf/pic-and-nonpic-3a.sd: Check DYNAMIC segment flags.
+
+2014-02-16  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* ld-elfweak/elfweak.exp (setup_xfail_gnu_hurd): Remove function
+	and all usage of it.
+
+2014-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR gold/16530
+	* ld-elf/dynamic-1.c: New file.
+	* ld-elf/dynamic-1.rd: Likewise.
+	* ld-elf/dynamic-1.syms: Likewise.
+
+	* ld-elf/shared.exp (build_tests): Add dynamic-1.
+
 2014-02-02  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
 	* ld-scripts/rgn-at9.d: New file.

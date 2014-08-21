@@ -1,7 +1,6 @@
 /* tc-aarch64.c -- Assemble for the AArch64 ISA
 
-   Copyright 2009, 2010, 2011, 2012, 2013
-   Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GAS.
@@ -436,9 +435,16 @@ static symbolS *last_label_seen;
    and per-sub-section basis.  */
 
 #define MAX_LITERAL_POOL_SIZE 1024
+typedef struct literal_expression
+{
+  expressionS exp;
+  /* If exp.op == O_big then this bignum holds a copy of the global bignum value.  */
+  LITTLENUM_TYPE * bignum;
+} literal_expression;
+
 typedef struct literal_pool
 {
-  expressionS literals[MAX_LITERAL_POOL_SIZE];
+  literal_expression literals[MAX_LITERAL_POOL_SIZE];
   unsigned int next_free_entry;
   unsigned int id;
   symbolS *symbol;
@@ -1617,17 +1623,19 @@ add_to_lit_pool (expressionS *exp, int size)
   /* Check if this literal value is already in the pool.  */
   for (entry = 0; entry < pool->next_free_entry; entry++)
     {
-      if ((pool->literals[entry].X_op == exp->X_op)
+      expressionS * litexp = & pool->literals[entry].exp;
+
+      if ((litexp->X_op == exp->X_op)
 	  && (exp->X_op == O_constant)
-	  && (pool->literals[entry].X_add_number == exp->X_add_number)
-	  && (pool->literals[entry].X_unsigned == exp->X_unsigned))
+	  && (litexp->X_add_number == exp->X_add_number)
+	  && (litexp->X_unsigned == exp->X_unsigned))
 	break;
 
-      if ((pool->literals[entry].X_op == exp->X_op)
+      if ((litexp->X_op == exp->X_op)
 	  && (exp->X_op == O_symbol)
-	  && (pool->literals[entry].X_add_number == exp->X_add_number)
-	  && (pool->literals[entry].X_add_symbol == exp->X_add_symbol)
-	  && (pool->literals[entry].X_op_symbol == exp->X_op_symbol))
+	  && (litexp->X_add_number == exp->X_add_number)
+	  && (litexp->X_add_symbol == exp->X_add_symbol)
+	  && (litexp->X_op_symbol == exp->X_op_symbol))
 	break;
     }
 
@@ -1640,8 +1648,18 @@ add_to_lit_pool (expressionS *exp, int size)
 	  return FALSE;
 	}
 
-      pool->literals[entry] = *exp;
+      pool->literals[entry].exp = *exp;
       pool->next_free_entry += 1;
+      if (exp->X_op == O_big)
+	{
+	  /* PR 16688: Bignums are held in a single global array.  We must
+	     copy and preserve that value now, before it is overwritten.  */
+	  pool->literals[entry].bignum = xmalloc (CHARS_PER_LITTLENUM * exp->X_add_number);
+	  memcpy (pool->literals[entry].bignum, generic_bignum,
+		  CHARS_PER_LITTLENUM * exp->X_add_number);
+	}
+      else
+	pool->literals[entry].bignum = NULL;
     }
 
   exp->X_op = O_symbol;
@@ -1735,8 +1753,26 @@ s_ltorg (int ignored ATTRIBUTE_UNUSED)
       symbol_table_insert (pool->symbol);
 
       for (entry = 0; entry < pool->next_free_entry; entry++)
-	/* First output the expression in the instruction to the pool.  */
-	emit_expr (&(pool->literals[entry]), size);	/* .word|.xword  */
+	{
+	  expressionS * exp = & pool->literals[entry].exp;
+
+	  if (exp->X_op == O_big)
+	    {
+	      /* PR 16688: Restore the global bignum value.  */
+	      gas_assert (pool->literals[entry].bignum != NULL);
+	      memcpy (generic_bignum, pool->literals[entry].bignum,
+		      CHARS_PER_LITTLENUM * exp->X_add_number);
+	    }
+
+	  /* First output the expression in the instruction to the pool.  */
+	  emit_expr (exp, size);	/* .word|.xword  */
+
+	  if (exp->X_op == O_big)
+	    {
+	      free (pool->literals[entry].bignum);
+	      pool->literals[entry].bignum = NULL;
+	    }
+	}
 
       /* Mark the pool as empty.  */
       pool->next_free_entry = 0;
@@ -2816,7 +2852,7 @@ parse_shifter_operand_reloc (char **str, aarch64_opnd_info *operand,
       if (**str == '\0')
 	return TRUE;
 
-      /* Otherwise, we have a shifted reloc modifier, so rewind to 
+      /* Otherwise, we have a shifted reloc modifier, so rewind to
          recover the variable name and continue parsing for the shifter.  */
       *str = p;
       return parse_shifter_operand_imm (str, operand, mode);
@@ -3517,9 +3553,9 @@ fix_new_aarch64 (fragS * frag,
 
 /* Diagnostics on operands errors.  */
 
-/* By default, output one-line error message only.
-   Enable the verbose error message by -merror-verbose.  */
-static int verbose_error_p = 0;
+/* By default, output verbose error message.
+   Disable the verbose error message by -mno-verbose-error.  */
+static int verbose_error_p = 1;
 
 #ifdef DEBUG_AARCH64
 /* N.B. this is only for the purpose of debugging.  */
@@ -7119,6 +7155,8 @@ static struct aarch64_option_table aarch64_opts[] = {
 #endif /* DEBUG_AARCH64 */
   {"mverbose-error", N_("output verbose error messages"), &verbose_error_p, 1,
    NULL},
+  {"mno-verbose-error", N_("do not output verbose error messages"),
+   &verbose_error_p, 0, NULL},
   {NULL, NULL, NULL, 0, NULL}
 };
 

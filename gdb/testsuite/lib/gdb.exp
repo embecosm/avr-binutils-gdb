@@ -1796,7 +1796,8 @@ proc can_single_step_to_signal_handler {} {
     # to determine the next instruction addresses, because start of signal
     # handler is one of them.
     if { [istarget "arm*-*-*"] || [istarget "mips*-*-*"]
-	 || [istarget "tic6x-*-*"] || [istarget "sparc*-*-linux*"] } {
+	 || [istarget "tic6x-*-*"] || [istarget "sparc*-*-linux*"]
+	 || [istarget "nios2-*-*"] } {
 	return 0
     }
 
@@ -1833,6 +1834,21 @@ proc supports_reverse {} {
     }
 
     return 0
+}
+
+# Return 1 if readline library is used.
+
+proc readline_is_used { } {
+    global gdb_prompt
+
+    gdb_test_multiple "show editing" "" {
+	-re ".*Editing of command lines as they are typed is on\..*$gdb_prompt $" {
+	    return 1
+	}
+	-re ".*$gdb_prompt $" {
+	    return 0
+	}
+    }
 }
 
 # Return 1 if target is ELF.
@@ -3715,7 +3731,8 @@ proc gdb_finish { } {
     global cleanfiles
 
     # Give persistent gdbserver a chance to terminate before GDB is killed.
-    if {[info exists gdbserver_reconnect_p] && $gdbserver_reconnect_p} {
+    if {[info exists gdbserver_reconnect_p] && $gdbserver_reconnect_p
+	&& [info exists gdb_spawn_id]} {
 	send_gdb "kill\n";
 	gdb_expect 10 {
 	    -re "y or n" {
@@ -4263,14 +4280,21 @@ proc build_executable_from_specs {testname executable options args} {
     if [string match gdb_compile_shlib* $func] {
 	set sources_path {}
 	foreach {s local_options} $args {
-	    lappend sources_path "${srcdir}/${subdir}/${s}"
+	    if { [regexp "^/" "$s"] } then {
+		lappend sources_path "$s"
+	    } else {
+		lappend sources_path "$srcdir/$subdir/$s"
+	    }
 	}
 	set ret [$func $sources_path "${binfile}" $options]
     } else {
 	set objects {}
 	set i 0
 	foreach {s local_options} $args {
-	    if  { [gdb_compile "${srcdir}/${subdir}/${s}" "${binfile}${i}.o" object $local_options] != "" } {
+	    if { ! [regexp "^/" "$s"] } then {
+		set s "$srcdir/$subdir/$s"
+	    }
+	    if  { [gdb_compile "${s}" "${binfile}${i}.o" object $local_options] != "" } {
 		untested $testname
 		return -1
 	    }
@@ -4624,6 +4648,7 @@ proc run_on_host { test program args } {
  	pass $test
  	return 0
     } else {
+	verbose -log "run_on_host failed: $output"
 	fail $test
 	return -1
     }

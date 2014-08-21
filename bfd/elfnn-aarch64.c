@@ -1,5 +1,5 @@
 /* AArch64-specific support for NN-bit ELF.
-   Copyright 2009-2013  Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -6993,7 +6993,7 @@ elfNN_aarch64_finish_dynamic_sections (bfd *output_bfd,
 	      break;
 
 	    case DT_PLTRELSZ:
-	      s = htab->root.srelplt->output_section;
+	      s = htab->root.srelplt;
 	      dyn.d_un.d_val = s->size;
 	      break;
 
@@ -7007,7 +7007,7 @@ elfNN_aarch64_finish_dynamic_sections (bfd *output_bfd,
 		 about changing the DT_RELA entry.  */
 	      if (htab->root.srelplt != NULL)
 		{
-		  s = htab->root.srelplt->output_section;
+		  s = htab->root.srelplt;
 		  dyn.d_un.d_val -= s->size;
 		}
 	      break;

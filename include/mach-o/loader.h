@@ -1,6 +1,5 @@
 /* Mach-O support for BFD.
-   Copyright 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
 
@@ -49,8 +48,12 @@ typedef enum bfd_mach_o_cpu_type
   BFD_MACH_O_CPU_TYPE_I860 = 15,
   BFD_MACH_O_CPU_TYPE_ALPHA = 16,
   BFD_MACH_O_CPU_TYPE_POWERPC = 18,
-  BFD_MACH_O_CPU_TYPE_POWERPC_64 = (BFD_MACH_O_CPU_TYPE_POWERPC | BFD_MACH_O_CPU_IS64BIT),
-  BFD_MACH_O_CPU_TYPE_X86_64 = (BFD_MACH_O_CPU_TYPE_I386 | BFD_MACH_O_CPU_IS64BIT)
+  BFD_MACH_O_CPU_TYPE_POWERPC_64 =
+    (BFD_MACH_O_CPU_TYPE_POWERPC | BFD_MACH_O_CPU_IS64BIT),
+  BFD_MACH_O_CPU_TYPE_X86_64 =
+    (BFD_MACH_O_CPU_TYPE_I386 | BFD_MACH_O_CPU_IS64BIT),
+  BFD_MACH_O_CPU_TYPE_ARM64 =
+    (BFD_MACH_O_CPU_TYPE_ARM | BFD_MACH_O_CPU_IS64BIT)
 }
 bfd_mach_o_cpu_type;
 

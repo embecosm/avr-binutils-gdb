@@ -36,6 +36,7 @@
 #include "regcache.h"
 #include <string.h>
 #include "dis-asm.h"
+#include "objfiles.h"
 
 /* AVR Background:
 
@@ -182,7 +183,7 @@ struct avr_unwind_cache
 struct gdbarch_tdep
 {
   /* Number of bytes stored to the stack by call instructions.
-     2 bytes for avr1-5, 3 bytes for avr6.  */
+     2 bytes for avr1-5 and avrxmega1-5, 3 bytes for avr6 and avrxmega6-7.  */
   int call_length;
   /* GDB does not cope with different sizes of pointer type, so we create our
      own. */
@@ -682,7 +683,7 @@ avr_scan_prologue (struct gdbarch *gdbarch, CORE_ADDR pc_beg, CORE_ADDR pc_end,
   int i;
   unsigned short insn;
   int scan_stage = 0;
-  struct minimal_symbol *msymbol;
+  struct bound_minimal_symbol msymbol;
   unsigned char prologue[AVR_MAX_PROLOGUE_SIZE];
   int vpc = 0;
   int len;
@@ -776,7 +777,7 @@ avr_scan_prologue (struct gdbarch *gdbarch, CORE_ADDR pc_beg, CORE_ADDR pc_end,
       pc_offset += 2;
 
       msymbol = lookup_minimal_symbol ("__prologue_saves__", NULL, NULL);
-      if (!msymbol)
+      if (!msymbol.minsym)
 	break;
 
       insn = extract_unsigned_integer (&prologue[vpc + 8], 2, byte_order);
@@ -814,7 +815,7 @@ avr_scan_prologue (struct gdbarch *gdbarch, CORE_ADDR pc_beg, CORE_ADDR pc_end,
 
       /* Resolve offset (in words) from __prologue_saves__ symbol.
          Which is a pushes count in `-mcall-prologues' mode */
-      num_pushes = AVR_MAX_PUSHES - (i - SYMBOL_VALUE_ADDRESS (msymbol)) / 2;
+      num_pushes = AVR_MAX_PUSHES - (i - BMSYMBOL_VALUE_ADDRESS (msymbol)) / 2;
 
       if (num_pushes > AVR_MAX_PUSHES)
         {

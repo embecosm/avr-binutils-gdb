@@ -1023,6 +1023,12 @@ m:int:insn_is_ret:CORE_ADDR addr:addr::default_insn_is_ret::0
 
 # Return non-zero if the instruction at ADDR is a jump; zero otherwise.
 m:int:insn_is_jump:CORE_ADDR addr:addr::default_insn_is_jump::0
+
+# Read one auxv entry from *READPTR, not reading locations >= ENDPTR.
+# Return 0 if *READPTR is already at the end of the buffer.
+# Return -1 if there is insufficient buffer for a whole entry.
+# Return 1 if an entry was read into *TYPEP and *VALP.
+M:int:auxv_parse:gdb_byte **readptr, gdb_byte *endptr, CORE_ADDR *typep, CORE_ADDR *valp:readptr, endptr, typep, valp
 EOF
 }
 
@@ -1156,11 +1162,6 @@ struct elf_internal_linux_prpsinfo;
 
 /* This is a convenience wrapper for 'current_inferior ()->gdbarch'.  */
 extern struct gdbarch *target_gdbarch (void);
-
-/* The initial, default architecture.  It uses host values (for want of a better
-   choice).  */
-extern struct gdbarch startup_gdbarch;
-
 
 /* Callback type for the 'iterate_over_objfiles_in_search_order'
    gdbarch  method.  */
@@ -1595,9 +1596,6 @@ cat <<EOF
      gdbarch_dump(): Add a fprintf_unfiltered call so that the new
      field is dumped out
 
-     \`\`startup_gdbarch()'': Append an initial value to the static
-     variable (base values on the host's c-type system).
-
      get_gdbarch(): Implement the set/get functions (probably using
      the macro's as shortcuts).
 
@@ -1615,48 +1613,6 @@ do
     fi
 done
 printf "};\n"
-
-# A pre-initialized vector
-printf "\n"
-printf "\n"
-cat <<EOF
-/* The default architecture uses host values (for want of a better
-   choice).  */
-EOF
-printf "\n"
-printf "extern const struct bfd_arch_info bfd_default_arch_struct;\n"
-printf "\n"
-printf "struct gdbarch startup_gdbarch =\n"
-printf "{\n"
-printf "  1, /* Always initialized.  */\n"
-printf "  NULL, /* The obstack.  */\n"
-printf "  /* basic architecture information.  */\n"
-function_list | while do_read
-do
-    if class_is_info_p
-    then
-	printf "  ${staticdefault},  /* ${function} */\n"
-    fi
-done
-cat <<EOF
-  /* target specific vector and its dump routine.  */
-  NULL, NULL,
-  /*per-architecture data-pointers.  */
-  0, NULL,
-  /* Multi-arch values */
-EOF
-function_list | while do_read
-do
-    if class_is_function_p || class_is_variable_p
-    then
-	printf "  ${staticdefault},  /* ${function} */\n"
-    fi
-done
-cat <<EOF
-  /* startup_gdbarch() */
-};
-
-EOF
 
 # Create a new gdbarch struct
 cat <<EOF

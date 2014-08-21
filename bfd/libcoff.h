@@ -3,7 +3,7 @@
    Run "make headers" in your build bfd/ to regenerate.  */
 
 /* BFD COFF object file private structure.
-   Copyright 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
    Written by Cygnus Support.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -123,6 +123,14 @@ typedef struct pe_tdata
   bfd_boolean insert_timestamp;
   bfd_boolean (*in_reloc_p) (bfd *, reloc_howto_type *);
   flagword real_flags;
+
+  /* Build-id info.  */
+  struct
+  {
+    bfd_boolean (*after_write_object_contents) (bfd *);
+    const char *style;
+    asection *sec;
+  } build_id;
 } pe_data_type;
 
 #define pe_data(bfd)		((bfd)->tdata.pe_obj_data)
@@ -736,6 +744,7 @@ typedef struct
   unsigned int _bfd_coff_default_section_alignment_power;
   bfd_boolean _bfd_coff_force_symnames_in_strings;
   unsigned int _bfd_coff_debug_string_prefix_length;
+  unsigned int _bfd_coff_max_nscns;
 
   void (*_bfd_coff_swap_filehdr_in)
     (bfd *, void *, void *);
@@ -873,6 +882,9 @@ typedef struct
   ((coff_backend_info (abfd)->_bfd_coff_set_long_section_names) (abfd, enable))
 #define bfd_coff_default_section_alignment_power(abfd) \
   (coff_backend_info (abfd)->_bfd_coff_default_section_alignment_power)
+#define bfd_coff_max_nscns(abfd) \
+  (coff_backend_info (abfd)->_bfd_coff_max_nscns)
+
 #define bfd_coff_swap_filehdr_in(abfd, i,o) \
   ((coff_backend_info (abfd)->_bfd_coff_swap_filehdr_in) (abfd, i, o))
 

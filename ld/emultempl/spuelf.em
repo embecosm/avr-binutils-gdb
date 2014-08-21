@@ -1,6 +1,5 @@
 # This shell script emits a C file. -*- C -*-
-#   Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2012
-#   Free Software Foundation, Inc.
+#   Copyright (C) 2006-2014 Free Software Foundation, Inc.
 #
 # This file is part of the GNU Binutils.
 #
@@ -448,7 +447,7 @@ EOF
 
 if grep -q 'ld_elf.*ppc.*_emulation' ldemul-list.h; then
   fragment <<EOF
-#include <errno.h>
+#include "safe-ctype.h"
 #include "filenames.h"
 #include "libiberty.h"
 

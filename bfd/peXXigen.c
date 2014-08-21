@@ -1,5 +1,5 @@
 /* Support for the generic parts of PE/PEI; the common executable parts.
-   Copyright 1995-2013 Free Software Foundation, Inc.
+   Copyright (C) 1995-2014 Free Software Foundation, Inc.
    Written by Cygnus Solutions.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -802,7 +802,7 @@ _bfd_XXi_only_swap_filehdr_out (bfd * abfd, void * in, void * out)
 
   /* Only use a real timestamp if the option was chosen.  */
   if ((pe_data (abfd)->insert_timestamp))
-    H_PUT_32 (abfd, time(0), filehdr_out->f_timdat);
+    H_PUT_32 (abfd, time (0), filehdr_out->f_timdat);
 
   PUT_FILEHDR_SYMPTR (abfd, filehdr_in->f_symptr,
 		      filehdr_out->f_symptr);
@@ -1031,6 +1031,106 @@ _bfd_XXi_swap_scnhdr_out (bfd * abfd, void * in, void * out)
   return ret;
 }
 
+void
+_bfd_XXi_swap_debugdir_in (bfd * abfd, void * ext1, void * in1)
+{
+  struct external_IMAGE_DEBUG_DIRECTORY *ext = (struct external_IMAGE_DEBUG_DIRECTORY *) ext1;
+  struct internal_IMAGE_DEBUG_DIRECTORY *in = (struct internal_IMAGE_DEBUG_DIRECTORY *) in1;
+
+  in->Characteristics = H_GET_32(abfd, ext->Characteristics);
+  in->TimeDateStamp = H_GET_32(abfd, ext->TimeDateStamp);
+  in->MajorVersion = H_GET_16(abfd, ext->MajorVersion);
+  in->MinorVersion = H_GET_16(abfd, ext->MinorVersion);
+  in->Type = H_GET_32(abfd, ext->Type);
+  in->SizeOfData = H_GET_32(abfd, ext->SizeOfData);
+  in->AddressOfRawData = H_GET_32(abfd, ext->AddressOfRawData);
+  in->PointerToRawData = H_GET_32(abfd, ext->PointerToRawData);
+}
+
+unsigned int
+_bfd_XXi_swap_debugdir_out (bfd * abfd, void * inp, void * extp)
+{
+  struct external_IMAGE_DEBUG_DIRECTORY *ext = (struct external_IMAGE_DEBUG_DIRECTORY *) extp;
+  struct internal_IMAGE_DEBUG_DIRECTORY *in = (struct internal_IMAGE_DEBUG_DIRECTORY *) inp;
+
+  H_PUT_32(abfd, in->Characteristics, ext->Characteristics);
+  H_PUT_32(abfd, in->TimeDateStamp, ext->TimeDateStamp);
+  H_PUT_16(abfd, in->MajorVersion, ext->MajorVersion);
+  H_PUT_16(abfd, in->MinorVersion, ext->MinorVersion);
+  H_PUT_32(abfd, in->Type, ext->Type);
+  H_PUT_32(abfd, in->SizeOfData, ext->SizeOfData);
+  H_PUT_32(abfd, in->AddressOfRawData, ext->AddressOfRawData);
+  H_PUT_32(abfd, in->PointerToRawData, ext->PointerToRawData);
+
+  return sizeof (struct external_IMAGE_DEBUG_DIRECTORY);
+}
+
+static CODEVIEW_INFO *
+_bfd_XXi_slurp_codeview_record (bfd * abfd, file_ptr where, unsigned long length, CODEVIEW_INFO *cvinfo)
+{
+  char buffer[256+1];
+
+  if (bfd_seek (abfd, where, SEEK_SET) != 0)
+    return NULL;
+
+  if (bfd_bread (buffer, 256, abfd) < 4)
+    return NULL;
+
+  /* ensure null termination of filename */
+  buffer[256] = '\0';
+
+  cvinfo->CVSignature = H_GET_32(abfd, buffer);
+  cvinfo->Age = 0;
+
+  if ((cvinfo->CVSignature == CVINFO_PDB70_CVSIGNATURE)
+      && (length > sizeof (CV_INFO_PDB70)))
+    {
+      CV_INFO_PDB70 *cvinfo70 = (CV_INFO_PDB70 *)(buffer);
+
+      cvinfo->Age = H_GET_32(abfd, cvinfo70->Age);
+      memcpy (cvinfo->Signature, cvinfo70->Signature, CV_INFO_SIGNATURE_LENGTH);
+      cvinfo->SignatureLength = CV_INFO_SIGNATURE_LENGTH;
+      // cvinfo->PdbFileName = cvinfo70->PdbFileName;
+
+      return cvinfo;
+    }
+  else if ((cvinfo->CVSignature == CVINFO_PDB20_CVSIGNATURE)
+           && (length > sizeof (CV_INFO_PDB20)))
+    {
+      CV_INFO_PDB20 *cvinfo20 = (CV_INFO_PDB20 *)(buffer);
+      cvinfo->Age = H_GET_32(abfd, cvinfo20->Age);
+      memcpy (cvinfo->Signature, cvinfo20->Signature, 4);
+      cvinfo->SignatureLength = 4;
+      // cvinfo->PdbFileName = cvinfo20->PdbFileName;
+
+      return cvinfo;
+    }
+
+  return NULL;
+}
+
+unsigned int
+_bfd_XXi_write_codeview_record (bfd * abfd, file_ptr where, CODEVIEW_INFO *cvinfo)
+{
+  unsigned int size = sizeof (CV_INFO_PDB70) + 1;
+  CV_INFO_PDB70 *cvinfo70;
+  char buffer[size];
+
+  if (bfd_seek (abfd, where, SEEK_SET) != 0)
+    return 0;
+
+  cvinfo70 = (CV_INFO_PDB70 *) buffer;
+  H_PUT_32 (abfd, CVINFO_PDB70_CVSIGNATURE, cvinfo70->CvSignature);
+  memcpy (&(cvinfo70->Signature), cvinfo->Signature, CV_INFO_SIGNATURE_LENGTH);
+  H_PUT_32 (abfd, cvinfo->Age, cvinfo70->Age);
+  cvinfo70->PdbFileName[0] = '\0';
+
+  if (bfd_bwrite (buffer, size, abfd) != size)
+    return 0;
+
+  return size;
+}
+
 static char * dir_names[IMAGE_NUMBEROF_DIRECTORY_ENTRIES] =
 {
   N_("Export Directory [.edata (or where ever we found it)]"),
@@ -1111,6 +1211,13 @@ pe_print_idata (bfd * abfd, void * vfile)
 		   _("\nThere is an import table, but the section containing it could not be found\n"));
 	  return TRUE;
 	}
+      else if (!(section->flags & SEC_HAS_CONTENTS))
+        {
+	  fprintf (file,
+		   _("\nThere is an import table in %s, but that section has no contents\n"),
+		   section->name);
+	  return TRUE;
+        }
     }
 
   fprintf (file, _("\nThere is an import table in %s at 0x%lx\n"),
@@ -1373,7 +1480,7 @@ pe_print_edata (bfd * abfd, void * vfile)
   bfd_size_type datasize = 0;
   bfd_size_type dataoff;
   bfd_size_type i;
-  bfd_signed_vma adj;
+  bfd_vma       adj;
   struct EDT_type
   {
     long export_flags;          /* Reserved - should be zero.  */
@@ -1423,6 +1530,13 @@ pe_print_edata (bfd * abfd, void * vfile)
 		   _("\nThere is an export table, but the section containing it could not be found\n"));
 	  return TRUE;
 	}
+      else if (!(section->flags & SEC_HAS_CONTENTS))
+        {
+	  fprintf (file,
+		   _("\nThere is an export table in %s, but that section has no contents\n"),
+		   section->name);
+	  return TRUE;
+        }
 
       dataoff = addr - section->vma;
       datasize = extra->DataDirectory[PE_EXPORT_TABLE].Size;
@@ -1478,8 +1592,11 @@ pe_print_edata (bfd * abfd, void * vfile)
   fprintf (file,
 	   _("Name \t\t\t\t"));
   bfd_fprintf_vma (abfd, file, edt.name);
-  fprintf (file,
-	   " %s\n", data + edt.name - adj);
+
+  if ((edt.name >= adj) && (edt.name < adj + datasize))
+    fprintf (file, " %s\n", data + edt.name - adj);
+  else
+    fprintf (file, "(outside .edata section)\n");
 
   fprintf (file,
 	   _("Ordinal Base \t\t\t%ld\n"), edt.base);
@@ -1927,10 +2044,7 @@ pe_print_reloc (bfd * abfd, void * vfile)
   bfd_size_type i;
   bfd_size_type start, stop;
 
-  if (section == NULL)
-    return TRUE;
-
-  if (section->size == 0)
+  if (section == NULL || section->size == 0 || !(section->flags & SEC_HAS_CONTENTS))
     return TRUE;
 
   fprintf (file,
@@ -2166,7 +2280,6 @@ rsrc_print_section (bfd * abfd, void * vfile)
   bfd_byte * dataend;
   bfd_byte * datastart;
 
-
   pe = pe_data (abfd);
   if (pe == NULL)
     return TRUE;
@@ -2174,12 +2287,14 @@ rsrc_print_section (bfd * abfd, void * vfile)
   section = bfd_get_section_by_name (abfd, ".rsrc");
   if (section == NULL)
     return TRUE;
-
-  rva_bias = section->vma - pe->pe_opthdr.ImageBase;
+  if (!(section->flags & SEC_HAS_CONTENTS))
+    return TRUE;
 
   datasize = section->size;
   if (datasize == 0)
     return TRUE;
+
+  rva_bias = section->vma - pe->pe_opthdr.ImageBase;
 
   if (! bfd_malloc_and_get_section (abfd, section, & data))
     {
@@ -2222,6 +2337,117 @@ rsrc_print_section (bfd * abfd, void * vfile)
     }
 
   free (datastart);
+  return TRUE;
+}
+
+#define IMAGE_NUMBEROF_DEBUG_TYPES 12
+
+static char * debug_type_names[IMAGE_NUMBEROF_DEBUG_TYPES] =
+{
+  "Unknown",
+  "COFF",
+  "CodeView",
+  "FPO",
+  "Misc",
+  "Exception",
+  "Fixup",
+  "OMAP-to-SRC",
+  "OMAP-from-SRC",
+  "Borland",
+  "Reserved",
+  "CLSID",
+};
+
+static bfd_boolean
+pe_print_debugdata (bfd * abfd, void * vfile)
+{
+  FILE *file = (FILE *) vfile;
+  pe_data_type *pe = pe_data (abfd);
+  struct internal_extra_pe_aouthdr *extra = &pe->pe_opthdr;
+  asection *section;
+  bfd_byte *data = 0;
+  bfd_size_type dataoff;
+  unsigned int i;
+
+  bfd_vma addr = extra->DataDirectory[PE_DEBUG_DATA].VirtualAddress;
+  bfd_size_type size = extra->DataDirectory[PE_DEBUG_DATA].Size;
+
+  if (size == 0)
+    return TRUE;
+
+  addr += extra->ImageBase;
+  for (section = abfd->sections; section != NULL; section = section->next)
+    {
+      if ((addr >= section->vma) && (addr < (section->vma + section->size)))
+        break;
+    }
+
+  if (section == NULL)
+    {
+      fprintf (file,
+               _("\nThere is a debug directory, but the section containing it could not be found\n"));
+      return TRUE;
+    }
+
+  fprintf (file, _("\nThere is a debug directory in %s at 0x%lx\n\n"),
+	   section->name, (unsigned long) addr);
+
+  dataoff = addr - section->vma;
+
+  fprintf (file,
+	   _("Type                Size     Rva      Offset\n"));
+
+  /* Read the whole section. */
+  if (!bfd_malloc_and_get_section (abfd, section, &data))
+    {
+      if (data != NULL)
+	free (data);
+      return FALSE;
+    }
+
+  for (i = 0; i < size / sizeof (struct external_IMAGE_DEBUG_DIRECTORY); i++)
+    {
+      const char *type_name;
+      struct external_IMAGE_DEBUG_DIRECTORY *ext
+	= &((struct external_IMAGE_DEBUG_DIRECTORY *)(data + dataoff))[i];
+      struct internal_IMAGE_DEBUG_DIRECTORY idd;
+
+      _bfd_XXi_swap_debugdir_in (abfd, ext, &idd);
+
+      if ((idd.Type) > IMAGE_NUMBEROF_DEBUG_TYPES)
+        type_name = debug_type_names[0];
+      else
+        type_name = debug_type_names[idd.Type];
+
+      fprintf (file, " %2ld  %14s %08lx %08lx %08lx\n",
+	       idd.Type, type_name, idd.SizeOfData,
+	       idd.AddressOfRawData, idd.PointerToRawData);
+
+      if (idd.Type == PE_IMAGE_DEBUG_TYPE_CODEVIEW)
+        {
+          char signature[CV_INFO_SIGNATURE_LENGTH * 2 + 1];
+          char buffer[256 + 1];
+          CODEVIEW_INFO *cvinfo = (CODEVIEW_INFO *) buffer;
+
+          /* The debug entry doesn't have to have to be in a section,
+	     in which case AddressOfRawData is 0, so always use PointerToRawData.  */
+          if (!_bfd_XXi_slurp_codeview_record (abfd, (file_ptr) idd.PointerToRawData,
+					       idd.SizeOfData, cvinfo))
+            continue;
+
+          for (i = 0; i < cvinfo->SignatureLength; i++)
+            sprintf (&signature[i*2], "%02x", cvinfo->Signature[i] & 0xff);
+
+          fprintf (file, "(format %c%c%c%c signature %s age %ld)\n",
+		   buffer[0], buffer[1], buffer[2], buffer[3],
+		   signature, cvinfo->Age);
+        }
+    }
+
+  if (size % sizeof (struct external_IMAGE_DEBUG_DIRECTORY) != 0)
+    fprintf (file,
+            _("The debug directory size is not a multiple of the debug directory entry size\n"));
+
   return TRUE;
 }
 
@@ -2398,6 +2624,7 @@ _bfd_XX_print_private_bfd_data_common (bfd * abfd, void * vfile)
   else
     pe_print_pdata (abfd, vfile);
   pe_print_reloc (abfd, vfile);
+  pe_print_debugdata (abfd, file);
 
   rsrc_print_section (abfd, vfile);
 
@@ -3498,6 +3725,10 @@ rsrc_process_section (bfd * abfd,
   rsrc_directory *  type_tables;
   rsrc_write_data   write_data;
   unsigned int      indx;
+  bfd *             input;
+  unsigned int      num_input_rsrc = 0;
+  unsigned int      max_num_input_rsrc = 4;
+  ptrdiff_t *       rsrc_sizes = NULL;
 
   new_table.names.num_entries = 0;
   new_table.ids.num_entries = 0;
@@ -3520,9 +3751,47 @@ rsrc_process_section (bfd * abfd,
   if (! bfd_get_section_contents (abfd, sec, data, 0, size))
     goto end;
 
+  /* Step zero: Scan the input bfds looking for .rsrc sections and record
+     their lengths.  Note - we rely upon the fact that the linker script
+     does *not* sort the input .rsrc sections, so that the order in the
+     linkinfo list matches the order in the output .rsrc section.
+
+     We need to know the lengths because each input .rsrc section has padding
+     at the end of a variable amount.  (It does not appear to be based upon
+     the section alignment or the file alignment).  We need to skip any
+     padding bytes when parsing the input .rsrc sections.  */
+  rsrc_sizes = bfd_malloc (max_num_input_rsrc * sizeof * rsrc_sizes);
+  if (rsrc_sizes == NULL)
+    goto end;
+
+  for (input = pfinfo->info->input_bfds;
+       input != NULL;
+       input = input->link_next)
+    {
+      asection * rsrc_sec = bfd_get_section_by_name (input, ".rsrc");
+
+      if (rsrc_sec != NULL)
+	{
+	  if (num_input_rsrc == max_num_input_rsrc)
+	    {
+	      max_num_input_rsrc += 10;
+	      rsrc_sizes = bfd_realloc (rsrc_sizes, max_num_input_rsrc
+					* sizeof * rsrc_sizes);
+	      if (rsrc_sizes == NULL)
+		goto end;
+	    }
+
+	  BFD_ASSERT (rsrc_sec->size > 0);
+	  rsrc_sizes [num_input_rsrc ++] = rsrc_sec->size;
+	}
+    }
+
+  if (num_input_rsrc < 2)
+    goto end;
+
   /* Step one: Walk the section, computing the size of the tables,
      leaves and data and decide if we need to do anything.  */
-  dataend   = data + size;
+  dataend = data + size;
   num_resource_sets = 0;
   sizeof_leaves = sizeof_strings = sizeof_tables_and_entries = 0;
 
@@ -3531,6 +3800,7 @@ rsrc_process_section (bfd * abfd,
       bfd_byte * p = data;
 
       data = rsrc_count_directory (abfd, data, data, dataend, rva_bias);
+
       if (data > dataend)
 	{
 	  /* Corrupted .rsrc section - cannot merge.  */
@@ -3540,19 +3810,21 @@ rsrc_process_section (bfd * abfd,
 	  goto end;
 	}
 
-      /* Align the data pointer - we assume 1^2 alignment.  */
-      data = (bfd_byte *) (((ptrdiff_t) (data + 3)) & ~ 3);
+      if ((data - p) > rsrc_sizes [num_resource_sets])
+	{
+	  _bfd_error_handler (_("%s: .rsrc merge failure: unexpected .rsrc size"),
+			      bfd_get_filename (abfd));
+	  bfd_set_error (bfd_error_file_truncated);
+	  goto end;
+	}
+      /* FIXME: Should we add a check for "data - p" being much smaller
+	 than rsrc_sizes[num_resource_sets] ?  */
+
+      data = p + rsrc_sizes[num_resource_sets];
       rva_bias += data - p;
-
-      if (data == (dataend - 4))
-	data = dataend;
-
       ++ num_resource_sets;
     }
-
-  if (num_resource_sets < 2)
-    /* No merging necessary.  */
-    goto end;
+  BFD_ASSERT (num_resource_sets == num_input_rsrc);
 
   /* Step two: Walk the data again, building trees of the resources.  */
   data = datastart;
@@ -3567,13 +3839,11 @@ rsrc_process_section (bfd * abfd,
     {
       bfd_byte * p = data;
 
-      data = rsrc_parse_directory (abfd, type_tables + indx, data, data,
+      (void) rsrc_parse_directory (abfd, type_tables + indx, data, data,
 				   dataend, rva_bias, NULL);
-      data = (bfd_byte *) (((ptrdiff_t) (data + 3)) & ~ 3);
+      data = p + rsrc_sizes[indx];
       rva_bias += data - p;
-      if (data == (dataend - 4))
-	data = dataend;
-      indx ++;
+      ++ indx;
     }
   BFD_ASSERT (indx == num_resource_sets);
 
@@ -3630,8 +3900,10 @@ rsrc_process_section (bfd * abfd,
   sec->size = sec->rawsize = size;
 
  end:
+  /* Step size: Free all the memory that we have used.  */
   /* FIXME: Free the resource tree, if we have one.  */
   free (datastart);
+  free (rsrc_sizes);
 }
 
 /* Handle the .idata section and other things that need symbol table
@@ -3781,7 +4053,7 @@ _bfd_XXi_final_link_postscript (bfd * abfd, struct coff_final_link_info *pfinfo)
     }
 
   h1 = coff_link_hash_lookup (coff_hash_table (info),
-			      (bfd_get_symbol_leading_char(abfd) != 0
+			      (bfd_get_symbol_leading_char (abfd) != 0
 			       ? "__tls_used" : "_tls_used"),
 			      FALSE, FALSE, TRUE);
   if (h1 != NULL)

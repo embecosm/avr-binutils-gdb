@@ -1,5 +1,5 @@
 /* aarch64-opc.c -- AArch64 opcode support.
-   Copyright 2009, 2010, 2011, 2012, 2013  Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of the GNU opcodes library.
@@ -2282,9 +2282,12 @@ print_register_offset_address (char *buf, size_t size,
   else
     tb[0] = '\0';
 
-  snprintf (buf, size, "[%s,%c%d%s]",
+  snprintf (buf, size, "[%s,%s%s]",
 	    get_64bit_int_reg_name (opnd->addr.base_regno, 1),
-	    wm_p ? 'w' : 'x', opnd->addr.offset.regno, tb);
+	    get_int_reg_name (opnd->addr.offset.regno,
+			      wm_p ? AARCH64_OPND_QLF_W : AARCH64_OPND_QLF_X,
+			      0 /* sp_reg_p */),
+	    tb);
 }
 
 /* Generate the string representation of the operand OPNDS[IDX] for OPCODE
