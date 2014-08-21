@@ -1,5 +1,5 @@
 #name: AVR RMW instructions
-#as: -mmcu=avrxmega2 -mrmw
+#as: -mrmw
 #objdump: -dr --show-raw-insn
 #target: avr-*-*
 

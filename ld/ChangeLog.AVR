@@ -1,3 +1,10 @@
+2014-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	Adjust tests to our testsuite harness that provides -mmcu flags to
+	match the tested subtarget.
+	* testsuite/ld-avr/relax_diff.d: Remove -mmcu option, adjust regexp.
+	* testsuite/ld-avr/norelax_diff.d: Likewise.
+
 2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* testsuite/ld-avr/avr.exp: Add symdiff dump test.

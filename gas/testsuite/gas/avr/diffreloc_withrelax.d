@@ -1,5 +1,5 @@
 #name: AVR DIFF relocs with link relax
-#as: -mmcu=avrxmega2 -mlink-relax
+#as: -mlink-relax
 #source: relax.s
 #objdump: -r
 #target: avr-*-*

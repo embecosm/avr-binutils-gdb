@@ -1,3 +1,13 @@
+2014-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	Adjust tests to our testsuite harness that provides -mmcu flags to
+	match the tested subtarget; anticipate symbol differences to work:
+	* testsuite/gas/avr/diffreloc_withrelax.d: Remove -mmcu option.
+	* testsuite/gas/avr/noreloc_withoutrelax.d: Likewise.
+	* testsuite/gas/testsuite/gas/avr/rmw.d: Likewise.
+	* testsuite/gas/testsuite/gas/all/gas.exp
+	(difference of two undefined symbol): Does not apply any more.
+
 2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/tc-avr.h (TC_VALIDATE_FIX_SUB, DIFF_EXPR_OK): Define.

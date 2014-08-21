@@ -1,6 +1,6 @@
 #name: AVR Account for relaxation in label differences
-#as: -mmcu=avrxmega2 -mlink-relax
-#ld:  -mavrxmega2 --relax
+#as: -mlink-relax
+#ld: --relax
 #source: relax.s
 #objdump: -s
 #target: avr-*-*
@@ -10,5 +10,5 @@
 Contents of section .text:
  0000 ffcf                                 .*
 Contents of section .data:
- 802000 0200                               .*
+ [0-9]* 0200                               .*
 
