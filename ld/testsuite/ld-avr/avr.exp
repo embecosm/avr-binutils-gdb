@@ -1,4 +1,4 @@
-# Expect script for ld-sh tests
+# Expect script for ld-avr tests
 #   Copyright 1995-2014
 #   Free Software Foundation, Inc.
 #
@@ -29,7 +29,6 @@ if ![istarget avr*-*-*] {
 
 set link_in "AVR in address resolving"
 set relax_in "AVR relaxing for in"
-set symdiff "AVR symbol difference resolving"
 
 if { [which $CC] == 0 } {
     untested $link_in
@@ -68,4 +67,8 @@ if {![ld_compile $CC "-O -mrelax $srcdir/$subdir/in2.c" tmpdir/in2.o]
     }
 }
 
-run_dump_test "symdiff"
+set avr_test_list [lsort [glob -nocomplain $srcdir/$subdir/*.d]]
+foreach avr_test $avr_test_list {
+    verbose [file rootname $avr_test]
+    run_dump_test [file rootname $avr_test]
+}

@@ -118,6 +118,13 @@ extern void avr_cons_fix_new (fragS *,int, int, expressionS *,
    visible symbols can be overridden.  */
 #define EXTERN_FORCE_RELOC 0
 
+/* If this macro returns non-zero, it guarantees that a relocation will be emitted
+   even when the value can be resolved locally. Do that if linkrelax is turned on */
+#define TC_FORCE_RELOCATION(fix)	avr_force_relocation (fix)
+#define TC_FORCE_RELOCATION_SUB_SAME(fix, seg) \
+  (! SEG_NORMAL (seg) || avr_force_relocation (fix))
+extern int avr_force_relocation (struct fix *);
+
 /* Values passed to md_apply_fix don't include the symbol value.  */
 #define MD_APPLY_SYM_VALUE(FIX) 0
 
@@ -196,3 +203,8 @@ extern long md_pcrel_from_section (struct fix *, segT);
 /* Define a hook to setup initial CFI state.  */
 extern void tc_cfi_frame_initial_instructions (void);
 #define tc_cfi_frame_initial_instructions tc_cfi_frame_initial_instructions
+
+/* The difference between same-section symbols may be affected by linker
+   relaxation, so do not resolve such expressions in the assembler.  */
+#define md_allow_local_subtract(l,r,s) avr_allow_local_subtract (l, r, s)
+extern bfd_boolean avr_allow_local_subtract (expressionS *, expressionS *, segT);

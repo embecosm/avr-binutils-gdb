@@ -338,9 +338,11 @@ struct avr_opt_s
   int all_opcodes;  /* -mall-opcodes: accept all known AVR opcodes.  */
   int no_skip_bug;  /* -mno-skip-bug: no warnings for skipping 2-word insns.  */
   int no_wrap;      /* -mno-wrap: reject rjmp/rcall with 8K wrap-around.  */
+  int link_relax;   /* -mlink-relax: generate relocations for linker 
+                       relaxation. */
 };
 
-static struct avr_opt_s avr_opt = { 0, 0, 0 };
+static struct avr_opt_s avr_opt = { 0, 0, 0, 0 };
 
 const char EXP_CHARS[] = "eE";
 const char FLT_CHARS[] = "dD";
@@ -401,7 +403,8 @@ enum options
   OPTION_ALL_OPCODES = OPTION_MD_BASE + 1,
   OPTION_NO_SKIP_BUG,
   OPTION_NO_WRAP,
-  OPTION_ISA_RMW
+  OPTION_ISA_RMW,
+  OPTION_LINK_RELAX
 };
 
 struct option md_longopts[] =
@@ -411,6 +414,7 @@ struct option md_longopts[] =
   { "mno-skip-bug", no_argument, NULL, OPTION_NO_SKIP_BUG },
   { "mno-wrap",     no_argument, NULL, OPTION_NO_WRAP     },
   { "mrmw",         no_argument, NULL, OPTION_ISA_RMW     },
+  { "mlink-relax",  no_argument, NULL, OPTION_LINK_RELAX  },
   { NULL, no_argument, NULL, 0 }
 };
 
@@ -517,6 +521,7 @@ md_show_usage (FILE *stream)
 	"  -mno-wrap        reject rjmp/rcall instructions with 8K wrap-around\n"
 	"                   (default for avr3, avr5)\n"
 	"  -mrmw            accept Read-Modify-Write instructions\n"
+    "  -mlink-relax     generate relocations for linker relaxation\n"
     ));
   show_mcu_list (stream);
 }
@@ -587,6 +592,9 @@ md_parse_option (int c, char *arg)
     case OPTION_ISA_RMW:
       specified_mcu.isa |= AVR_ISA_RMW;
       return 1;
+    case OPTION_LINK_RELAX:
+      avr_opt.link_relax = 1;
+      return 1;
     }
 
   return 0;
@@ -637,6 +645,7 @@ md_begin (void)
     }
 
   bfd_set_arch_mach (stdoutput, TARGET_ARCH, avr_mcu->mach);
+  linkrelax = avr_opt.link_relax;
 }
 
 /* Resolve STR as a constant expression and return the result.
@@ -1216,6 +1225,27 @@ md_pcrel_from_section (fixS *fixp, segT sec)
   return fixp->fx_frag->fr_address + fixp->fx_where;
 }
 
+static bfd_boolean
+relaxable_section (asection *sec)
+{
+  return (sec->flags & SEC_DEBUGGING) == 0;
+}
+
+/* TC_FORCE_RELOCATION hook */
+
+/* If linkrelax is turned on, and the symbol to relocate
+   against is in a relaxable segment, don't compute the value -
+   generate a relocation instead. */
+int
+avr_force_relocation (fixS *fix)
+{
+  if (linkrelax && fix->fx_addsy
+      && relaxable_section (S_GET_SEGMENT (fix->fx_addsy)))
+    return 1;
+
+  return generic_force_reloc (fix);
+}
+
 /* GAS will call this for each fixup.  It should store the correct
    value in the object file.  */
 
@@ -1694,4 +1724,26 @@ tc_cfi_frame_initial_instructions (void)
   /* Note that AVR consistently uses post-decrement, which means that things
      do not line up the same way as for targers that use pre-decrement.  */
   cfi_add_CFA_offset (DWARF2_DEFAULT_RETURN_COLUMN, 1-return_size);
+}
+
+bfd_boolean
+avr_allow_local_subtract (expressionS * left,
+			     expressionS * right,
+			     segT section)
+{
+  /* If we are not in relaxation mode, subtraction is OK. */
+  if (!linkrelax)
+    return TRUE;
+
+  /* If the symbols are not in a code section then they are OK.  */
+  if ((section->flags & SEC_CODE) == 0)
+    return TRUE;
+
+  if (left->X_add_symbol == right->X_add_symbol)
+    return TRUE;
+
+  /* We have to assume that there may be instructions between the
+     two symbols and that relaxation may increase the distance between
+     them.  */
+  return FALSE;
 }
