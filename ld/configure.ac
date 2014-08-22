@@ -18,17 +18,15 @@ dnl <http://www.gnu.org/licenses/>.
 dnl
 
 AC_PREREQ(2.59)
-AC_INIT
+m4_include([../bfd/version.m4])
+AC_INIT([ld], BFD_VERSION)
 AC_CONFIG_SRCDIR(ldmain.c)
 
 AC_CANONICAL_TARGET
 AC_CANONICAL_BUILD
 AC_ISC_POSIX
 
-changequote(,)dnl
-BFD_VERSION=`${srcdir}/../bfd/configure --version | sed -n -e '1s,.* ,,p'`
-changequote([,])dnl
-AM_INIT_AUTOMAKE(ld, ${BFD_VERSION})
+AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
 
 AC_ARG_WITH(lib-path, [  --with-lib-path=dir1:dir2...  set default LIB_PATH],LIB_PATH=$withval)
@@ -284,7 +282,7 @@ dnl file.
 rm -f tdirs
 
 # If the host is 64-bit, then we enable 64-bit targets by default.
-# This is consistent with what ../bfd/configure.in does.
+# This is consistent with what ../bfd/configure.ac does.
 if test x${want64} = xfalse; then
   AC_CHECK_SIZEOF(void *)
   if test "x${ac_cv_sizeof_void_p}" = "x8"; then

@@ -1,3 +1,64 @@
+2014-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* target-delegates.c: Rebuild.
+	* target.c (target_info_record): Remove.
+	* record.c (info_record_command): Unconditionally call
+	to_info_record.
+	* target.h (struct target_ops) <to_info_record>: Use
+	TARGET_DEFAULT_IGNORE.
+	(target_info_record): Remove.
+
+2014-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* target.h (struct target_ops) <to_get_thread_local_address>: Use
+	TARGET_DEFAULT_NORETURN.
+	* target.c (generic_tls_error): New function.
+	(target_translate_tls_address): Don't search target stack.
+	* target-delegates.c: Rebuild.
+	* ppc-linux-tdep.c (ppc_linux_spe_context): Don't search target
+	stack.
+	* linux-thread-db.c (thread_db_get_thread_local_address):
+	Unconditionally call beneath target.
+
+2014-07-03  Marc Khouzam  <marc.khouzam@ericsson.com>
+
+	* cli/cli-logging.c (pop_output_files): Assign targerr to
+	gdb_stdtargerr.
+
+2014-07-03  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* MAINTAINERS (Write After Approval): Update my email address.
+
+2014-07-02  Gary Benson  <gbenson@redhat.com>
+
+	* proc-service.c (ps_xfer_memory): Update comment.
+	(ps_pstop): Remove unused function.
+	(ps_pcontinue): Likewise.
+	(ps_lstop): Likewise.
+	(ps_lcontinue): Likewise.
+	(ps_lgetxregsize): Likewise.
+	(ps_lgetxregs): Likewise.
+	(ps_lsetxregs): Likewise.
+	(ps_plog): Likewise.
+	(ps_ptread): Likewise.
+	(ps_ptwrite): Likewise.
+
+2014-07-01  Mark Wielaard  <mjw@redhat.com>
+
+	* dwarf2read.c (add_array_cv_type): New function.
+	(read_tag_const_type): Call add_array_cv_type for TYPE_CODE_ARRAY.
+	(read_tag_volatile_type): Likewise.
+
+2014-07-01  Tom Tromey  <tromey@redhat.com>
+
+	* breakpoint.c (add_catch_command): Use cmd_sfunc_ftype.
+	* breakpoint.h (add_catch_command): Use cmd_sfunc_ftype.
+	* cli/cli-decode.c (cmd_cfunc_eq, add_cmd, add_prefix_cmd)
+	(add_abbrev_prefix_cmd, add_info, add_com): Use cmd_cfunc_ftype.
+	* command.h (cmd_cfunc_ftype): Move earlier.
+	(add_cmd, add_prefix_cmd, add_abbrev_prefix_cmd, cmd_cfunc_eq)
+	(add_com, add_info): Use cmd_cfunc_ftype.
+
 2014-06-30  Tom Tromey  <tromey@redhat.com>
 
 	* symtab.c (operator_chars): Make parameters and return type

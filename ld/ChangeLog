@@ -1,3 +1,47 @@
+2014-07-04  Alan Modra  <amodra@gmail.com>
+
+	* configure.ac: Update "configure.in" comments.
+	* configure: Regenerate.
+
+2014-07-04  Alan Modra  <amodra@gmail.com>
+
+	* configure.ac: Rename from configure.in.
+	* Makefile.in: Regenerate.
+	* config.in: Regenerate.
+
+2014-07-04  Alan Modra  <amodra@gmail.com>
+
+	* configure.in: Include bfd/version.m4.
+	(AC_INIT, AM_INIT_AUTOMAKE): Use modern form.
+	(BFD_VERSION): Delete.
+	* Makefile.am (CONFIG_STATUS_DEPENDENCIES): Remove bfd/configure.in.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2014-07-03  Alan Modra  <amodra@gmail.com>
+
+	PR 17068
+	* ldlang.c (load_symbols): Always check flags.reload.
+	(open_input_bfds): Always reload --as-needed shared libraries,
+	not just when rescanning.
+	* ldlang.h (struct lang_input_statement_flags): Update reload comment.
+	* plugin.c (plugin_should_reload): Assume shared library arg.
+	* plugin.h (plugin_should_reload): Update comment.
+
+2014-07-01  Alan Modra  <amodra@gmail.com>
+
+	* emultempl/ppc64elf.em (stub_added): Delete.
+	(gld${EMULATION_NAME}_finish): Call ppc64_elf_build_stubs even when
+	none of the usual stubs have been added.  Only change entry_section
+	for ELFv1.
+
+2014-07-01  Alan Modra  <amodra@gmail.com>
+
+	* sysdep.h: Don't include limits.h and sys/param.h.  Don't
+	include unistd.h twice.
+	(LD_PATHMAX): Don't define.
+	* ldlang.c (lang_common): Don't use UINT_MAX.
+
 2014-07-01  Barney Stratford  <barney_stratford@fastmail.fm>
             Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
             Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
