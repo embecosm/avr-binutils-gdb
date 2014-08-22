@@ -746,7 +746,7 @@ objfile_relocate1 (struct objfile *objfile,
     ALL_OBJFILE_SYMTABS (objfile, s)
     {
       struct linetable *l;
-      struct blockvector *bv;
+      const struct blockvector *bv;
       int i;
 
       /* First the line table.  */
@@ -1450,6 +1450,22 @@ is_addr_in_objfile (CORE_ADDR addr, const struct objfile *objfile)
 	  && addr < obj_section_endaddr (osect))
 	return 1;
     }
+  return 0;
+}
+
+int
+shared_objfile_contains_address_p (struct program_space *pspace,
+				   CORE_ADDR address)
+{
+  struct objfile *objfile;
+
+  ALL_PSPACE_OBJFILES (pspace, objfile)
+    {
+      if ((objfile->flags & OBJF_SHARED) != 0
+	  && is_addr_in_objfile (address, objfile))
+	return 1;
+    }
+
   return 0;
 }
 

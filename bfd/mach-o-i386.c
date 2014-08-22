@@ -394,9 +394,10 @@ const mach_o_segment_name_xlat mach_o_i386_segsec_names_xlat[] =
 #define bfd_mach_o_bfd_reloc_type_lookup bfd_mach_o_i386_bfd_reloc_type_lookup
 #define bfd_mach_o_bfd_reloc_name_lookup bfd_mach_o_i386_bfd_reloc_name_lookup
 
-#define TARGET_NAME 		mach_o_i386_vec
+#define TARGET_NAME 		i386_mach_o_vec
 #define TARGET_STRING 		"mach-o-i386"
 #define TARGET_ARCHITECTURE	bfd_arch_i386
+#define TARGET_PAGESIZE		4096
 #define TARGET_BIG_ENDIAN 	0
 #define TARGET_ARCHIVE 		0
 #define TARGET_PRIORITY		0

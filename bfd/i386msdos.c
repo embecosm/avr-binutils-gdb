@@ -150,7 +150,6 @@ msdos_set_section_contents (bfd *abfd,
   _bfd_generic_section_already_linked
 #define msdos_bfd_define_common_symbol bfd_generic_define_common_symbol
 #define msdos_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
-#define msdos_bfd_link_hash_table_free _bfd_generic_link_hash_table_free
 #define msdos_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define msdos_bfd_link_just_syms _bfd_generic_link_just_syms
 #define msdos_bfd_copy_link_hash_symbol_type \
@@ -176,7 +175,7 @@ msdos_set_section_contents (bfd *abfd,
 #define msdos_get_reloc_upper_bound _bfd_norelocs_get_reloc_upper_bound
 #define msdos_32_bfd_link_split_section  _bfd_generic_link_split_section
 
-const bfd_target i386msdos_vec =
+const bfd_target i386_msdos_vec =
   {
     "msdos",			/* name */
     bfd_target_msdos_flavour,

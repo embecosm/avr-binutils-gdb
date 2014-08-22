@@ -476,8 +476,6 @@ extern bfd_boolean _bfd_generic_set_section_contents
    bfd_false)
 #define _bfd_nolink_bfd_link_hash_table_create \
   ((struct bfd_link_hash_table *(*) (bfd *)) bfd_nullvoidptr)
-#define _bfd_nolink_bfd_link_hash_table_free \
-  ((void (*) (struct bfd_link_hash_table *)) bfd_void)
 #define _bfd_nolink_bfd_link_add_symbols \
   ((bfd_boolean (*) (bfd *, struct bfd_link_info *)) bfd_false)
 #define _bfd_nolink_bfd_link_just_syms \
@@ -565,7 +563,8 @@ extern bfd_boolean _bfd_dwarf2_find_inliner_info
 
 /* Read DWARF 2 debugging information. */
 extern bfd_boolean _bfd_dwarf2_slurp_debug_info
-  (bfd *, bfd *, const struct dwarf_debug_section *, asymbol **, void **);
+  (bfd *, bfd *, const struct dwarf_debug_section *, asymbol **, void **,
+   bfd_boolean);
 
 /* Clean up the data used to handle DWARF 2 debugging information. */
 extern void _bfd_dwarf2_cleanup_debug_info
@@ -594,7 +593,7 @@ extern struct bfd_link_hash_table *_bfd_generic_link_hash_table_create
 
 /* Generic link hash table destruction routine.  */
 extern void _bfd_generic_link_hash_table_free
-  (struct bfd_link_hash_table *);
+  (bfd *);
 
 /* Generic add symbol routine.  */
 extern bfd_boolean _bfd_generic_link_add_symbols
@@ -2451,8 +2450,30 @@ static const char *const bfd_reloc_code_real_names[] = { "@@uninitialized@@",
   "BFD_RELOC_860_HIGH",
   "BFD_RELOC_860_HIGOT",
   "BFD_RELOC_860_HIGOTOFF",
-  "BFD_RELOC_OPENRISC_ABS_26",
-  "BFD_RELOC_OPENRISC_REL_26",
+  "BFD_RELOC_OR1K_REL_26",
+  "BFD_RELOC_OR1K_GOTPC_HI16",
+  "BFD_RELOC_OR1K_GOTPC_LO16",
+  "BFD_RELOC_OR1K_GOT16",
+  "BFD_RELOC_OR1K_PLT26",
+  "BFD_RELOC_OR1K_GOTOFF_HI16",
+  "BFD_RELOC_OR1K_GOTOFF_LO16",
+  "BFD_RELOC_OR1K_COPY",
+  "BFD_RELOC_OR1K_GLOB_DAT",
+  "BFD_RELOC_OR1K_JMP_SLOT",
+  "BFD_RELOC_OR1K_RELATIVE",
+  "BFD_RELOC_OR1K_TLS_GD_HI16",
+  "BFD_RELOC_OR1K_TLS_GD_LO16",
+  "BFD_RELOC_OR1K_TLS_LDM_HI16",
+  "BFD_RELOC_OR1K_TLS_LDM_LO16",
+  "BFD_RELOC_OR1K_TLS_LDO_HI16",
+  "BFD_RELOC_OR1K_TLS_LDO_LO16",
+  "BFD_RELOC_OR1K_TLS_IE_HI16",
+  "BFD_RELOC_OR1K_TLS_IE_LO16",
+  "BFD_RELOC_OR1K_TLS_LE_HI16",
+  "BFD_RELOC_OR1K_TLS_LE_LO16",
+  "BFD_RELOC_OR1K_TLS_TPOFF",
+  "BFD_RELOC_OR1K_TLS_DTPOFF",
+  "BFD_RELOC_OR1K_TLS_DTPMOD",
   "BFD_RELOC_H8_DIR16A8",
   "BFD_RELOC_H8_DIR16R8",
   "BFD_RELOC_H8_DIR24A8",

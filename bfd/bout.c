@@ -1377,7 +1377,6 @@ b_out_bfd_get_relocated_section_contents (bfd *output_bfd,
 #define aout_32_bfd_make_debug_symbol          _bfd_nosymbols_bfd_make_debug_symbol
 #define aout_32_close_and_cleanup              aout_32_bfd_free_cached_info
 #define b_out_bfd_link_hash_table_create       _bfd_generic_link_hash_table_create
-#define b_out_bfd_link_hash_table_free         _bfd_generic_link_hash_table_free
 #define b_out_bfd_link_add_symbols             _bfd_generic_link_add_symbols
 #define b_out_bfd_link_just_syms               _bfd_generic_link_just_syms
 #define b_out_bfd_copy_link_hash_symbol_type \
@@ -1393,9 +1392,9 @@ b_out_bfd_get_relocated_section_contents (bfd *output_bfd,
 #define b_out_bfd_define_common_symbol         bfd_generic_define_common_symbol
 #define aout_32_get_section_contents_in_window _bfd_generic_get_section_contents_in_window
 
-extern const bfd_target b_out_vec_little_host;
+extern const bfd_target bout_le_vec;
 
-const bfd_target b_out_vec_big_host =
+const bfd_target bout_be_vec =
 {
   "b.out.big",			/* Name.  */
   bfd_target_aout_flavour,
@@ -1432,12 +1431,12 @@ const bfd_target b_out_vec_big_host =
      BFD_JUMP_TABLE_LINK (b_out),
      BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
 
-  & b_out_vec_little_host,
+  & bout_le_vec,
 
   NULL
 };
 
-const bfd_target b_out_vec_little_host =
+const bfd_target bout_le_vec =
 {
   "b.out.little",		/* Name.  */
   bfd_target_aout_flavour,
@@ -1475,7 +1474,7 @@ const bfd_target b_out_vec_little_host =
      BFD_JUMP_TABLE_LINK (b_out),
      BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
 
-  & b_out_vec_big_host,
+  & bout_be_vec,
 
   NULL
 };

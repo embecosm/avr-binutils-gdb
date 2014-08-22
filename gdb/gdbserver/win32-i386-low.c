@@ -45,8 +45,8 @@ static int debug_registers_used = 0;
 
 /* Update the inferior's debug register REGNUM from STATE.  */
 
-void
-i386_dr_low_set_addr (const struct i386_debug_reg_state *state, int regnum)
+static void
+i386_dr_low_set_addr (int regnum, CORE_ADDR addr)
 {
   if (! (regnum >= 0 && regnum <= DR_LASTADDR - DR_FIRSTADDR))
     fatal ("Invalid debug register %d", regnum);
@@ -58,7 +58,7 @@ i386_dr_low_set_addr (const struct i386_debug_reg_state *state, int regnum)
   debug_registers_used = 1;
 }
 
-CORE_ADDR
+static CORE_ADDR
 i386_dr_low_get_addr (int regnum)
 {
   gdb_assert (DR_FIRSTADDR <= regnum && regnum <= DR_LASTADDR);
@@ -68,8 +68,8 @@ i386_dr_low_get_addr (int regnum)
 
 /* Update the inferior's DR7 debug control register from STATE.  */
 
-void
-i386_dr_low_set_control (const struct i386_debug_reg_state *state)
+static void
+i386_dr_low_set_control (unsigned long control)
 {
   /* debug_reg_state.dr_control_mirror is already set.
      Just notify i386_set_thread_context, i386_thread_added
@@ -78,7 +78,7 @@ i386_dr_low_set_control (const struct i386_debug_reg_state *state)
   debug_registers_used = 1;
 }
 
-unsigned
+static unsigned long
 i386_dr_low_get_control (void)
 {
   return debug_reg_state.dr_control_mirror;
@@ -87,7 +87,7 @@ i386_dr_low_get_control (void)
 /* Get the value of the DR6 debug status register from the inferior
    and record it in STATE.  */
 
-unsigned
+static unsigned long
 i386_dr_low_get_status (void)
 {
   /* We don't need to do anything here, the last call to thread_rec for
@@ -95,18 +95,47 @@ i386_dr_low_get_status (void)
   return debug_reg_state.dr_status_mirror;
 }
 
-/* Watchpoint support.  */
+/* Low-level function vector.  */
+struct i386_dr_low_type i386_dr_low =
+  {
+    i386_dr_low_set_control,
+    i386_dr_low_set_addr,
+    i386_dr_low_get_addr,
+    i386_dr_low_get_status,
+    i386_dr_low_get_control,
+    sizeof (void *),
+  };
+
+/* Breakpoint/watchpoint support.  */
 
 static int
-i386_insert_point (char type, CORE_ADDR addr, int len)
+i386_supports_z_point_type (char z_type)
+{
+  switch (z_type)
+    {
+    case Z_PACKET_WRITE_WP:
+    case Z_PACKET_ACCESS_WP:
+      return 1;
+    default:
+      return 0;
+    }
+}
+
+static int
+i386_insert_point (enum raw_bkpt_type type, CORE_ADDR addr,
+		   int size, struct raw_breakpoint *bp)
 {
   switch (type)
     {
-    case '2':
-    case '3':
-    case '4':
-      return i386_low_insert_watchpoint (&debug_reg_state,
-					 type, addr, len);
+    case raw_bkpt_type_write_wp:
+    case raw_bkpt_type_access_wp:
+      {
+	enum target_hw_bp_type hw_type
+	  = raw_bkpt_type_to_target_hw_bp_type (type);
+
+	return i386_dr_insert_watchpoint (&debug_reg_state,
+					  hw_type, addr, size);
+      }
     default:
       /* Unsupported.  */
       return 1;
@@ -114,15 +143,20 @@ i386_insert_point (char type, CORE_ADDR addr, int len)
 }
 
 static int
-i386_remove_point (char type, CORE_ADDR addr, int len)
+i386_remove_point (enum raw_bkpt_type type, CORE_ADDR addr,
+		   int size, struct raw_breakpoint *bp)
 {
   switch (type)
     {
-    case '2':
-    case '3':
-    case '4':
-      return i386_low_remove_watchpoint (&debug_reg_state,
-					 type, addr, len);
+    case raw_bkpt_type_write_wp:
+    case raw_bkpt_type_access_wp:
+      {
+	enum target_hw_bp_type hw_type
+	  = raw_bkpt_type_to_target_hw_bp_type (type);
+
+	return i386_dr_remove_watchpoint (&debug_reg_state,
+					  hw_type, addr, size);
+      }
     default:
       /* Unsupported.  */
       return 1;
@@ -132,14 +166,14 @@ i386_remove_point (char type, CORE_ADDR addr, int len)
 static int
 i386_stopped_by_watchpoint (void)
 {
-  return i386_low_stopped_by_watchpoint (&debug_reg_state);
+  return i386_dr_stopped_by_watchpoint (&debug_reg_state);
 }
 
 static CORE_ADDR
 i386_stopped_data_address (void)
 {
   CORE_ADDR addr;
-  if (i386_low_stopped_data_address (&debug_reg_state, &addr))
+  if (i386_dr_stopped_data_address (&debug_reg_state, &addr))
     return addr;
   return 0;
 }
@@ -424,6 +458,7 @@ struct win32_target_ops the_low_target = {
   i386_single_step,
   &i386_win32_breakpoint,
   i386_win32_breakpoint_len,
+  i386_supports_z_point_type,
   i386_insert_point,
   i386_remove_point,
   i386_stopped_by_watchpoint,

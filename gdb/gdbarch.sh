@@ -500,10 +500,10 @@ m:int:convert_register_p:int regnum, struct type *type:regnum, type:0:generic_co
 f:int:register_to_value:struct frame_info *frame, int regnum, struct type *type, gdb_byte *buf, int *optimizedp, int *unavailablep:frame, regnum, type, buf, optimizedp, unavailablep:0
 f:void:value_to_register:struct frame_info *frame, int regnum, struct type *type, const gdb_byte *buf:frame, regnum, type, buf:0
 # Construct a value representing the contents of register REGNUM in
-# frame FRAME, interpreted as type TYPE.  The routine needs to
+# frame FRAME_ID, interpreted as type TYPE.  The routine needs to
 # allocate and return a struct value with all value attributes
 # (but not the value contents) filled in.
-f:struct value *:value_from_register:struct type *type, int regnum, struct frame_info *frame:type, regnum, frame::default_value_from_register::0
+m:struct value *:value_from_register:struct type *type, int regnum, struct frame_id frame_id:type, regnum, frame_id::default_value_from_register::0
 #
 m:CORE_ADDR:pointer_to_address:struct type *type, const gdb_byte *buf:type, buf::unsigned_pointer_to_address::0
 m:void:address_to_pointer:struct type *type, gdb_byte *buf, CORE_ADDR addr:type, buf, addr::unsigned_address_to_pointer::0
@@ -990,12 +990,12 @@ v:int:has_dos_based_file_system:::0:0::0
 m:void:gen_return_address:struct agent_expr *ax, struct axs_value *value, CORE_ADDR scope:ax, value, scope::default_gen_return_address::0
 
 # Implement the "info proc" command.
-M:void:info_proc:char *args, enum info_proc_what what:args, what
+M:void:info_proc:const char *args, enum info_proc_what what:args, what
 
 # Implement the "info proc" command for core files.  Noe that there
 # are two "info_proc"-like methods on gdbarch -- one for core files,
 # one for live targets.
-M:void:core_info_proc:char *args, enum info_proc_what what:args, what
+M:void:core_info_proc:const char *args, enum info_proc_what what:args, what
 
 # Iterate over all objfiles in the order that makes the most sense
 # for the architecture to make global symbol searches.

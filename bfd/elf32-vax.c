@@ -1221,7 +1221,7 @@ elf_vax_size_dynamic_sections (bfd *output_bfd, struct bfd_link_info *info)
 	continue;
 
       /* Allocate memory for the section contents.  */
-      s->contents = (bfd_byte *) bfd_alloc (dynobj, s->size);
+      s->contents = (bfd_byte *) bfd_zalloc (dynobj, s->size);
       if (s->contents == NULL)
 	return FALSE;
     }
@@ -2018,7 +2018,7 @@ elf_vax_plt_sym_val (bfd_vma i, const asection *plt,
   return plt->vma + (i + 1) * PLT_ENTRY_SIZE;
 }
 
-#define TARGET_LITTLE_SYM		bfd_elf32_vax_vec
+#define TARGET_LITTLE_SYM		vax_elf32_vec
 #define TARGET_LITTLE_NAME		"elf32-vax"
 #define ELF_MACHINE_CODE		EM_VAX
 #define ELF_MAXPAGESIZE			0x1000

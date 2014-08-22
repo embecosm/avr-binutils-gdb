@@ -454,7 +454,6 @@ ppcboot_bfd_print_private_bfd_data (bfd *abfd, void * farg)
   _bfd_generic_section_already_linked
 #define ppcboot_bfd_define_common_symbol bfd_generic_define_common_symbol
 #define ppcboot_bfd_link_hash_table_create _bfd_generic_link_hash_table_create
-#define ppcboot_bfd_link_hash_table_free _bfd_generic_link_hash_table_free
 #define ppcboot_bfd_link_add_symbols _bfd_generic_link_add_symbols
 #define ppcboot_bfd_link_just_syms _bfd_generic_link_just_syms
 #define ppcboot_bfd_copy_link_hash_symbol_type \
@@ -472,7 +471,7 @@ ppcboot_bfd_print_private_bfd_data (bfd *abfd, void * farg)
 #define ppcboot_bfd_set_private_flags _bfd_generic_bfd_set_private_flags
 #define ppcboot_bfd_print_private_bfd_dat ppcboot_bfd_print_private_bfd_data
 
-const bfd_target ppcboot_vec =
+const bfd_target powerpc_boot_vec =
 {
   "ppcboot",			/* name */
   bfd_target_unknown_flavour,	/* flavour */

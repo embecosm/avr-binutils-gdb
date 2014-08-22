@@ -291,7 +291,7 @@ extern char *re_comp (const char *);
 extern void symbol_file_command (char *, int);
 
 /* * Remote targets may wish to use this as their load function.  */
-extern void generic_load (char *name, int from_tty);
+extern void generic_load (const char *name, int from_tty);
 
 /* * Report on STREAM the performance of memory transfer operation,
    such as 'load'.
@@ -388,6 +388,8 @@ enum lval_type
     lval_register,
     /* * In a gdb internal variable.  */
     lval_internalvar,
+    /* * Value encapsulates a callable defined in an extension language.  */
+    lval_xcallable,
     /* * Part of a gdb internal variable (structure field).  */
     lval_internalvar_component,
     /* * Value's bits are fetched and stored using functions provided

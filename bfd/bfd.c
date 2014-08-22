@@ -219,8 +219,12 @@ CODE_FRAGMENT
 .  struct bfd *nested_archives; {* List of nested archive in a flattened
 .                                  thin archive.  *}
 .
-.  {* A chain of BFD structures involved in a link.  *}
-.  struct bfd *link_next;
+.  union {
+.    {* For input BFDs, a chain of BFDs involved in a link.  *}
+.    struct bfd *next;
+.    {* For output BFD, the linker hash table.  *}
+.    struct bfd_link_hash_table *hash;
+.  } link;
 .
 .  {* A field used by _bfd_generic_link_add_archive_symbols.  This will
 .     be used only for archive elements.  *}
@@ -309,6 +313,9 @@ CODE_FRAGMENT
 .  {* Set if only required symbols should be added in the link hash table for
 .     this object.  Used by VMS linkers.  *}
 .  unsigned int selective_search : 1;
+.
+.  {* Set if this is the linker output BFD.  *}
+.  unsigned int is_linker_output : 1;
 .};
 .
 .{* See note beside bfd_set_section_userdata.  *}
@@ -1496,9 +1503,6 @@ DESCRIPTION
 .
 .#define bfd_link_hash_table_create(abfd) \
 .	BFD_SEND (abfd, _bfd_link_hash_table_create, (abfd))
-.
-.#define bfd_link_hash_table_free(abfd, hash) \
-.	BFD_SEND (abfd, _bfd_link_hash_table_free, (hash))
 .
 .#define bfd_link_add_symbols(abfd, info) \
 .	BFD_SEND (abfd, _bfd_link_add_symbols, (abfd, info))

@@ -81,9 +81,11 @@ arm-*-pe)		targ_emul=armpe ; targ_extra_ofiles="deffilep.o pe-dll.o" ;;
 arm-*-aout | armel-*-aout) targ_emul=armaoutl ;;
 armeb-*-aout)		targ_emul=armaoutb ;;
 arm-*-coff)		targ_emul=armcoff ;;
-arm-*-freebsd* | arm-*-kfreebsd*-gnu)
+arm*b-*-freebsd*)	targ_emul=armelfb_fbsd
+			targ_extra_emuls="armelf_fbsd armelf" ;;
+arm*-*-freebsd* | arm-*-kfreebsd*-gnu)
 	       		targ_emul=armelf_fbsd
-			targ_extra_emuls="armelf" ;;
+			targ_extra_emuls="armelfb_fbsd armelf" ;;
 armeb-*-netbsdelf*)	targ_emul=armelfb_nbsd;
 			targ_extra_emuls="armelf_nbsd armelf armnbsd" ;;
 arm-*-netbsdelf*)	targ_emul=armelf_nbsd;
@@ -527,10 +529,9 @@ nios2*-*-*)		targ_emul=nios2elf ;;
 ns32k-pc532-mach* | ns32k-pc532-ux*)  targ_emul=pc532macha ;;
 ns32k-*-netbsd* | ns32k-pc532-lites*) targ_emul=ns32knbsd
 			;;
-openrisc-*-*)		targ_emul=elf32openrisc ;;
-or32-*-coff)		targ_emul=or32 ;;
-or32-*-elf)		targ_emul=or32elf ;;
-or32-*-rtems*)          targ_emul=or32elf
+or1k-*-elf | or1knd-*-elf)		targ_emul=elf32or1k ;;
+or1k-*-linux* | or1knd-*-linux*)	targ_emul=elf32or1k_linux ;;
+or1k-*-rtems* | or1knd-*-rtems*)	targ_emul=elf32or1k
 			;;
 pdp11-*-*)		targ_emul=pdp11
 			;;
@@ -781,7 +782,7 @@ NATIVE_LIB_DIRS='/usr/local/lib /lib /usr/lib'
 case "${target}" in
 
 *-*-dragonfly*)
-  NATIVE_LIB_DIRS='/usr/lib /usr/pkg/lib /usr/local/lib'
+  NATIVE_LIB_DIRS='/lib /usr/lib /usr/pkg/lib /usr/local/lib'
   ;;
 
 *-*-freebsd*)

@@ -2381,13 +2381,13 @@ set_gdbarch_value_to_register (struct gdbarch *gdbarch,
 }
 
 struct value *
-gdbarch_value_from_register (struct gdbarch *gdbarch, struct type *type, int regnum, struct frame_info *frame)
+gdbarch_value_from_register (struct gdbarch *gdbarch, struct type *type, int regnum, struct frame_id frame_id)
 {
   gdb_assert (gdbarch != NULL);
   gdb_assert (gdbarch->value_from_register != NULL);
   if (gdbarch_debug >= 2)
     fprintf_unfiltered (gdb_stdlog, "gdbarch_value_from_register called\n");
-  return gdbarch->value_from_register (type, regnum, frame);
+  return gdbarch->value_from_register (gdbarch, type, regnum, frame_id);
 }
 
 void
@@ -4257,7 +4257,7 @@ gdbarch_info_proc_p (struct gdbarch *gdbarch)
 }
 
 void
-gdbarch_info_proc (struct gdbarch *gdbarch, char *args, enum info_proc_what what)
+gdbarch_info_proc (struct gdbarch *gdbarch, const char *args, enum info_proc_what what)
 {
   gdb_assert (gdbarch != NULL);
   gdb_assert (gdbarch->info_proc != NULL);
@@ -4281,7 +4281,7 @@ gdbarch_core_info_proc_p (struct gdbarch *gdbarch)
 }
 
 void
-gdbarch_core_info_proc (struct gdbarch *gdbarch, char *args, enum info_proc_what what)
+gdbarch_core_info_proc (struct gdbarch *gdbarch, const char *args, enum info_proc_what what)
 {
   gdb_assert (gdbarch != NULL);
   gdb_assert (gdbarch->core_info_proc != NULL);

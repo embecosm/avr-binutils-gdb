@@ -3328,8 +3328,6 @@ s_ltorg (int ignored ATTRIBUTE_UNUSED)
       || pool->next_free_entry == 0)
     return;
 
-  mapping_state (MAP_DATA);
-
   /* Align pool as you have word accesses.
      Only make a frag if we have to.  */
   if (!need_pass_2)
@@ -3337,6 +3335,10 @@ s_ltorg (int ignored ATTRIBUTE_UNUSED)
 
   record_alignment (now_seg, 2);
 
+#ifdef OBJ_ELF
+  seg_info (now_seg)->tc_segment_info_data.mapstate = MAP_DATA;
+  make_mapping_symbol (MAP_DATA, (valueT) frag_now_fix (), frag_now);
+#endif
   sprintf (sym_name, "$$lit_\002%x", pool->id);
 
   symbol_locate (pool->symbol, sym_name, now_seg,
@@ -3451,7 +3453,8 @@ s_arm_elf_cons (int nbytes)
 		  memcpy (base, save_buf, p - base);
 
 		  offset = nbytes - size;
-		  p = frag_more ((int) nbytes);
+		  p = frag_more (nbytes);
+		  memset (p, 0, nbytes);
 		  fix_new_exp (frag_now, p - frag_now->fr_literal + offset,
 			       size, &exp, 0, (enum bfd_reloc_code_real) reloc);
 		}
@@ -17263,6 +17266,9 @@ static const struct depr_insn_mask depr_it_insns[] = {
   { 0x4800, 0xf800, N_("Literal loads") },
   { 0x4478, 0xf478, N_("Hi-register ADD, MOV, CMP, BX, BLX using pc") },
   { 0x4487, 0xfc87, N_("Hi-register ADD, MOV, CMP using pc") },
+  /* NOTE: 0x00dd is not the real encoding, instead, it is the 'tvalue'
+     field in asm_opcode. 'tvalue' is used at the stage this check happen.  */
+  { 0x00dd, 0x7fff, N_("ADD/SUB sp, sp #imm") },
   { 0, 0, NULL }
 };
 
@@ -22382,7 +22388,7 @@ md_apply_fix (fixS *	fixP,
 
     case BFD_RELOC_8:
       if (fixP->fx_done || !seg->use_rela_p)
-	md_number_to_chars (buf, value, 1);
+	*buf = value;
       break;
 
     case BFD_RELOC_16:
@@ -22395,9 +22401,6 @@ md_apply_fix (fixS *	fixP,
     case BFD_RELOC_ARM_THM_TLS_CALL:
     case BFD_RELOC_ARM_TLS_DESCSEQ:
     case BFD_RELOC_ARM_THM_TLS_DESCSEQ:
-      S_SET_THREAD_LOCAL (fixP->fx_addsy);
-      break;
-
     case BFD_RELOC_ARM_TLS_GOTDESC:
     case BFD_RELOC_ARM_TLS_GD32:
     case BFD_RELOC_ARM_TLS_LE32:
@@ -22405,12 +22408,10 @@ md_apply_fix (fixS *	fixP,
     case BFD_RELOC_ARM_TLS_LDM32:
     case BFD_RELOC_ARM_TLS_LDO32:
       S_SET_THREAD_LOCAL (fixP->fx_addsy);
-      /* fall through */
+      break;
 
     case BFD_RELOC_ARM_GOT32:
     case BFD_RELOC_ARM_GOTOFF:
-      if (fixP->fx_done || !seg->use_rela_p)
-	md_number_to_chars (buf, 0, 4);
       break;
 
     case BFD_RELOC_ARM_GOT_PREL:

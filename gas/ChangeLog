@@ -1,3 +1,358 @@
+2014-06-27  Alan Modra  <amodra@gmail.com>
+
+	* config/obj-macho.c (obj_mach_o_set_symbol_qualifier): Don't set
+	SYM_MACHO_FIELDS_NOT_VALIDATED after reporting an error.
+	(obj_mach_o_frob_label): Avoid cascading errors.
+	(obj_mach_o_frob_symbol): Don't set SYM_MACHO_FIELDS_NOT_VALIDATED.
+
+2014-06-18  DJ Delorie  <dj@redhat.com>
+
+	* config/rx-parse.y (BSET, BCLR, BTST, BNOT, BMCMD): Make .B
+	suffix optional.
+
+2014-06-17  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/tc-mmix.c (loc_assert_s): New member frag.
+	(s_loc): Set it.
+	(mmix_md_end): If an error is reported for a LOC expression, patch
+	up the related frag.
+
+2014-06-17  Chris Metcalf  <cmetcalf@tilera.com>
+
+	PR gas/16908
+	* macro.c (buffer_and_nest): Honour #line directives inside
+	macros.
+
+2014-06-17 Jiong Wang <jiong.wang@arm.com>
+
+	* config/tc-arm.c (depr_it_insns): New check for inc/dec sp.
+
+2014-06-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/tc-cris.c (cris_bad): New function.
+	(cris_process_instruction): Where applicable, use it instead of
+	as_bad.
+
+2014-06-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/tc-aarch64.c (md_apply_fix): Ignore unused relocs.
+
+2014-06-16  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/tc-aarch64.c (END_OF_INSN): New macro.
+	(parse_operands): Handle operand given and in wrong format when
+	operand is optional.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* write.h (subsegs_finish): Delete declaration.
+	* write.c (subsegs_finish): Make static.
+	(write_object_file): Call subsegs_finish from here.  Don't print
+	warning and error count here..
+	* as.c (main): ..do so here instead.  Remove dead code for "no
+	object file generated".  Split out count strings to better support
+	internationalisation.  Don't call subsegs_finish. Tidy setting of
+	"keep_it".  Run write_object_file even after errors.
+	(keep_it): Make static.
+	* config/obj-elf.c (elf_frob_symbol): Remove assert.
+	(elf_frob_file_before_adjust): Likewise.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-dlx.c (machine_ip): Move initialisation of the_insn
+	earlier.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-i386.c (reloc): Don't avoid pcrel check for
+	BFD_RELOC_SIZE64.  Return NO_RELOC on failing pcrel check.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-tic6x.c (s_tic6x_ehtype): Clear after frag_more.
+	(tic6x_output_exidx_entry): Likewise.
+	(md_apply_fix): Simplify 1 byte md_number_to_chars.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-tic54x.c (tic54x_mlib): Don't write garbage past
+	end of archive to temp file.
+	(tic54x_start_line_hook): Start scan for parallel on next line,
+	not one char into next line (which may overrun the buffer).
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-vax.c (md_apply_fix): Rewrite.
+	(tc_gen_reloc, vax_cons, vax_cons_fix_new): Style: Use NO_RELOC
+	define rather than the equivalent BFD_RELOC_NONE.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-arm.c (s_arm_elf_cons): Initialise after frag_more.
+	(md_apply_fix): Delete now unnecessary zeroing for BFD_RELOC_ARM_GOT*
+	and BFD_RELOC_ARM_TLS* relocs.  Simplify BFD_RELOC_8 case.
+
+2014-06-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-cris.c (md_create_long_jump): Follow "short" jump
+	with a nop rather than leaving uninitialised.
+
+2014-06-13  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* config/tc-score7.c: Replace sprintf with strcpy where
+	appropriate.
+	(s7_b32_relax_to_b16): Use symbol_get_frag() to access a symbol's
+	frag.
+	* config/tc-score.c (s3_relax_branch_inst16): Likewise.
+	(s3_relax_cmpbranch_inst32): Likewise.
+
+2014-06-07  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-ppc.c (ppc_insert_operand): Handle PPC_OPERAND_SIGNOPT
+	on unsigned fields.  Comment on PPC_OPERAND_SIGNOPT signed fields
+	in 64-bit mode.
+
+2014-06-02  Martin Storsjo  <martin@martin.st>
+
+	* doc/c-aarch64.texi: Fix the documentation on :pg_hi21:.
+
+2014-06-05  Joel Brobecker  <brobecker@adacore.com>
+
+	* Makefile.am (CONFIG_STATUS_DEPENDENCIES): Add dependency on
+	bfd's development.sh.
+	* Makefile.in, configure: Regenerate.
+
+2014-06-03  Nick Clifton  <nickc@redhat.com>
+
+	* config/tc-msp430.c (OPTION_WARN_INTR_NOPS): Use y instead of z.
+	(OPTION_NO_WARN_INTR_NOPS): Use Y instead of Z.
+	* doc/c-msp430.texi: Update command line option description.
+
+2014-05-22  Alan Modra  <amodra@gmail.com>
+
+	* listing.c (listing_warning, listing_error): Add space after colon.
+	* messages.c (as_warn_internal, as_bad_internal): Use the same
+	string as above.
+
+2014-05-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/tc-mips.c (file_mips_opts_checked): New static global.
+	(s_module): New static function.
+	(file_ase): Remove.
+	(mips_pseudo_table): Add .module handler.
+	(mips_set_ase): Add opts argument and use instead of mips_opts.
+	(md_assemble): Use file_mips_check_options.
+	(md_parse_option): Update to use file_mips_opts instead of mips_opts.
+	(mips_set_architecture): Delete function.  Moved to...
+	(mips_after_parse_args): Here.  All logic now applies to
+	file_mips_opts first and then copies the final state to mips_opts.
+	Move error checking and defaults inference to mips_check_options and
+	file_mips_check_options.
+	(mips_check_options): New static function.  Common option checking for
+	command line, .module and .set.  Use .module values in error messages
+	instead of refering to command line options.
+	(file_mips_check_options): New static function.  A wrapper for
+	mips_check_options with file_mips_opts.  Updates BFD arch based on
+	final options.
+	(s_mipsset): Split into s_mipsset and parse_code_option.  Settings
+	supported by both .set and .module are moved to parse_code_option.
+	Warnings and errors are kept in s_mipsset because when
+	parse_code_option is used with s_module the warnings are deferred
+	until code is generated.  Any setting supporting 'default' value is
+	kept in s_mipsset as it is not applicable to s_module. Inferred
+	settings are also kept in s_mipsset as s_module does not infer any
+	settings.  Use mips_check_options.
+	(parse_code_option): New static function derived from s_mipsset.
+	(s_module): New static function that implements .module.  Allows file
+	level settings to be changed until code is generated.
+	(s_cpload, s_cpsetup, s_cplocal): Use file_mips_check_options.
+	(s_cprestore, s_cpreturn, s_cpadd, mips_address_bytes): Likewise.
+	(mips_elf_final_processing): Update file_ase to file_mips_opts.ase.
+	(md_mips_end): Use file_mips_check_options.
+	* doc/c-mips.texi: Document .module.
+
+2014-05-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* messages.c (as_warn_internal): Remove extra whitespace from
+	warning messages.
+
+2014-05-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/tc-mips.c (FP64_ASES): Add ASE_MSA.
+	(mips_after_parse_args): Do not select ASE_MSA without -mfp64.
+
+2014-05-20  Mike Stump  <mikestump@comcast.net>
+
+	* messages.c (as_warn_internal): Ensure we don't interleave output
+	within a single line when make -j is used.
+	(as_bad_internal): Likewise.
+
+2014-05-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/obj-elf.h (obj_elf_seen_attribute): Declare.
+	* config/obj-elf.c (recorded_attribute_info): New structure.
+	(recorded_attributes): New variable.
+	(record_attribute, obj_elf_seen_attribute): New functions.
+	(obj_elf_vendor_attribute): Record which attributes have been seen.
+
+2014-05-20  Nick Clifton  <nickc@redhat.com>
+
+	* config/tc-msp430.c (CHECK_RELOC_MSP430): Add OP parameter.
+	Generate BFD_RELOC_MSP430_ABS_HI16 if vshift is 1.
+	(msp430_srcoperand): Store vshift value in operand.
+
+2014-05-19  Nick Clifton  <nickc@redhat.com>
+
+	PR gas/16858
+	* config/tc-i386.c (md_apply_fix): Improve the detection of code
+	symbols for 32-bit PE targets.
+
+2014-05-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/tc-mips.c (md_obj_begin): Delete.
+	(md_obj_end): Fold into...
+	(md_mips_end): ...here.  Move to end of file.
+
+2014-05-17  Nick Clifton  <nickc@redhat.com>
+
+	PR gas/16946
+	* config/tc-v850.c (handle_ctoff): Generate an error if called
+	when using the RH850 ABI.
+
+2014-05-16  Kaushik Phata  <Kaushik.Phatak@kpit.com>
+
+	* config/tc-rl78.c (enum options): Add OPTION_32BIT_DOUBLES
+	and OPTION_64BIT_DOUBLES.
+	(md_longopts): Add -m32bit-doubles and -m64bit-doubles.
+	(md_parse_option): Parse -m32bit-doubles and -m64bit-doubles.
+	(md_show_usage): Show all of the RL78 options.
+	(rl78_float_cons): New static functions.
+	(md_pseudo_table): Update handler for "double".
+	* doc/c-rl78.texi: Document new options.
+	* doc/as.texinfo: Likewise.
+
+2014-05-13  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/tc-mips.c (mips_set_options): Rename gp32 to gp throughout.
+	(HAVE_32BIT_GPRS, HAVE_64BIT_GPRS): Remove. Re-implement via GPR_SIZE.
+	(HAVE_32BIT_FPRS, HAVE_64BIT_FPRS): Remove. Re-implement via FPR_SIZE.
+	(GPR_SIZE, FPR_SIZE): New macros. Use throughout.
+
+2014-05-08  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/tc-mips.c (md_parse_option): Update missed file_mips_isa
+	references.
+
+2014-05-08  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/tc-mips.c (mips_set_options): Rename fp32 field to fp.
+	Update fp32 == 0 to fp == 64 and fp32 == 1 to fp != 64 throughout.
+	(file_mips_gp32, file_mips_fp32, file_mips_soft_float,
+	file_mips_single_float, file_mips_isa, file_mips_arch): Merge into
+	one struct...
+	(file_mips_opts): Here. New static global. Update throughout.
+	(mips_opts): Update defaults for gp32 and fp.
+
+2014-05-08  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/tc-mips.c (streq): Define.
+	(mips_convert_symbolic_attribute): New function.
+	* config/tc-mips.h (CONVERT_SYMBOLIC_ATTRIBUTE): Define.
+	(mips_convert_symbolic_attribute): New prototype.
+
+2014-05-02  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/tc-xtensa.c (md_apply_fix): mark BFD_RELOC_XTENSA_DIFF*
+	fixups as signed.
+
+2014-05-07  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* tc-mips.c (ISA_SUPPORTS_MIPS16E): Add mips32r3, mips32r5, mips64r3
+	and mips64r5.
+	(ISA_HAS_64BIT_FPRS): Likewise.
+	(ISA_HAS_ROR): Likewise.
+	(ISA_HAS_ODD_SINGLE_FPR): Likewise.
+	(ISA_HAS_MXHC1): Likewise.
+	(hilo_interlocks): Likewise.
+	(md_longopts): Likewise.
+	(ISA_HAS_64BIT_REGS): Add mips64r3 and mips64r5.
+	(ISA_HAS_DROR): Likewise.
+	(options): Add OPTION_MIPS32R3, OPTION_MIPS32R5, OPTION_MIPS64R3, and
+	OPTION_MIPS64R5.
+	(mips_isa_rev): Add support for mips32r3, mips32r5, mips64r3 and
+	mips64r5.
+	(md_parse_option): Likewise.
+	(s_mipsset): Likewise.
+	(mips_cpu_info_table): Add entries for mips32r3, mips32r5, mips64r3
+	and mips64r5.  Also change p5600 entry to be mips32r5.
+	* configure.in: Add support for mips32r3, mips32r5, mips64r3 and
+	mips64r5.
+	* configure: Regenerate.
+	* doc/c-mips.texi: Document the -mips32r3, -mips32r5, -mips64r3 and
+	-mips64r5 command line options.
+	* doc/as.texinfo: Likewise.
+
+2014-04-28  Nick Clifton  <nickc@redhat.com>
+
+	PR gas/16858
+	* config/tc-i386.c (md_apply_fix): Do not adjust value of
+	pc-relative fixes against weak symbols.
+
+2014-04-26  Alan Modra  <amodra@gmail.com>
+
+	* po/POTFILES.in: Regenerate.
+
+2014-04-24  Nick Clifton  <nickc@redhat.com>
+
+	* config/tc-arm.c (s_ltorg): Only create a mapping symbol for ELF
+	based targets.
+
+2014-04-23  Will Newton  <will.newton@linaro.org>
+
+	* config/tc-arm.c (s_ltorg): Call make_mapping_symbol
+	directly instead of mapping_state.
+
+2014-04-23  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* config/tc-mips.c (options): Add OPTION_XPA and OPTION_NO_XPA.
+	(md_longopts): Add xpa and no-xpa command line options.
+	(mips_ases): Add MIPS XPA ASE.
+	(mips_cpu_info_table): Update p5600 entry to allow the XPA ASE.
+	* doc/as.texinfo: Document the MIPS XPA command line options.
+	* doc/c-mips.texi: Document the MIPS XPA command line options,
+	and assembler directives.
+
+2014-04-22  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/tc-nios2.c (nios2_consume_arg): Add case for 'E' to
+	unbreak self-test mode.
+
+2014-04-22  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/tc-xtensa.c (xtensa_handle_align): record alignment for the
+	first section frag.
+
+2014-04-22  Christian Svensson  <blue@cmd.nu>
+
+	* Makefile.am: Remove openrisc and or32 support.  Add support for or1k.
+	* configure.in: Likewise.
+	* configure.tgt: Likewise.
+	* doc/as.texinfo: Likewise.
+	* config/obj-coff.h: Likewise.
+	* config/tc-or1k.c: New file.
+	* config/tc-or1k.h: New file.
+	* config/tc-openrisc.c: Delete.
+	* config/tc-openrisc.h: Delete.
+	* config/tc-or32.c: Delete.
+	* config/tc-or32.h: Delete.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2014-04-16  Alan Modra  <amodra@gmail.com>
+
+	* config/tc-tilegx.h (TC_CONS_FIX_NEW): Add RELOC arg.
+	* config/tc-tilepro.h (TC_CONS_FIX_NEW): Likewise.
+
 2014-04-10  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
 	* config/tc-avr.c: Add new flag mlink-relax.

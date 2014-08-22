@@ -1,3 +1,90 @@
+2014-06-26  Erik Akermann  <kurterikackermann@gmail.com>
+
+	* strings.c: Add -w/--include-all-whitespace option to include any
+	whitespace character in the displayed strings.
+	* NEWS: Mention the new feature.
+	* doc/binutils.texi (strings): Document the new command line
+	option.
+
+2014-06-26  Nick Clifton  <nickc@redhat.com>
+
+	* readelf.c (process_note_sections): If there are no note sections
+	try processing note segments instead.
+
+2014-06-17  Anton Lavrentiwev  <lavr@ncbi.nim.nih.gov>
+
+	PR binutils/16923
+	* rcparse.y (fixedverinfo): Prevent large version numbers from
+	corrupting other values.
+
+2014-06-09  Romain Chastenet  <romain.chastenet@free.fr>
+
+	PR binutils/16252
+	* dwarf.c (display_debug_frames): Remember the state of the
+	cfa_offset, cfa_reg, ra and cfa_exp field
+
+2014-06-05  Joel Brobecker  <brobecker@adacore.com>
+
+	* Makefile.am (CONFIG_STATUS_DEPENDENCIES): Add dependency on
+	bfd's development.sh.
+	* Makefile.in, configure: Regenerate.
+
+2014-05-16  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* objcopy.c (is_nondebug_keep_contents_section): New function.
+	(setup_section): Use it.
+
+2014-05-16  Kaushik Phata  <Kaushik.Phatak@kpit.com>
+
+	* readelf.c (get_machine_flags): Handle RL78 64-bit doubles flag.
+
+2014-05-02  Alan Modra  <amodra@gmail.com>
+
+	* emul_aix.c: Update bfd target vector naming.
+	* testsuite/binutils-all/objcopy.exp: Likewise.
+
+2014-04-24  Christian Svensson  <blue@cmd.nu>
+
+	* MAINTAINERS: Add myself and Stefan as OR1K maintainers.
+
+2014-04-23  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* doc/binutils.texi: Document the disassemble MIPS XPA instructions
+	command line option.
+
+2014-04-22  Christian Svensson  <blue@cmd.nu>
+
+	* readelf.c: Remove openrisc and or32 support.  Add support for or1k.
+
+2014-04-18  Tristan Gingold  <gingold@adacore.com>
+
+	* od-macho.c (dump_section_map): Adjust as load commands
+	are now chained.
+	(dump_load_command, dump_section_content): Likewise.
+
+2014-04-16  Tristan Gingold  <gingold@adacore.com>
+
+	* od-macho.c (OPT_DYLD_INFO): New macro.
+	(options): Add entry for dyld_info.
+	(mach_o_help): Likewise.
+	(load_and_dump, dump_dyld_info_rebase, dump_dyld_info_bind)
+	(dump_dyld_info_export_1, dump_dyld_info_export): New functions.
+	(bfd_mach_o_dyld_rebase_type_name): New array.
+	(export_info_data): New struct.
+	(dump_dyld_info): Add verbose argument.  Dump rebase, bind and
+	exports data.
+	(dump_load_command): Adjust dump_dyld_info call.
+	(mach_o_dump): Handle dyld_info.
+
+2014-04-16  Tristan Gingold  <gingold@adacore.com>
+
+	* od-macho.c (dump_header): Display sizeofcmds in decimal too.
+	(dump_segment): Reformat output.
+	(dump_dyld_info): Also display end offsets.
+	(dump_load_command): Add IDX argument, display commands size
+	and offset, reformat display.
+	(dump_load_commands): Adjust for added argument.
+
 2014-04-07  Alan Modra  <amodra@gmail.com>
 
 	PR binutils/16811

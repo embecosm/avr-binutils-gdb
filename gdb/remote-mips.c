@@ -22,6 +22,7 @@
 
 #include "defs.h"
 #include "inferior.h"
+#include "infrun.h"
 #include "bfd.h"
 #include "symfile.h"
 #include "gdbcmd.h"
@@ -127,9 +128,7 @@ static void pmon_end_download (int final, int bintotal);
 
 static void pmon_download (char *buffer, int length);
 
-static void pmon_load_fast (char *file);
-
-static void mips_load (struct target_ops *self, char *file, int from_tty);
+static void mips_load (struct target_ops *self, const char *file, int from_tty);
 
 static int mips_make_srec (char *buffer, int type, CORE_ADDR memaddr,
 			   unsigned char *myaddr, int len);
@@ -2803,7 +2802,7 @@ send_srec (char *srec, int len, CORE_ADDR addr)
 /*  Download a binary file by converting it to S records.  */
 
 static void
-mips_load_srec (char *args)
+mips_load_srec (const char *args)
 {
   bfd *abfd;
   asection *s;
@@ -3388,7 +3387,7 @@ pmon_download (char *buffer, int length)
    using the FastLoad format.  */
 
 static void
-pmon_load_fast (char *file)
+pmon_load_fast (const char *file)
 {
   bfd *abfd;
   asection *s;
@@ -3547,7 +3546,7 @@ pmon_load_fast (char *file)
 /* mips_load -- download a file.  */
 
 static void
-mips_load (struct target_ops *self, char *file, int from_tty)
+mips_load (struct target_ops *self, const char *file, int from_tty)
 {
   struct regcache *regcache;
 

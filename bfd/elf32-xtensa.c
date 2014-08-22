@@ -222,11 +222,11 @@ static reloc_howto_type elf_howto_table[] =
 	 FALSE, 0, 0, FALSE),
 
   /* Relocations for supporting difference of symbols.  */
-  HOWTO (R_XTENSA_DIFF8, 0, 0, 8, FALSE, 0, complain_overflow_bitfield,
+  HOWTO (R_XTENSA_DIFF8, 0, 0, 8, FALSE, 0, complain_overflow_signed,
 	 bfd_elf_xtensa_reloc, "R_XTENSA_DIFF8", FALSE, 0, 0xff, FALSE),
-  HOWTO (R_XTENSA_DIFF16, 0, 1, 16, FALSE, 0, complain_overflow_bitfield,
+  HOWTO (R_XTENSA_DIFF16, 0, 1, 16, FALSE, 0, complain_overflow_signed,
 	 bfd_elf_xtensa_reloc, "R_XTENSA_DIFF16", FALSE, 0, 0xffff, FALSE),
-  HOWTO (R_XTENSA_DIFF32, 0, 2, 32, FALSE, 0, complain_overflow_bitfield,
+  HOWTO (R_XTENSA_DIFF32, 0, 2, 32, FALSE, 0, complain_overflow_signed,
 	 bfd_elf_xtensa_reloc, "R_XTENSA_DIFF32", FALSE, 0, 0xffffffff, FALSE),
 
   /* General immediate operand relocations.  */
@@ -1561,7 +1561,7 @@ elf_xtensa_allocate_local_got_size (struct bfd_link_info *info)
   if (htab == NULL)
     return;
 
-  for (i = info->input_bfds; i; i = i->link_next)
+  for (i = info->input_bfds; i; i = i->link.next)
     {
       bfd_signed_vma *local_got_refcounts;
       bfd_size_type j, cnt;
@@ -1700,7 +1700,7 @@ elf_xtensa_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
 	 literal tables.  */
       sgotloc = htab->sgotloc;
       sgotloc->size = spltlittbl->size;
-      for (abfd = info->input_bfds; abfd != NULL; abfd = abfd->link_next)
+      for (abfd = info->input_bfds; abfd != NULL; abfd = abfd->link.next)
 	{
 	  if (abfd->flags & DYNAMIC)
 	    continue;
@@ -6746,14 +6746,14 @@ analyze_relocations (struct bfd_link_info *link_info)
   bfd_boolean is_relaxable = FALSE;
 
   /* Initialize the per-section relaxation info.  */
-  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link.next)
     for (sec = abfd->sections; sec != NULL; sec = sec->next)
       {
 	init_xtensa_relax_info (sec);
       }
 
   /* Mark relaxable sections (and count relocations against each one).  */
-  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link.next)
     for (sec = abfd->sections; sec != NULL; sec = sec->next)
       {
 	if (!find_relaxable_sections (abfd, sec, link_info, &is_relaxable))
@@ -6765,7 +6765,7 @@ analyze_relocations (struct bfd_link_info *link_info)
     return TRUE;
 
   /* Allocate space for source_relocs.  */
-  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link.next)
     for (sec = abfd->sections; sec != NULL; sec = sec->next)
       {
 	xtensa_relax_info *relax_info;
@@ -6782,7 +6782,7 @@ analyze_relocations (struct bfd_link_info *link_info)
       }
 
   /* Collect info on relocations against each relaxable section.  */
-  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link.next)
     for (sec = abfd->sections; sec != NULL; sec = sec->next)
       {
 	if (!collect_source_relocs (abfd, sec, link_info))
@@ -6790,7 +6790,7 @@ analyze_relocations (struct bfd_link_info *link_info)
       }
 
   /* Compute the text actions.  */
-  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info->input_bfds; abfd != NULL; abfd = abfd->link.next)
     for (sec = abfd->sections; sec != NULL; sec = sec->next)
       {
 	if (!compute_text_actions (abfd, sec, link_info))
@@ -9013,7 +9013,8 @@ relax_section (bfd *abfd, asection *sec, struct bfd_link_info *link_info)
 		  || r_type == R_XTENSA_DIFF16
 		  || r_type == R_XTENSA_DIFF32)
 		{
-		  bfd_vma diff_value = 0, new_end_offset, diff_mask = 0;
+		  bfd_signed_vma diff_value = 0;
+		  bfd_vma new_end_offset, diff_mask = 0;
 
 		  if (bfd_get_section_limit (abfd, sec) < old_source_offset)
 		    {
@@ -9027,15 +9028,15 @@ relax_section (bfd *abfd, asection *sec, struct bfd_link_info *link_info)
 		    {
 		    case R_XTENSA_DIFF8:
 		      diff_value =
-			bfd_get_8 (abfd, &contents[old_source_offset]);
+			bfd_get_signed_8 (abfd, &contents[old_source_offset]);
 		      break;
 		    case R_XTENSA_DIFF16:
 		      diff_value =
-			bfd_get_16 (abfd, &contents[old_source_offset]);
+			bfd_get_signed_16 (abfd, &contents[old_source_offset]);
 		      break;
 		    case R_XTENSA_DIFF32:
 		      diff_value =
-			bfd_get_32 (abfd, &contents[old_source_offset]);
+			bfd_get_signed_32 (abfd, &contents[old_source_offset]);
 		      break;
 		    }
 
@@ -9047,24 +9048,25 @@ relax_section (bfd *abfd, asection *sec, struct bfd_link_info *link_info)
 		  switch (r_type)
 		    {
 		    case R_XTENSA_DIFF8:
-		      diff_mask = 0xff;
-		      bfd_put_8 (abfd, diff_value,
+		      diff_mask = 0x7f;
+		      bfd_put_signed_8 (abfd, diff_value,
 				 &contents[old_source_offset]);
 		      break;
 		    case R_XTENSA_DIFF16:
-		      diff_mask = 0xffff;
-		      bfd_put_16 (abfd, diff_value,
+		      diff_mask = 0x7fff;
+		      bfd_put_signed_16 (abfd, diff_value,
 				  &contents[old_source_offset]);
 		      break;
 		    case R_XTENSA_DIFF32:
-		      diff_mask = 0xffffffff;
-		      bfd_put_32 (abfd, diff_value,
+		      diff_mask = 0x7fffffff;
+		      bfd_put_signed_32 (abfd, diff_value,
 				  &contents[old_source_offset]);
 		      break;
 		    }
 
-		  /* Check for overflow.  */
-		  if ((diff_value & ~diff_mask) != 0)
+		  /* Check for overflow. Sign bits must be all zeroes or all ones */
+		  if ((diff_value & ~diff_mask) != 0 &&
+		      (diff_value & ~diff_mask) != (-1 & ~diff_mask))
 		    {
 		      (*link_info->callbacks->reloc_dangerous)
 			(link_info, _("overflow after relaxation"),
@@ -10758,9 +10760,9 @@ static const struct bfd_elf_special_section elf_xtensa_special_sections[] =
 
 #define ELF_TARGET_ID			XTENSA_ELF_DATA
 #ifndef ELF_ARCH
-#define TARGET_LITTLE_SYM		bfd_elf32_xtensa_le_vec
+#define TARGET_LITTLE_SYM		xtensa_elf32_le_vec
 #define TARGET_LITTLE_NAME		"elf32-xtensa-le"
-#define TARGET_BIG_SYM			bfd_elf32_xtensa_be_vec
+#define TARGET_BIG_SYM			xtensa_elf32_be_vec
 #define TARGET_BIG_NAME			"elf32-xtensa-be"
 #define ELF_ARCH			bfd_arch_xtensa
 

@@ -25,7 +25,7 @@
 #include "regset.h"
 #include "target.h"
 #include "linux-nat.h"
-#include "linux-btrace.h"
+#include "nat/linux-btrace.h"
 #include "btrace.h"
 
 #include "gdb_assert.h"
@@ -102,7 +102,7 @@ static int have_ptrace_getregset = -1;
   (I386_ST0_REGNUM <= (regno) && (regno) < I386_SSE_NUM_REGS)
 
 #define GETXSTATEREGS_SUPPLIES(regno) \
-  (I386_ST0_REGNUM <= (regno) && (regno) < I386_MPX_NUM_REGS)
+  (I386_ST0_REGNUM <= (regno) && (regno) < I386_AVX512_NUM_REGS)
 
 /* Does the current host support the GETREGS request?  */
 int have_ptrace_getregs =
@@ -778,6 +778,8 @@ i386_linux_prepare_to_resume (struct lwp_info *lwp)
       /* See amd64_linux_prepare_to_resume for Linux kernel note on
 	 i386_linux_dr_set calls ordering.  */
 
+      i386_linux_dr_set (lwp->ptid, DR_CONTROL, 0);
+
       for (i = DR_FIRSTADDR; i <= DR_LASTADDR; i++)
 	if (state->dr_ref_count[i] > 0)
 	  {
@@ -790,7 +792,8 @@ i386_linux_prepare_to_resume (struct lwp_info *lwp)
 	    clear_status = 1;
 	  }
 
-      i386_linux_dr_set (lwp->ptid, DR_CONTROL, state->dr_control_mirror);
+      if (state->dr_control_mirror != 0)
+	i386_linux_dr_set (lwp->ptid, DR_CONTROL, state->dr_control_mirror);
 
       lwp->arch_private->debug_registers_changed = 0;
     }
@@ -1046,6 +1049,9 @@ i386_linux_read_description (struct target_ops *ops)
     {
       switch ((xcr0 & I386_XSTATE_ALL_MASK))
 	{
+	case I386_XSTATE_MPX_AVX512_MASK:
+	case I386_XSTATE_AVX512_MASK:
+	  return tdesc_i386_avx512_linux;
 	case I386_XSTATE_MPX_MASK:
 	  return tdesc_i386_mpx_linux;
 	case I386_XSTATE_AVX_MASK:

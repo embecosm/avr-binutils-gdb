@@ -722,6 +722,24 @@ elf32_avr_link_hash_newfunc (struct bfd_hash_entry * entry,
   return _bfd_elf_link_hash_newfunc (entry, table, string);
 }
 
+/* Free the derived linker hash table.  */
+
+static void
+elf32_avr_link_hash_table_free (bfd *obfd)
+{
+  struct elf32_avr_link_hash_table *htab
+    = (struct elf32_avr_link_hash_table *) obfd->link.hash;
+
+  /* Free the address mapping table.  */
+  if (htab->amt_stub_offsets != NULL)
+    free (htab->amt_stub_offsets);
+  if (htab->amt_destination_addr != NULL)
+    free (htab->amt_destination_addr);
+
+  bfd_hash_table_free (&htab->bstab);
+  _bfd_elf_link_hash_table_free (obfd);
+}
+
 /* Create the derived linker hash table.  The AVR ELF port uses the derived
    hash table to keep information specific to the AVR ELF linker (without
    using static variables).  */
@@ -748,27 +766,13 @@ elf32_avr_link_hash_table_create (bfd *abfd)
   /* Init the stub hash table too.  */
   if (!bfd_hash_table_init (&htab->bstab, stub_hash_newfunc,
                             sizeof (struct elf32_avr_stub_hash_entry)))
-    return NULL;
+    {
+      _bfd_elf_link_hash_table_free (abfd);
+      return NULL;
+    }
+  htab->etab.root.hash_table_free = elf32_avr_link_hash_table_free;
 
   return &htab->etab.root;
-}
-
-/* Free the derived linker hash table.  */
-
-static void
-elf32_avr_link_hash_table_free (struct bfd_link_hash_table *btab)
-{
-  struct elf32_avr_link_hash_table *htab
-    = (struct elf32_avr_link_hash_table *) btab;
-
-  /* Free the address mapping table.  */
-  if (htab->amt_stub_offsets != NULL)
-    free (htab->amt_stub_offsets);
-  if (htab->amt_destination_addr != NULL)
-    free (htab->amt_destination_addr);
-
-  bfd_hash_table_free (&htab->bstab);
-  _bfd_elf_link_hash_table_free (btab);
 }
 
 /* Calculates the effective distance of a pc relative jump/call.  */
@@ -2829,7 +2833,7 @@ elf32_avr_setup_section_lists (bfd *output_bfd,
   /* Count the number of input BFDs and find the top input section id.  */
   for (input_bfd = info->input_bfds, bfd_count = 0, top_id = 0;
        input_bfd != NULL;
-       input_bfd = input_bfd->link_next)
+       input_bfd = input_bfd->link.next)
     {
       bfd_count += 1;
       for (section = input_bfd->sections;
@@ -2903,7 +2907,7 @@ get_local_syms (bfd *input_bfd, struct bfd_link_info *info)
      export stubs.  */
   for (bfd_indx = 0;
        input_bfd != NULL;
-       input_bfd = input_bfd->link_next, bfd_indx++)
+       input_bfd = input_bfd->link.next, bfd_indx++)
     {
       Elf_Internal_Shdr *symtab_hdr;
 
@@ -2980,7 +2984,7 @@ elf32_avr_size_stubs (bfd *output_bfd,
       bfd_hash_traverse (&htab->bstab, avr_mark_stub_not_to_be_necessary, htab);
       for (input_bfd = info->input_bfds, bfd_indx = 0;
            input_bfd != NULL;
-           input_bfd = input_bfd->link_next, bfd_indx++)
+           input_bfd = input_bfd->link.next, bfd_indx++)
         {
           Elf_Internal_Shdr *symtab_hdr;
           asection *section;
@@ -3252,11 +3256,10 @@ elf32_avr_build_stubs (struct bfd_link_info *info)
 #define ELF_MACHINE_ALT1	EM_AVR_OLD
 #define ELF_MAXPAGESIZE		1
 
-#define TARGET_LITTLE_SYM       bfd_elf32_avr_vec
+#define TARGET_LITTLE_SYM       avr_elf32_vec
 #define TARGET_LITTLE_NAME	"elf32-avr"
 
 #define bfd_elf32_bfd_link_hash_table_create elf32_avr_link_hash_table_create
-#define bfd_elf32_bfd_link_hash_table_free   elf32_avr_link_hash_table_free
 
 #define elf_info_to_howto	             avr_info_to_howto_rela
 #define elf_info_to_howto_rel	             NULL

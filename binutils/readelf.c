@@ -133,7 +133,7 @@
 #include "elf/msp430.h"
 #include "elf/nds32.h"
 #include "elf/nios2.h"
-#include "elf/or32.h"
+#include "elf/or1k.h"
 #include "elf/pj.h"
 #include "elf/ppc.h"
 #include "elf/ppc64.h"
@@ -580,8 +580,6 @@ guess_is_rela (unsigned int e_machine)
     case EM_MIPS:
     case EM_MIPS_RS3_LE:
     case EM_CYGNUS_M32R:
-    case EM_OPENRISC:
-    case EM_OR32:
     case EM_SCORE:
     case EM_XGATE:
       return FALSE;
@@ -629,6 +627,7 @@ guess_is_rela (unsigned int e_machine)
     case EM_MT:
     case EM_NDS32:
     case EM_NIOS32:
+    case EM_OR1K:
     case EM_PPC64:
     case EM_PPC:
     case EM_RL78:
@@ -1185,9 +1184,8 @@ dump_relocations (FILE * file,
 	  rtype = elf_h8_reloc_type (type);
 	  break;
 
-	case EM_OPENRISC:
-	case EM_OR32:
-	  rtype = elf_or32_reloc_type (type);
+	case EM_OR1K:
+	  rtype = elf_or1k_reloc_type (type);
 	  break;
 
 	case EM_PJ:
@@ -2014,8 +2012,7 @@ get_machine_name (unsigned e_machine)
     case EM_S390:		return "IBM S/390";
     case EM_SCORE:		return "SUNPLUS S+Core";
     case EM_XSTORMY16:		return "Sanyo XStormy16 CPU core";
-    case EM_OPENRISC:
-    case EM_OR32:		return "OpenRISC";
+    case EM_OR1K:		return "OpenRISC 1000";
     case EM_ARC_A5:		return "ARC International ARCompact processor";
     case EM_CRX:		return "National Semiconductor CRX microprocessor";
     case EM_ADAPTEVA_EPIPHANY:	return "Adapteva EPIPHANY";
@@ -2894,6 +2891,11 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
 	  if (e_flags & EF_SH_FDPIC)
 	    strcat (buf, ", fdpic");
 	  break;
+          
+        case EM_OR1K:
+          if (e_flags & EF_OR1K_NODELAY)
+            strcat (buf, ", no delay");
+          break;
 
 	case EM_SPARCV9:
 	  if (e_flags & EF_SPARC_32PLUS)
@@ -3007,6 +3009,8 @@ get_machine_flags (unsigned e_flags, unsigned e_machine)
 	case EM_RL78:
 	  if (e_flags & E_FLAG_RL78_G10)
 	    strcat (buf, ", G10");
+	  if (e_flags & E_FLAG_RL78_64BIT_DOUBLES)
+	    strcat (buf, ", 64-bit doubles");
 	  break;
 
 	case EM_RX:
@@ -10485,9 +10489,8 @@ is_32bit_abs_reloc (unsigned int reloc_type)
       return reloc_type == 12; /* R_NIOS2_BFD_RELOC_32.  */
     case EM_NIOS32:
       return reloc_type == 1; /* R_NIOS_32.  */
-    case EM_OPENRISC:
-    case EM_OR32:
-      return reloc_type == 1; /* R_OR32_32.  */
+    case EM_OR1K:
+      return reloc_type == 1; /* R_OR1K_32.  */
     case EM_PARISC:
       return (reloc_type == 1 /* R_PARISC_DIR32.  */
 	      || reloc_type == 41); /* R_PARISC_SECREL32.  */
@@ -10575,6 +10578,8 @@ is_32bit_pcrel_reloc (unsigned int reloc_type)
       return reloc_type == 3;  /* R_ARM_REL32 */
     case EM_MICROBLAZE:
       return reloc_type == 2;  /* R_MICROBLAZE_32_PCREL.  */
+    case EM_OR1K:
+      return reloc_type == 9; /* R_OR1K_32_PCREL.  */
     case EM_PARISC:
       return reloc_type == 9;  /* R_PARISC_PCREL32.  */
     case EM_PPC:
@@ -10740,6 +10745,8 @@ is_16bit_abs_reloc (unsigned int reloc_type)
       return reloc_type == 13; /* R_NIOS2_BFD_RELOC_16.  */
     case EM_NIOS32:
       return reloc_type == 9; /* R_NIOS_16.  */
+    case EM_OR1K:
+      return reloc_type == 2; /* R_OR1K_16.  */
     case EM_TI_C6000:
       return reloc_type == 2; /* R_C6000_ABS16.  */
     case EM_XC16X:
@@ -10796,6 +10803,7 @@ is_none_reloc (unsigned int reloc_type)
     case EM_C166:    /* R_XC16X_NONE.  */
     case EM_ALTERA_NIOS2: /* R_NIOS2_NONE.  */
     case EM_NIOS32:  /* R_NIOS_NONE.  */
+    case EM_OR1K:    /* R_OR1K_NONE. */
       return reloc_type == 0;
     case EM_AARCH64:
       return reloc_type == 0 || reloc_type == 256;
@@ -14042,15 +14050,23 @@ process_note_sections (FILE * file)
 {
   Elf_Internal_Shdr * section;
   unsigned long i;
+  int n = 0;
   int res = 1;
 
   for (i = 0, section = section_headers;
        i < elf_header.e_shnum && section != NULL;
        i++, section++)
     if (section->sh_type == SHT_NOTE)
-      res &= process_corefile_note_segment (file,
-					    (bfd_vma) section->sh_offset,
-					    (bfd_vma) section->sh_size);
+      {
+	res &= process_corefile_note_segment (file,
+					      (bfd_vma) section->sh_offset,
+					      (bfd_vma) section->sh_size);
+	n++;
+      }
+
+  if (n == 0)
+    /* Try processing NOTE segments instead.  */
+    return process_corefile_note_segments (file);
 
   return res;
 }

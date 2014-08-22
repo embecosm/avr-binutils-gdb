@@ -56,9 +56,9 @@ static bfd_reloc_status_type ppc64_elf_unhandled_reloc
 static bfd_vma opd_entry_value
   (asection *, bfd_vma, asection **, bfd_vma *, bfd_boolean);
 
-#define TARGET_LITTLE_SYM	bfd_elf64_powerpcle_vec
+#define TARGET_LITTLE_SYM	powerpc_elf64_le_vec
 #define TARGET_LITTLE_NAME	"elf64-powerpcle"
-#define TARGET_BIG_SYM		bfd_elf64_powerpc_vec
+#define TARGET_BIG_SYM		powerpc_elf64_vec
 #define TARGET_BIG_NAME		"elf64-powerpc"
 #define ELF_ARCH		bfd_arch_powerpc
 #define ELF_TARGET_ID		PPC64_ELF_DATA
@@ -84,7 +84,6 @@ static bfd_vma opd_entry_value
 #define bfd_elf64_bfd_print_private_bfd_data  ppc64_elf_print_private_bfd_data
 #define bfd_elf64_new_section_hook	      ppc64_elf_new_section_hook
 #define bfd_elf64_bfd_link_hash_table_create  ppc64_elf_link_hash_table_create
-#define bfd_elf64_bfd_link_hash_table_free    ppc64_elf_link_hash_table_free
 #define bfd_elf64_get_synthetic_symtab	      ppc64_elf_get_synthetic_symtab
 #define bfd_elf64_bfd_link_just_syms	      ppc64_elf_link_just_syms
 
@@ -173,6 +172,7 @@ static bfd_vma opd_entry_value
 
 #define LD_R2_0R1	0xe8410000	/* ld    %r2,0(%r1)      */
 
+#define ADDIS_R12_R2	0x3d820000	/* addis %r12,%r2,xxx@ha     */
 #define ADDIS_R12_R12	0x3d8c0000	/* addis %r12,%r12,xxx@ha */
 #define LD_R12_0R12	0xe98c0000	/* ld    %r12,xxx@l(%r12) */
 
@@ -4141,6 +4141,21 @@ tocsave_htab_eq (const void *p1, const void *p2)
   return e1->sec == e2->sec && e1->offset == e2->offset;
 }
 
+/* Destroy a ppc64 ELF linker hash table.  */
+
+static void
+ppc64_elf_link_hash_table_free (bfd *obfd)
+{
+  struct ppc_link_hash_table *htab;
+
+  htab = (struct ppc_link_hash_table *) obfd->link.hash;
+  if (htab->tocsave_htab)
+    htab_delete (htab->tocsave_htab);
+  bfd_hash_table_free (&htab->branch_hash_table);
+  bfd_hash_table_free (&htab->stub_hash_table);
+  _bfd_elf_link_hash_table_free (obfd);
+}
+
 /* Create a ppc64 ELF linker hash table.  */
 
 static struct bfd_link_hash_table *
@@ -4165,7 +4180,7 @@ ppc64_elf_link_hash_table_create (bfd *abfd)
   if (!bfd_hash_table_init (&htab->stub_hash_table, stub_hash_newfunc,
 			    sizeof (struct ppc_stub_hash_entry)))
     {
-      _bfd_elf_link_hash_table_free ((struct bfd_link_hash_table *) htab);
+      _bfd_elf_link_hash_table_free (abfd);
       return NULL;
     }
 
@@ -4174,7 +4189,7 @@ ppc64_elf_link_hash_table_create (bfd *abfd)
 			    sizeof (struct ppc_branch_hash_entry)))
     {
       bfd_hash_table_free (&htab->stub_hash_table);
-      _bfd_elf_link_hash_table_free ((struct bfd_link_hash_table *) htab);
+      _bfd_elf_link_hash_table_free (abfd);
       return NULL;
     }
 
@@ -4184,11 +4199,10 @@ ppc64_elf_link_hash_table_create (bfd *abfd)
 					NULL);
   if (htab->tocsave_htab == NULL)
     {
-      bfd_hash_table_free (&htab->branch_hash_table);
-      bfd_hash_table_free (&htab->stub_hash_table);
-      _bfd_elf_link_hash_table_free ((struct bfd_link_hash_table *) htab);
+      ppc64_elf_link_hash_table_free (abfd);
       return NULL;
     }
+  htab->elf.root.hash_table_free = ppc64_elf_link_hash_table_free;
 
   /* Initializing two fields of the union is just cosmetic.  We really
      only care about glist, but when compiled on a 32-bit host the
@@ -4204,20 +4218,6 @@ ppc64_elf_link_hash_table_create (bfd *abfd)
   htab->elf.init_plt_offset.glist = NULL;
 
   return &htab->elf.root;
-}
-
-/* Free the derived linker hash table.  */
-
-static void
-ppc64_elf_link_hash_table_free (struct bfd_link_hash_table *hash)
-{
-  struct ppc_link_hash_table *htab = (struct ppc_link_hash_table *) hash;
-
-  bfd_hash_table_free (&htab->stub_hash_table);
-  bfd_hash_table_free (&htab->branch_hash_table);
-  if (htab->tocsave_htab)
-    htab_delete (htab->tocsave_htab);
-  _bfd_elf_link_hash_table_free (hash);
 }
 
 /* Create sections for linker generated code.  */
@@ -7557,7 +7557,7 @@ ppc64_elf_edit_opd (struct bfd_link_info *info)
   if (htab == NULL)
     return FALSE;
 
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       asection *sec;
       Elf_Internal_Rela *relstart, *rel, *relend;
@@ -8104,7 +8104,7 @@ ppc64_elf_tls_optimize (struct bfd_link_info *info)
      and plt refcounts.  */
   toc_ref = NULL;
   for (pass = 0; pass < 2; ++pass)
-    for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+    for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
       {
 	Elf_Internal_Sym *locsyms = NULL;
 	asection *toc = bfd_get_section_by_name (ibfd, ".toc");
@@ -8601,7 +8601,7 @@ ppc64_elf_edit_toc (struct bfd_link_info *info)
 
   htab->do_toc_opt = 1;
   toc_inf.global_toc_syms = TRUE;
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       asection *toc, *sec;
       Elf_Internal_Shdr *symtab_hdr;
@@ -9661,7 +9661,7 @@ ppc64_elf_size_dynamic_sections (bfd *output_bfd,
 
   /* Set up .got offsets for local syms, and space for local dynamic
      relocs.  */
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       struct got_entry **lgot_ents;
       struct got_entry **end_lgot_ents;
@@ -9783,7 +9783,7 @@ ppc64_elf_size_dynamic_sections (bfd *output_bfd,
     elf_link_hash_traverse (&htab->elf, size_global_entry_stubs, info);
 
   first_tlsld = NULL;
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       struct got_entry *ent;
 
@@ -9891,7 +9891,7 @@ ppc64_elf_size_dynamic_sections (bfd *output_bfd,
 	return FALSE;
     }
 
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       if (!is_ppc64_elf (ibfd))
 	continue;
@@ -10246,8 +10246,16 @@ build_plt_stub (struct ppc_link_hash_table *htab,
       if (ALWAYS_EMIT_R2SAVE
 	  || stub_entry->stub_type == ppc_stub_plt_call_r2save)
 	bfd_put_32 (obfd, STD_R2_0R1 + STK_TOC (htab), p),	p += 4;
-      bfd_put_32 (obfd, ADDIS_R11_R2 | PPC_HA (offset), p),	p += 4;
-      bfd_put_32 (obfd, LD_R12_0R11 | PPC_LO (offset), p),	p += 4;
+      if (plt_load_toc)
+	{
+	  bfd_put_32 (obfd, ADDIS_R11_R2 | PPC_HA (offset), p),	p += 4;
+	  bfd_put_32 (obfd, LD_R12_0R11 | PPC_LO (offset), p),	p += 4;
+	}
+      else
+	{
+	  bfd_put_32 (obfd, ADDIS_R12_R2 | PPC_HA (offset), p),	p += 4;
+	  bfd_put_32 (obfd, LD_R12_0R12 | PPC_LO (offset), p),	p += 4;
+	}
       if (plt_load_toc
 	  && PPC_HA (offset + 8 + 8 * plt_static_chain) != PPC_HA (offset))
 	{
@@ -10668,10 +10676,10 @@ ppc_build_one_stub (struct bfd_hash_entry *gen_entry, void *in_arg)
 	    {
 	      size = 16;
 	      bfd_put_32 (htab->params->stub_bfd,
-			  ADDIS_R11_R2 | PPC_HA (off), loc);
+			  ADDIS_R12_R2 | PPC_HA (off), loc);
 	      loc += 4;
 	      bfd_put_32 (htab->params->stub_bfd,
-			  LD_R12_0R11 | PPC_LO (off), loc);
+			  LD_R12_0R12 | PPC_LO (off), loc);
 	    }
 	  else
 	    {
@@ -10697,10 +10705,10 @@ ppc_build_one_stub (struct bfd_hash_entry *gen_entry, void *in_arg)
 	    {
 	      size += 4;
 	      bfd_put_32 (htab->params->stub_bfd,
-			  ADDIS_R11_R2 | PPC_HA (off), loc);
+			  ADDIS_R12_R2 | PPC_HA (off), loc);
 	      loc += 4;
 	      bfd_put_32 (htab->params->stub_bfd,
-			  LD_R12_0R11 | PPC_LO (off), loc);
+			  LD_R12_0R12 | PPC_LO (off), loc);
 	    }
 	  else
 	    bfd_put_32 (htab->params->stub_bfd, LD_R12_0R2 | PPC_LO (off), loc);
@@ -11062,7 +11070,7 @@ ppc64_elf_setup_section_lists (struct bfd_link_info *info)
   /* Find the top input section id.  */
   for (input_bfd = info->input_bfds, top_id = 3;
        input_bfd != NULL;
-       input_bfd = input_bfd->link_next)
+       input_bfd = input_bfd->link.next)
     {
       for (section = input_bfd->sections;
 	   section != NULL;
@@ -11243,7 +11251,7 @@ ppc64_elf_layout_multitoc (struct bfd_link_info *info)
   elf_link_hash_traverse (&htab->elf, merge_global_got, info);
 
   /* And tlsld_got.  */
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       struct got_entry *ent, *ent2;
 
@@ -11254,7 +11262,7 @@ ppc64_elf_layout_multitoc (struct bfd_link_info *info)
       if (!ent->is_indirect
 	  && ent->got.offset != (bfd_vma) -1)
 	{
-	  for (ibfd2 = ibfd->link_next; ibfd2 != NULL; ibfd2 = ibfd2->link_next)
+	  for (ibfd2 = ibfd->link.next; ibfd2 != NULL; ibfd2 = ibfd2->link.next)
 	    {
 	      if (!is_ppc64_elf (ibfd2))
 		continue;
@@ -11276,7 +11284,7 @@ ppc64_elf_layout_multitoc (struct bfd_link_info *info)
   htab->elf.irelplt->size -= htab->got_reli_size;
   htab->got_reli_size = 0;
 
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       asection *got, *relgot;
 
@@ -11296,7 +11304,7 @@ ppc64_elf_layout_multitoc (struct bfd_link_info *info)
 
   /* Now reallocate the got, local syms first.  We don't need to
      allocate section contents again since we never increase size.  */
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       struct got_entry **lgot_ents;
       struct got_entry **end_lgot_ents;
@@ -11353,7 +11361,7 @@ ppc64_elf_layout_multitoc (struct bfd_link_info *info)
 
   elf_link_hash_traverse (&htab->elf, reallocate_got, info);
 
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       struct got_entry *ent;
 
@@ -11377,7 +11385,7 @@ ppc64_elf_layout_multitoc (struct bfd_link_info *info)
 
   done_something = htab->elf.irelplt->rawsize != htab->elf.irelplt->size;
   if (!done_something)
-    for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+    for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
       {
 	asection *got;
 
@@ -11944,7 +11952,7 @@ ppc64_elf_size_stubs (struct bfd_link_info *info)
 
       for (input_bfd = info->input_bfds, bfd_indx = 0;
 	   input_bfd != NULL;
-	   input_bfd = input_bfd->link_next, bfd_indx++)
+	   input_bfd = input_bfd->link.next, bfd_indx++)
 	{
 	  Elf_Internal_Shdr *symtab_hdr;
 	  asection *section;
@@ -14639,14 +14647,15 @@ ppc64_elf_relocate_section (bfd *output_bfd,
 	  enum complain_overflow complain = complain_overflow_signed;
 
 	  insn = bfd_get_32 (input_bfd, contents + (rel->r_offset & ~3));
-	  if (howto->rightshift == 0
-	      ? ((insn & (0x3f << 26)) == 28u << 26 /* andi */
-		 || (insn & (0x3f << 26)) == 24u << 26 /* ori */
-		 || (insn & (0x3f << 26)) == 26u << 26 /* xori */
-		 || (insn & (0x3f << 26)) == 10u << 26 /* cmpli */)
-	      : ((insn & (0x3f << 26)) == 29u << 26 /* andis */
-		 || (insn & (0x3f << 26)) == 25u << 26 /* oris */
-		 || (insn & (0x3f << 26)) == 27u << 26 /* xoris */))
+	  if ((insn & (0x3f << 26)) == 10u << 26 /* cmpli */)
+	    complain = complain_overflow_bitfield;
+	  else if (howto->rightshift == 0
+		   ? ((insn & (0x3f << 26)) == 28u << 26 /* andi */
+		      || (insn & (0x3f << 26)) == 24u << 26 /* ori */
+		      || (insn & (0x3f << 26)) == 26u << 26 /* xori */)
+		   : ((insn & (0x3f << 26)) == 29u << 26 /* andis */
+		      || (insn & (0x3f << 26)) == 25u << 26 /* oris */
+		      || (insn & (0x3f << 26)) == 27u << 26 /* xoris */))
 	    complain = complain_overflow_unsigned;
 	  if (howto->complain_on_overflow != complain)
 	    {
@@ -15054,7 +15063,7 @@ ppc64_elf_finish_dynamic_sections (bfd *output_bfd,
   /* We need to handle writing out multiple GOT sections ourselves,
      since we didn't add them to DYNOBJ.  We know dynobj is the first
      bfd.  */
-  while ((dynobj = dynobj->link_next) != NULL)
+  while ((dynobj = dynobj->link.next) != NULL)
     {
       asection *s;
 
@@ -15090,7 +15099,7 @@ ppc64_elf_finish_dynamic_sections (bfd *output_bfd,
 #undef  TARGET_LITTLE_NAME
 
 #undef  TARGET_BIG_SYM
-#define TARGET_BIG_SYM	bfd_elf64_powerpc_freebsd_vec
+#define TARGET_BIG_SYM	powerpc_elf64_fbsd_vec
 #undef  TARGET_BIG_NAME
 #define TARGET_BIG_NAME "elf64-powerpc-freebsd"
 

@@ -25,7 +25,7 @@
 #include "regset.h"
 #include "linux-nat.h"
 #include "amd64-linux-tdep.h"
-#include "linux-btrace.h"
+#include "nat/linux-btrace.h"
 #include "btrace.h"
 
 #include "gdb_assert.h"
@@ -100,9 +100,11 @@ static int amd64_linux_gregset32_reg_offset[] =
   -1, -1, -1, -1, -1, -1, -1, -1,
   -1, -1, -1, -1, -1, -1, -1, -1, -1,
   -1, -1, -1, -1, -1, -1, -1, -1,
-  -1, -1, -1, -1,		/* MPX registers BND0 ... BND3.  */
-  -1, -1,			/* MPX registers BNDCFGU, BNDSTATUS.  */
-  ORIG_RAX * 8,			/* "orig_eax" */
+  -1, -1, -1, -1,		  /* MPX registers BND0 ... BND3.  */
+  -1, -1,			  /* MPX registers BNDCFGU, BNDSTATUS.  */
+  -1, -1, -1, -1, -1, -1, -1, -1, /* k0 ... k7 (AVX512)  */
+  -1, -1, -1, -1, -1, -1, -1, -1, /* zmm0 ... zmm7 (AVX512)  */
+  ORIG_RAX * 8			  /* "orig_eax"  */
 };
 
 
@@ -413,6 +415,11 @@ amd64_linux_prepare_to_resume (struct lwp_info *lwp)
 
 	 Ensure DR_CONTROL gets written as the very last register here.  */
 
+      /* Clear DR_CONTROL first.  In some cases, setting DR0-3 to a
+	 value that doesn't match what is enabled in DR_CONTROL
+	 results in EINVAL.  */
+      amd64_linux_dr_set (lwp->ptid, DR_CONTROL, 0);
+
       for (i = DR_FIRSTADDR; i <= DR_LASTADDR; i++)
 	if (state->dr_ref_count[i] > 0)
 	  {
@@ -425,7 +432,10 @@ amd64_linux_prepare_to_resume (struct lwp_info *lwp)
 	    clear_status = 1;
 	  }
 
-      amd64_linux_dr_set (lwp->ptid, DR_CONTROL, state->dr_control_mirror);
+      /* If DR_CONTROL is supposed to be zero, we've already set it
+	 above.  */
+      if (state->dr_control_mirror != 0)
+	amd64_linux_dr_set (lwp->ptid, DR_CONTROL, state->dr_control_mirror);
 
       lwp->arch_private->debug_registers_changed = 0;
     }
@@ -1101,6 +1111,17 @@ amd64_linux_read_description (struct target_ops *ops)
     {
       switch (xcr0 & I386_XSTATE_ALL_MASK)
 	{
+      case I386_XSTATE_MPX_AVX512_MASK:
+      case I386_XSTATE_AVX512_MASK:
+	if (is_64bit)
+	  {
+	    if (is_x32)
+	      return tdesc_x32_avx512_linux;
+	    else
+	      return tdesc_amd64_avx512_linux;
+	  }
+	else
+	  return tdesc_i386_avx512_linux;
 	case I386_XSTATE_MPX_MASK:
 	  if (is_64bit)
 	    {

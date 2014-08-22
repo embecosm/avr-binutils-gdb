@@ -31,6 +31,7 @@ struct type;
 struct ui_file;
 struct language_defn;
 struct value_print_options;
+struct xmethod_worker;
 
 /* The structure which defines the type of a value.  It should never
    be possible for a program lval value to survive over a call to the
@@ -574,14 +575,17 @@ extern struct value *value_from_history_ref (char *, char **);
 extern struct value *value_at (struct type *type, CORE_ADDR addr);
 extern struct value *value_at_lazy (struct type *type, CORE_ADDR addr);
 
+extern struct value *value_from_contents_and_address_unresolved
+     (struct type *, const gdb_byte *, CORE_ADDR);
 extern struct value *value_from_contents_and_address (struct type *,
 						      const gdb_byte *,
 						      CORE_ADDR);
 extern struct value *value_from_contents (struct type *, const gdb_byte *);
 
-extern struct value *default_value_from_register (struct type *type,
+extern struct value *default_value_from_register (struct gdbarch *gdbarch,
+						  struct type *type,
 						  int regnum,
-						  struct frame_info *frame);
+						  struct frame_id frame_id);
 
 extern void read_frame_register_value (struct value *value,
 				       struct frame_info *frame);
@@ -589,7 +593,7 @@ extern void read_frame_register_value (struct value *value,
 extern struct value *value_from_register (struct type *type, int regnum,
 					  struct frame_info *frame);
 
-extern CORE_ADDR address_from_register (struct type *type, int regnum,
+extern CORE_ADDR address_from_register (int regnum,
 					struct frame_info *frame);
 
 extern struct value *value_of_variable (struct symbol *var,
@@ -676,7 +680,7 @@ extern struct value *value_struct_elt_bitpos (struct value **argp,
 					      const char *err);
 
 extern struct value *value_aggregate_elt (struct type *curtype,
-					  char *name,
+					  const char *name,
 					  struct type *expect_type,
 					  int want_address,
 					  enum noside noside);
@@ -1009,5 +1013,10 @@ struct value *call_internal_function (struct gdbarch *gdbarch,
 				      int argc, struct value **argv);
 
 char *value_internal_function_name (struct value *);
+
+extern struct value *value_of_xmethod (struct xmethod_worker *);
+
+struct value *call_xmethod (struct value *function,
+			    int argc, struct value **argv);
 
 #endif /* !defined (VALUE_H) */

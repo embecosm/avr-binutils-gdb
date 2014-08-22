@@ -1906,7 +1906,9 @@ enum bfd_architecture
 #define bfd_mach_i960_jx        7
 #define bfd_mach_i960_hx        8
 
-  bfd_arch_or32,      /* OpenRISC 32 */
+  bfd_arch_or1k,      /* OpenRISC 1000 */
+#define bfd_mach_or1k           1
+#define bfd_mach_or1knd         2
 
   bfd_arch_sparc,     /* SPARC */
 #define bfd_mach_sparc                 1
@@ -1965,8 +1967,12 @@ enum bfd_architecture
 #define bfd_mach_mips_xlr              887682   /* decimal 'XLR'  */
 #define bfd_mach_mipsisa32             32
 #define bfd_mach_mipsisa32r2           33
+#define bfd_mach_mipsisa32r3           34
+#define bfd_mach_mipsisa32r5           36
 #define bfd_mach_mipsisa64             64
 #define bfd_mach_mipsisa64r2           65
+#define bfd_mach_mipsisa64r3           66
+#define bfd_mach_mipsisa64r5           68
 #define bfd_mach_mips_micromips        96
   bfd_arch_i386,      /* Intel 386 */
 #define bfd_mach_i386_intel_syntax     (1 << 0)
@@ -2218,7 +2224,6 @@ enum bfd_architecture
   bfd_arch_score,     /* Sunplus score */
 #define bfd_mach_score3         3
 #define bfd_mach_score7         7
-  bfd_arch_openrisc,  /* OpenRISC */
   bfd_arch_mmix,      /* Donald Knuth's educational processor.  */
   bfd_arch_xstormy16,
 #define bfd_mach_xstormy16     1
@@ -5139,9 +5144,31 @@ a matching LO8XG part.  */
   BFD_RELOC_860_HIGOT,
   BFD_RELOC_860_HIGOTOFF,
 
-/* OpenRISC Relocations.  */
-  BFD_RELOC_OPENRISC_ABS_26,
-  BFD_RELOC_OPENRISC_REL_26,
+/* OpenRISC 1000 Relocations.  */
+  BFD_RELOC_OR1K_REL_26,
+  BFD_RELOC_OR1K_GOTPC_HI16,
+  BFD_RELOC_OR1K_GOTPC_LO16,
+  BFD_RELOC_OR1K_GOT16,
+  BFD_RELOC_OR1K_PLT26,
+  BFD_RELOC_OR1K_GOTOFF_HI16,
+  BFD_RELOC_OR1K_GOTOFF_LO16,
+  BFD_RELOC_OR1K_COPY,
+  BFD_RELOC_OR1K_GLOB_DAT,
+  BFD_RELOC_OR1K_JMP_SLOT,
+  BFD_RELOC_OR1K_RELATIVE,
+  BFD_RELOC_OR1K_TLS_GD_HI16,
+  BFD_RELOC_OR1K_TLS_GD_LO16,
+  BFD_RELOC_OR1K_TLS_LDM_HI16,
+  BFD_RELOC_OR1K_TLS_LDM_LO16,
+  BFD_RELOC_OR1K_TLS_LDO_HI16,
+  BFD_RELOC_OR1K_TLS_LDO_LO16,
+  BFD_RELOC_OR1K_TLS_IE_HI16,
+  BFD_RELOC_OR1K_TLS_IE_LO16,
+  BFD_RELOC_OR1K_TLS_LE_HI16,
+  BFD_RELOC_OR1K_TLS_LE_LO16,
+  BFD_RELOC_OR1K_TLS_TPOFF,
+  BFD_RELOC_OR1K_TLS_DTPOFF,
+  BFD_RELOC_OR1K_TLS_DTPMOD,
 
 /* H8 elf Relocations.  */
   BFD_RELOC_H8_DIR16A8,
@@ -6373,8 +6400,12 @@ struct bfd
   struct bfd *nested_archives; /* List of nested archive in a flattened
                                   thin archive.  */
 
-  /* A chain of BFD structures involved in a link.  */
-  struct bfd *link_next;
+  union {
+    /* For input BFDs, a chain of BFDs involved in a link.  */
+    struct bfd *next;
+    /* For output BFD, the linker hash table.  */
+    struct bfd_link_hash_table *hash;
+  } link;
 
   /* A field used by _bfd_generic_link_add_archive_symbols.  This will
      be used only for archive elements.  */
@@ -6463,6 +6494,9 @@ struct bfd
   /* Set if only required symbols should be added in the link hash table for
      this object.  Used by VMS linkers.  */
   unsigned int selective_search : 1;
+
+  /* Set if this is the linker output BFD.  */
+  unsigned int is_linker_output : 1;
 };
 
 /* See note beside bfd_set_section_userdata.  */
@@ -6624,9 +6658,6 @@ bfd_boolean bfd_set_private_flags (bfd *abfd, flagword flags);
 
 #define bfd_link_hash_table_create(abfd) \
        BFD_SEND (abfd, _bfd_link_hash_table_create, (abfd))
-
-#define bfd_link_hash_table_free(abfd, hash) \
-       BFD_SEND (abfd, _bfd_link_hash_table_free, (hash))
 
 #define bfd_link_add_symbols(abfd, info) \
        BFD_SEND (abfd, _bfd_link_add_symbols, (abfd, info))
@@ -7020,7 +7051,6 @@ typedef struct bfd_target
   NAME##_bfd_get_relocated_section_contents, \
   NAME##_bfd_relax_section, \
   NAME##_bfd_link_hash_table_create, \
-  NAME##_bfd_link_hash_table_free, \
   NAME##_bfd_link_add_symbols, \
   NAME##_bfd_link_just_syms, \
   NAME##_bfd_copy_link_hash_symbol_type, \
@@ -7046,9 +7076,6 @@ typedef struct bfd_target
      different information in this table.  */
   struct bfd_link_hash_table *
               (*_bfd_link_hash_table_create) (bfd *);
-
-  /* Release the memory associated with the linker hash table.  */
-  void        (*_bfd_link_hash_table_free) (struct bfd_link_hash_table *);
 
   /* Add symbols from this object file into the hash table.  */
   bfd_boolean (*_bfd_link_add_symbols) (bfd *, struct bfd_link_info *);

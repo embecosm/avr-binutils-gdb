@@ -242,7 +242,7 @@ static PyObject *
 frapy_block (PyObject *self, PyObject *args)
 {
   struct frame_info *frame;
-  struct block *block = NULL, *fn_block;
+  const struct block *block = NULL, *fn_block;
   volatile struct gdb_exception except;
 
   TRY_CATCH (except, RETURN_MASK_ALL)
@@ -588,7 +588,7 @@ gdbpy_frame_stop_reason_string (PyObject *self, PyObject *args)
       return NULL;
     }
 
-  str = frame_stop_reason_string (reason);
+  str = unwind_stop_reason_to_string (reason);
   return PyUnicode_Decode (str, strlen (str), host_charset (), NULL);
 }
 

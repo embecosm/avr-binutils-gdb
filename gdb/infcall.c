@@ -23,6 +23,7 @@
 #include "target.h"
 #include "regcache.h"
 #include "inferior.h"
+#include "infrun.h"
 #include "gdb_assert.h"
 #include "block.h"
 #include "gdbcore.h"
@@ -406,7 +407,7 @@ run_inferior_call (struct thread_info *call_thread, CORE_ADDR real_pc)
       /* Inferior function calls are always synchronous, even if the
 	 target supports asynchronous execution.  Do here what
 	 `proceed' itself does in sync mode.  */
-      if (target_can_async_p () && is_running (inferior_ptid))
+      if (target_can_async_p ())
 	{
 	  wait_for_inferior ();
 	  normal_stop ();
@@ -825,7 +826,7 @@ call_function_by_hand (struct value *function, int nargs, struct value **args)
   /* Everything's ready, push all the info needed to restore the
      caller (and identify the dummy-frame) onto the dummy-frame
      stack.  */
-  dummy_frame_push (caller_state, &dummy_id);
+  dummy_frame_push (caller_state, &dummy_id, inferior_ptid);
 
   /* Discard both inf_status and caller_state cleanups.
      From this point on we explicitly restore the associated state
@@ -951,7 +952,7 @@ When the function is done executing, GDB will silently stop."),
 
 	      /* We must get back to the frame we were before the
 		 dummy call.  */
-	      dummy_frame_pop (dummy_id);
+	      dummy_frame_pop (dummy_id, call_thread_ptid);
 
 	      /* We also need to restore inferior status to that before the
 		 dummy call.  */
@@ -992,7 +993,7 @@ When the function is done executing, GDB will silently stop."),
 	{
 	  /* We must get back to the frame we were before the dummy
 	     call.  */
-	  dummy_frame_pop (dummy_id);
+	  dummy_frame_pop (dummy_id, call_thread_ptid);
 
 	  /* We also need to restore inferior status to that before
 	     the dummy call.  */

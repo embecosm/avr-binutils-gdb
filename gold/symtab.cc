@@ -334,7 +334,7 @@ Sized_symbol<size>::allocate_common(Output_data* od, Value_type value)
 // Return true if this symbol should be added to the dynamic symbol
 // table.
 
-inline bool
+bool
 Symbol::should_add_dynsym_entry(Symbol_table* symtab) const
 {
   // If the symbol is only present on plugin files, the plugin decided we
@@ -525,6 +525,31 @@ Symbol::set_output_section(Output_section* os)
     default:
       gold_unreachable();
     }
+}
+
+// Set the symbol's output segment.  This is used for pre-defined
+// symbols whose segments aren't known until after layout is done
+// (e.g., __ehdr_start).
+
+void
+Symbol::set_output_segment(Output_segment* os, Segment_offset_base base)
+{
+  gold_assert(this->is_predefined_);
+  this->source_ = IN_OUTPUT_SEGMENT;
+  this->u_.in_output_segment.output_segment = os;
+  this->u_.in_output_segment.offset_base = base;
+}
+
+// Set the symbol to undefined.  This is used for pre-defined
+// symbols whose segments aren't known until after layout is done
+// (e.g., __ehdr_start).
+
+void
+Symbol::set_undefined()
+{
+  gold_assert(this->is_predefined_);
+  this->source_ = IS_UNDEFINED;
+  this->is_predefined_ = false;
 }
 
 // Class Symbol_table.

@@ -25,6 +25,7 @@
 #include "gdbtypes.h"
 #include "frame.h"
 #include "inferior.h"
+#include "infrun.h"
 #include "environ.h"
 #include "value.h"
 #include "gdbcmd.h"
@@ -496,11 +497,9 @@ Start it from the beginning? ")))
     }
 }
 
-/* Prepare for execution command.  TARGET is the target that will run
-   the command.  BACKGROUND determines whether this is a foreground
-   (synchronous) or background (asynchronous) command.  */
+/* See inferior.h.  */
 
-static void
+void
 prepare_execution_command (struct target_ops *target, int background)
 {
   /* If we get a request for running in the bg but the target
@@ -2770,7 +2769,7 @@ unset_command (char *args, int from_tty)
 {
   printf_filtered (_("\"unset\" must be followed by the "
 		     "name of an unset subcommand.\n"));
-  help_list (unsetlist, "unset ", -1, gdb_stdout);
+  help_list (unsetlist, "unset ", all_commands, gdb_stdout);
 }
 
 /* Implement `info proc' family of commands.  */

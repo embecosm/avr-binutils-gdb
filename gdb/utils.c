@@ -600,7 +600,7 @@ error_stream (struct ui_file *stream)
 
 /* Dump core trying to increase the core soft limit to hard limit first.  */
 
-static void
+void
 dump_core (void)
 {
 #ifdef HAVE_SETRLIMIT
@@ -613,10 +613,12 @@ dump_core (void)
 }
 
 /* Check whether GDB will be able to dump core using the dump_core
-   function.  */
+   function.  Returns zero if GDB cannot or should not dump core.
+   If LIMIT_KIND is LIMIT_CUR the user's soft limit will be respected.
+   If LIMIT_KIND is LIMIT_MAX only the hard limit will be respected.  */
 
-static int
-can_dump_core (const char *reason)
+int
+can_dump_core (enum resource_limit_kind limit_kind)
 {
 #ifdef HAVE_GETRLIMIT
   struct rlimit rlim;
@@ -625,17 +627,45 @@ can_dump_core (const char *reason)
   if (getrlimit (RLIMIT_CORE, &rlim) != 0)
     return 1;
 
-  if (rlim.rlim_max == 0)
+  switch (limit_kind)
     {
-      fprintf_unfiltered (gdb_stderr,
-			  _("%s\nUnable to dump core, use `ulimit -c"
-			    " unlimited' before executing GDB next time.\n"),
-			  reason);
-      return 0;
+    case LIMIT_CUR:
+      if (rlim.rlim_cur == 0)
+	return 0;
+
+    case LIMIT_MAX:
+      if (rlim.rlim_max == 0)
+	return 0;
     }
 #endif /* HAVE_GETRLIMIT */
 
   return 1;
+}
+
+/* Print a warning that we cannot dump core.  */
+
+void
+warn_cant_dump_core (const char *reason)
+{
+  fprintf_unfiltered (gdb_stderr,
+		      _("%s\nUnable to dump core, use `ulimit -c"
+			" unlimited' before executing GDB next time.\n"),
+		      reason);
+}
+
+/* Check whether GDB will be able to dump core using the dump_core
+   function, and print a warning if we cannot.  */
+
+static int
+can_dump_core_warn (enum resource_limit_kind limit_kind,
+		    const char *reason)
+{
+  int core_dump_allowed = can_dump_core (limit_kind);
+
+  if (!core_dump_allowed)
+    warn_cant_dump_core (reason);
+
+  return core_dump_allowed;
 }
 
 /* Allow the user to configure the debugger behavior with respect to
@@ -659,7 +689,9 @@ static const char *const internal_problem_modes[] =
 struct internal_problem
 {
   const char *name;
+  int user_settable_should_quit;
   const char *should_quit;
+  int user_settable_should_dump_core;
   const char *should_dump_core;
 };
 
@@ -746,9 +778,15 @@ internal_vproblem (struct internal_problem *problem,
   else
     internal_error (__FILE__, __LINE__, _("bad switch"));
 
+  fputs_unfiltered (_("\nThis is a bug, please report it."), gdb_stderr);
+  if (REPORT_BUGS_TO[0])
+    fprintf_unfiltered (gdb_stderr, _("  For instructions, see:\n%s."),
+			REPORT_BUGS_TO);
+  fputs_unfiltered ("\n\n", gdb_stderr);
+
   if (problem->should_dump_core == internal_problem_ask)
     {
-      if (!can_dump_core (reason))
+      if (!can_dump_core_warn (LIMIT_MAX, reason))
 	dump_core_p = 0;
       else
 	{
@@ -759,7 +797,7 @@ internal_vproblem (struct internal_problem *problem,
 	}
     }
   else if (problem->should_dump_core == internal_problem_yes)
-    dump_core_p = can_dump_core (reason);
+    dump_core_p = can_dump_core_warn (LIMIT_MAX, reason);
   else if (problem->should_dump_core == internal_problem_no)
     dump_core_p = 0;
   else
@@ -788,7 +826,7 @@ internal_vproblem (struct internal_problem *problem,
 }
 
 static struct internal_problem internal_error_problem = {
-  "internal-error", internal_problem_ask, internal_problem_ask
+  "internal-error", 1, internal_problem_ask, 1, internal_problem_ask
 };
 
 void
@@ -809,7 +847,7 @@ internal_error (const char *file, int line, const char *string, ...)
 }
 
 static struct internal_problem internal_warning_problem = {
-  "internal-warning", internal_problem_ask, internal_problem_ask
+  "internal-warning", 1, internal_problem_ask, 1, internal_problem_ask
 };
 
 void
@@ -825,6 +863,26 @@ internal_warning (const char *file, int line, const char *string, ...)
 
   va_start (ap, string);
   internal_vwarning (file, line, string, ap);
+  va_end (ap);
+}
+
+static struct internal_problem demangler_warning_problem = {
+  "demangler-warning", 1, internal_problem_ask, 0, internal_problem_no
+};
+
+void
+demangler_vwarning (const char *file, int line, const char *fmt, va_list ap)
+{
+  internal_vproblem (&demangler_warning_problem, file, line, fmt, ap);
+}
+
+void
+demangler_warning (const char *file, int line, const char *string, ...)
+{
+  va_list ap;
+
+  va_start (ap, string);
+  demangler_vwarning (file, line, string, ap);
   va_end (ap);
 }
 
@@ -888,45 +946,51 @@ add_internal_problem_command (struct internal_problem *problem)
 			  (char *) NULL),
 		  0/*allow-unknown*/, &maintenance_show_cmdlist);
 
-  set_doc = xstrprintf (_("Set whether GDB should quit "
-			  "when an %s is detected"),
-			problem->name);
-  show_doc = xstrprintf (_("Show whether GDB will quit "
-			   "when an %s is detected"),
-			 problem->name);
-  add_setshow_enum_cmd ("quit", class_maintenance,
-			internal_problem_modes,
-			&problem->should_quit,
-			set_doc,
-			show_doc,
-			NULL, /* help_doc */
-			NULL, /* setfunc */
-			NULL, /* showfunc */
-			set_cmd_list,
-			show_cmd_list);
+  if (problem->user_settable_should_quit)
+    {
+      set_doc = xstrprintf (_("Set whether GDB should quit "
+			      "when an %s is detected"),
+			    problem->name);
+      show_doc = xstrprintf (_("Show whether GDB will quit "
+			       "when an %s is detected"),
+			     problem->name);
+      add_setshow_enum_cmd ("quit", class_maintenance,
+			    internal_problem_modes,
+			    &problem->should_quit,
+			    set_doc,
+			    show_doc,
+			    NULL, /* help_doc */
+			    NULL, /* setfunc */
+			    NULL, /* showfunc */
+			    set_cmd_list,
+			    show_cmd_list);
 
-  xfree (set_doc);
-  xfree (show_doc);
+      xfree (set_doc);
+      xfree (show_doc);
+    }
 
-  set_doc = xstrprintf (_("Set whether GDB should create a core "
-			  "file of GDB when %s is detected"),
-			problem->name);
-  show_doc = xstrprintf (_("Show whether GDB will create a core "
-			   "file of GDB when %s is detected"),
-			 problem->name);
-  add_setshow_enum_cmd ("corefile", class_maintenance,
-			internal_problem_modes,
-			&problem->should_dump_core,
-			set_doc,
-			show_doc,
-			NULL, /* help_doc */
-			NULL, /* setfunc */
-			NULL, /* showfunc */
-			set_cmd_list,
-			show_cmd_list);
+  if (problem->user_settable_should_dump_core)
+    {
+      set_doc = xstrprintf (_("Set whether GDB should create a core "
+			      "file of GDB when %s is detected"),
+			    problem->name);
+      show_doc = xstrprintf (_("Show whether GDB will create a core "
+			       "file of GDB when %s is detected"),
+			     problem->name);
+      add_setshow_enum_cmd ("corefile", class_maintenance,
+			    internal_problem_modes,
+			    &problem->should_dump_core,
+			    set_doc,
+			    show_doc,
+			    NULL, /* help_doc */
+			    NULL, /* setfunc */
+			    NULL, /* showfunc */
+			    set_cmd_list,
+			    show_cmd_list);
 
-  xfree (set_doc);
-  xfree (show_doc);
+      xfree (set_doc);
+      xfree (show_doc);
+    }
 }
 
 /* Return a newly allocated string, containing the PREFIX followed
@@ -1496,7 +1560,13 @@ parse_escape (struct gdbarch *gdbarch, const char **string_ptr)
 /* Print the character C on STREAM as part of the contents of a literal
    string whose delimiter is QUOTER.  Note that this routine should only
    be call for printing things which are independent of the language
-   of the program being debugged.  */
+   of the program being debugged.
+
+   printchar will normally escape backslashes and instances of QUOTER. If
+   QUOTER is 0, printchar won't escape backslashes or any quoting character.
+   As a side effect, if you pass the backslash character as the QUOTER,
+   printchar will escape backslashes as usual, but not any other quoting
+   character. */
 
 static void
 printchar (int c, void (*do_fputs) (const char *, struct ui_file *),
@@ -1539,7 +1609,7 @@ printchar (int c, void (*do_fputs) (const char *, struct ui_file *),
     }
   else
     {
-      if (c == '\\' || c == quoter)
+      if (quoter != 0 && (c == '\\' || c == quoter))
 	do_fputs ("\\", stream);
       do_fprintf (stream, "%c", c);
     }
@@ -3249,7 +3319,7 @@ gdb_bfd_errmsg (bfd_error_type error_tag, char **matching)
 /* Return ARGS parsed as a valid pid, or throw an error.  */
 
 int
-parse_pid_to_attach (char *args)
+parse_pid_to_attach (const char *args)
 {
   unsigned long pid;
   char *dummy;
@@ -3257,7 +3327,7 @@ parse_pid_to_attach (char *args)
   if (!args)
     error_no_arg (_("process-id to attach"));
 
-  dummy = args;
+  dummy = (char *) args;
   pid = strtoul (args, &dummy, 0);
   /* Some targets don't set errno on errors, grrr!  */
   if ((pid == 0 && dummy == args) || dummy != &args[strlen (args)])
@@ -3517,4 +3587,5 @@ _initialize_utils (void)
 {
   add_internal_problem_command (&internal_error_problem);
   add_internal_problem_command (&internal_warning_problem);
+  add_internal_problem_command (&demangler_warning_problem);
 }

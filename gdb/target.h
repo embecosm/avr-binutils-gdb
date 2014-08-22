@@ -409,12 +409,12 @@ struct target_ops
        for normal operations, and should be ready to deliver the
        status of the process immediately (without waiting) to an
        upcoming target_wait call.  */
-    void (*to_attach) (struct target_ops *ops, char *, int);
+    void (*to_attach) (struct target_ops *ops, const char *, int);
     void (*to_post_attach) (struct target_ops *, int)
       TARGET_DEFAULT_IGNORE ();
     void (*to_detach) (struct target_ops *ops, const char *, int)
       TARGET_DEFAULT_IGNORE ();
-    void (*to_disconnect) (struct target_ops *, char *, int)
+    void (*to_disconnect) (struct target_ops *, const char *, int)
       TARGET_DEFAULT_NORETURN (tcomplain ());
     void (*to_resume) (struct target_ops *, ptid_t, int, enum gdb_signal)
       TARGET_DEFAULT_NORETURN (noprocess ());
@@ -499,7 +499,7 @@ struct target_ops
       TARGET_DEFAULT_FUNC (default_terminal_info);
     void (*to_kill) (struct target_ops *)
       TARGET_DEFAULT_NORETURN (noprocess ());
-    void (*to_load) (struct target_ops *, char *, int)
+    void (*to_load) (struct target_ops *, const char *, int)
       TARGET_DEFAULT_NORETURN (tcomplain ());
     /* Start an inferior process and set inferior_ptid to its pid.
        EXEC_FILE is the file to run.
@@ -560,7 +560,7 @@ struct target_ops
     void (*to_stop) (struct target_ops *, ptid_t)
       TARGET_DEFAULT_IGNORE ();
     void (*to_rcmd) (struct target_ops *,
-		     char *command, struct ui_file *output)
+		     const char *command, struct ui_file *output)
       TARGET_DEFAULT_FUNC (default_rcmd);
     char *(*to_pid_to_exec_file) (struct target_ops *, int pid)
       TARGET_DEFAULT_RETURN (NULL);
@@ -596,16 +596,17 @@ struct target_ops
     char * (*to_make_corefile_notes) (struct target_ops *, bfd *, int *)
       TARGET_DEFAULT_FUNC (dummy_make_corefile_notes);
     /* get_bookmark support method for bookmarks */
-    gdb_byte * (*to_get_bookmark) (struct target_ops *, char *, int)
+    gdb_byte * (*to_get_bookmark) (struct target_ops *, const char *, int)
       TARGET_DEFAULT_NORETURN (tcomplain ());
     /* goto_bookmark support method for bookmarks */
-    void (*to_goto_bookmark) (struct target_ops *, gdb_byte *, int)
+    void (*to_goto_bookmark) (struct target_ops *, const gdb_byte *, int)
       TARGET_DEFAULT_NORETURN (tcomplain ());
     /* Return the thread-local address at OFFSET in the
        thread-local storage for the thread PTID and the shared library
        or executable file given by OBJFILE.  If that block of
        thread-local storage hasn't been allocated yet, this function
-       may return an error.  */
+       may return an error.  LOAD_MODULE_ADDR may be zero for statically
+       linked multithreaded inferiors.  */
     CORE_ADDR (*to_get_thread_local_address) (struct target_ops *ops,
 					      ptid_t ptid,
 					      CORE_ADDR load_module_addr,
@@ -771,7 +772,8 @@ struct target_ops
        The default implementation always returns the inferior's
        address space.  */
     struct address_space *(*to_thread_address_space) (struct target_ops *,
-						      ptid_t);
+						      ptid_t)
+      TARGET_DEFAULT_FUNC (default_thread_address_space);
 
     /* Target file operations.  */
 
@@ -813,7 +815,8 @@ struct target_ops
 
 
     /* Implement the "info proc" command.  */
-    void (*to_info_proc) (struct target_ops *, char *, enum info_proc_what);
+    void (*to_info_proc) (struct target_ops *, const char *,
+			  enum info_proc_what);
 
     /* Tracepoint-related operations.  */
 
@@ -941,7 +944,7 @@ struct target_ops
        encountered while reading memory.  */
     int (*to_verify_memory) (struct target_ops *, const gdb_byte *data,
 			     CORE_ADDR memaddr, ULONGEST size)
-      TARGET_DEFAULT_NORETURN (tcomplain ());
+      TARGET_DEFAULT_FUNC (default_verify_memory);
 
     /* Return the address of the start of the Thread Information Block
        a Windows OS specific feature.  */
@@ -1106,6 +1109,14 @@ struct target_ops
 					 struct gdbarch *gdbarch)
       TARGET_DEFAULT_FUNC (default_target_decr_pc_after_break);
 
+    /* Prepare to generate a core file.  */
+    void (*to_prepare_to_generate_core) (struct target_ops *)
+      TARGET_DEFAULT_IGNORE ();
+
+    /* Cleanup after generating a core file.  */
+    void (*to_done_generating_core) (struct target_ops *)
+      TARGET_DEFAULT_IGNORE ();
+
     int to_magic;
     /* Need sub-structure for target machine related rather than comm related?
      */
@@ -1175,7 +1186,7 @@ extern void target_detach (const char *, int);
 /* Disconnect from the current target without resuming it (leaving it
    waiting for a debugger).  */
 
-extern void target_disconnect (char *, int);
+extern void target_disconnect (const char *, int);
 
 /* Resume execution of the target process PTID (or a group of
    threads).  STEP says whether to single-step or to run free; SIGGNAL
@@ -1230,7 +1241,7 @@ struct address_space *target_thread_address_space (ptid_t);
    an error was encountered while attempting to handle the
    request.  */
 
-int target_info_proc (char *, enum info_proc_what);
+int target_info_proc (const char *, enum info_proc_what);
 
 /* Returns true if this target can debug multiple processes
    simultaneously.  */
@@ -1412,7 +1423,7 @@ extern void target_kill (void);
    sections.  The target may define switches, or other non-switch
    arguments, as it pleases.  */
 
-extern void target_load (char *arg, int from_tty);
+extern void target_load (const char *arg, int from_tty);
 
 /* Some targets (such as ttrace-based HPUX) don't allow us to request
    notification of inferior events such as fork and vork immediately
@@ -1618,8 +1629,7 @@ extern int default_child_has_execution (struct target_ops *ops,
 #define target_can_lock_scheduler \
      (current_target.to_has_thread_control & tc_schedlock)
 
-/* Should the target enable async mode if it is supported?  Temporary
-   cludge until async mode is a strict superset of sync mode.  */
+/* Controls whether async mode is permitted.  */
 extern int target_async_permitted;
 
 /* Can the target support asynchronous execution?  */
@@ -2005,6 +2015,14 @@ extern const struct frame_unwind *target_get_unwinder (void);
 /* See to_get_tailcall_unwinder in struct target_ops.  */
 extern const struct frame_unwind *target_get_tailcall_unwinder (void);
 
+/* This implements basic memory verification, reading target memory
+   and performing the comparison here (as opposed to accelerated
+   verification making use of the qCRC packet, for example).  */
+
+extern int simple_verify_memory (struct target_ops* ops,
+				 const gdb_byte *data,
+				 CORE_ADDR memaddr, ULONGEST size);
+
 /* Verify that the memory in the [MEMADDR, MEMADDR+SIZE) range matches
    the contents of [DATA,DATA+SIZE).  Returns 1 if there's a match, 0
    if there's a mismatch, and -1 if an error is encountered while
@@ -2110,6 +2128,12 @@ extern int memory_remove_breakpoint (struct target_ops *, struct gdbarch *,
 extern int memory_insert_breakpoint (struct target_ops *, struct gdbarch *,
 				     struct bp_target_info *);
 
+/* Check whether the memory at the breakpoint's placed address still
+   contains the expected breakpoint instruction.  */
+
+extern int memory_validate_breakpoint (struct gdbarch *gdbarch,
+				       struct bp_target_info *bp_tgt);
+
 extern int default_memory_remove_breakpoint (struct gdbarch *,
 					     struct bp_target_info *);
 
@@ -2125,7 +2149,7 @@ extern void noprocess (void) ATTRIBUTE_NORETURN;
 
 extern void target_require_runnable (void);
 
-extern void find_default_attach (struct target_ops *, char *, int);
+extern void find_default_attach (struct target_ops *, const char *, int);
 
 extern void find_default_create_inferior (struct target_ops *,
 					  char *, char *, char **, int);
@@ -2244,5 +2268,11 @@ extern CORE_ADDR forward_target_decr_pc_after_break (struct target_ops *ops,
 
 /* See to_decr_pc_after_break.  */
 extern CORE_ADDR target_decr_pc_after_break (struct gdbarch *gdbarch);
+
+/* See to_prepare_to_generate_core.  */
+extern void target_prepare_to_generate_core (void);
+
+/* See to_done_generating_core.  */
+extern void target_done_generating_core (void);
 
 #endif /* !defined (TARGET_H) */

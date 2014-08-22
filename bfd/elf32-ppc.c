@@ -147,6 +147,7 @@ static const bfd_vma ppc_elf_vxworks_pic_plt0_entry
 #define ADD_3_12_2	0x7c6c1214
 #define ADD_11_0_11	0x7d605a14
 #define B		0x48000000
+#define BA		0x48000002
 #define BCL_20_31	0x429f0005
 #define BCTR		0x4e800420
 #define BEQLR		0x4d820020
@@ -2628,7 +2629,7 @@ ppc_elf_begin_write_processing (bfd *abfd, struct bfd_link_info *link_info)
   apuinfo_list_init ();
 
   /* Read in the input sections contents.  */
-  for (ibfd = link_info->input_bfds; ibfd; ibfd = ibfd->link_next)
+  for (ibfd = link_info->input_bfds; ibfd; ibfd = ibfd->link.next)
     {
       unsigned long datum;
 
@@ -3249,7 +3250,7 @@ static struct bfd_link_hash_table *
 ppc_elf_link_hash_table_create (bfd *abfd)
 {
   struct ppc_elf_link_hash_table *ret;
-  static struct ppc_elf_params default_params = { PLT_OLD, 0, 1, 0, 0, 4096 };
+  static struct ppc_elf_params default_params = { PLT_OLD, 0, 1, 0, 0, 12 };
 
   ret = bfd_zmalloc (sizeof (struct ppc_elf_link_hash_table));
   if (ret == NULL)
@@ -3337,6 +3338,36 @@ ppc_elf_create_got (bfd *abfd, struct bfd_link_info *info)
   return TRUE;
 }
 
+/* Create a special linker section, used for R_PPC_EMB_SDAI16 and
+   R_PPC_EMB_SDA2I16 pointers.  These sections become part of .sdata
+   and .sdata2.  Create _SDA_BASE_ and _SDA2_BASE too.  */
+
+static bfd_boolean
+ppc_elf_create_linker_section (bfd *abfd,
+			       struct bfd_link_info *info,
+			       flagword flags,
+			       elf_linker_section_t *lsect)
+{
+  asection *s;
+
+  flags |= (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY
+	    | SEC_LINKER_CREATED);
+
+  s = bfd_make_section_anyway_with_flags (abfd, lsect->name, flags);
+  if (s == NULL)
+    return FALSE;
+  lsect->section = s;
+
+  /* Define the sym on the first section of this name.  */
+  s = bfd_get_section_by_name (abfd, lsect->name);
+
+  lsect->sym = _bfd_elf_define_linkage_sym (abfd, info, s, lsect->sym_name);
+  if (lsect->sym == NULL)
+    return FALSE;
+  lsect->sym->root.u.def.value = 0x8000;
+  return TRUE;
+}
+
 static bfd_boolean
 ppc_elf_create_glink (bfd *abfd, struct bfd_link_info *info)
 {
@@ -3378,6 +3409,15 @@ ppc_elf_create_glink (bfd *abfd, struct bfd_link_info *info)
   if (s == NULL
       || ! bfd_set_section_alignment (abfd, s, 2))
     return FALSE;
+
+  if (!ppc_elf_create_linker_section (abfd, info, 0,
+				      &htab->sdata[0]))
+    return FALSE;
+
+  if (!ppc_elf_create_linker_section (abfd, info, SEC_READONLY,
+				      &htab->sdata[1]))
+    return FALSE;
+
   return TRUE;
 }
 
@@ -3604,51 +3644,6 @@ ppc_elf_add_symbol_hook (bfd *abfd,
   return TRUE;
 }
 
-static bfd_boolean
-create_sdata_sym (struct bfd_link_info *info, elf_linker_section_t *lsect)
-{
-  struct ppc_elf_link_hash_table *htab = ppc_elf_hash_table (info);
-
-  lsect->sym = elf_link_hash_lookup (&htab->elf, lsect->sym_name,
-				     TRUE, FALSE, TRUE);
-  if (lsect->sym == NULL)
-    return FALSE;
-  if (lsect->sym->root.type == bfd_link_hash_new)
-    lsect->sym->non_elf = 0;
-  lsect->sym->ref_regular = 1;
-  _bfd_elf_link_hash_hide_symbol (info, lsect->sym, TRUE);
-  return TRUE;
-}
-
-/* Create a special linker section.  */
-
-static bfd_boolean
-ppc_elf_create_linker_section (bfd *abfd,
-			       struct bfd_link_info *info,
-			       flagword flags,
-			       elf_linker_section_t *lsect)
-{
-  struct ppc_elf_link_hash_table *htab = ppc_elf_hash_table (info);
-  asection *s;
-
-  flags |= (SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_IN_MEMORY
-	    | SEC_LINKER_CREATED);
-
-  /* Record the first bfd that needs the special sections.  */
-  if (!htab->elf.dynobj)
-    htab->elf.dynobj = abfd;
-
-  s = bfd_make_section_anyway_with_flags (htab->elf.dynobj,
-					  lsect->name,
-					  flags);
-  if (s == NULL
-      || !bfd_set_section_alignment (htab->elf.dynobj, s, 2))
-    return FALSE;
-  lsect->section = s;
-
-  return create_sdata_sym (info, lsect);
-}
-
 /* Find a linker generated pointer with a given addend and type.  */
 
 static elf_linker_section_pointers_t *
@@ -3667,10 +3662,10 @@ elf_find_pointer_linker_section
 /* Allocate a pointer to live in a linker created section.  */
 
 static bfd_boolean
-elf_create_pointer_linker_section (bfd *abfd,
-				   elf_linker_section_t *lsect,
-				   struct elf_link_hash_entry *h,
-				   const Elf_Internal_Rela *rel)
+elf_allocate_pointer_linker_section (bfd *abfd,
+				     elf_linker_section_t *lsect,
+				     struct elf_link_hash_entry *h,
+				     const Elf_Internal_Rela *rel)
 {
   elf_linker_section_pointers_t **ptr_linker_section_ptr = NULL;
   elf_linker_section_pointers_t *linker_section_ptr;
@@ -3738,6 +3733,8 @@ elf_create_pointer_linker_section (bfd *abfd,
   linker_section_ptr->lsect = lsect;
   *ptr_linker_section_ptr = linker_section_ptr;
 
+  if (!bfd_set_section_alignment (lsect->section->owner, lsect->section, 2))
+    return FALSE;
   linker_section_ptr->offset = lsect->section->size;
   lsect->section->size += 4;
 
@@ -4073,12 +4070,9 @@ ppc_elf_check_relocs (bfd *abfd,
 	      bad_shared_reloc (abfd, r_type);
 	      return FALSE;
 	    }
-	  if (htab->sdata[0].section == NULL
-	      && !ppc_elf_create_linker_section (abfd, info, 0,
-						 &htab->sdata[0]))
-	    return FALSE;
-	  if (!elf_create_pointer_linker_section (abfd, &htab->sdata[0],
-						  h, rel))
+	  htab->sdata[0].sym->ref_regular = 1;
+	  if (!elf_allocate_pointer_linker_section (abfd, &htab->sdata[0],
+						    h, rel))
 	    return FALSE;
 	  if (h != NULL)
 	    {
@@ -4094,12 +4088,9 @@ ppc_elf_check_relocs (bfd *abfd,
 	      bad_shared_reloc (abfd, r_type);
 	      return FALSE;
 	    }
-	  if (htab->sdata[1].section == NULL
-	      && !ppc_elf_create_linker_section (abfd, info, SEC_READONLY,
-						 &htab->sdata[1]))
-	    return FALSE;
-	  if (!elf_create_pointer_linker_section (abfd, &htab->sdata[1],
-						  h, rel))
+	  htab->sdata[1].sym->ref_regular = 1;
+	  if (!elf_allocate_pointer_linker_section (abfd, &htab->sdata[1],
+						    h, rel))
 	    return FALSE;
 	  if (h != NULL)
 	    {
@@ -4108,21 +4099,16 @@ ppc_elf_check_relocs (bfd *abfd,
 	    }
 	  break;
 
+	case R_PPC_SDAREL16:
+	  htab->sdata[0].sym->ref_regular = 1;
+	  /* Fall thru */
+
 	case R_PPC_VLE_SDAREL_LO16A:
 	case R_PPC_VLE_SDAREL_LO16D:
 	case R_PPC_VLE_SDAREL_HI16A:
 	case R_PPC_VLE_SDAREL_HI16D:
 	case R_PPC_VLE_SDAREL_HA16A:
 	case R_PPC_VLE_SDAREL_HA16D:
-	case R_PPC_SDAREL16:
-	  if (htab->sdata[0].sym == NULL
-	      && !create_sdata_sym (info, &htab->sdata[0]))
-	    return FALSE;
-
-	  if (htab->sdata[1].sym == NULL
-	      && !create_sdata_sym (info, &htab->sdata[1]))
-	    return FALSE;
-
 	  if (h != NULL)
 	    {
 	      ppc_elf_hash_entry (h)->has_sda_refs = TRUE;
@@ -4147,9 +4133,7 @@ ppc_elf_check_relocs (bfd *abfd,
 	      bad_shared_reloc (abfd, r_type);
 	      return FALSE;
 	    }
-	  if (htab->sdata[1].sym == NULL
-	      && !create_sdata_sym (info, &htab->sdata[1]))
-	    return FALSE;
+	  htab->sdata[1].sym->ref_regular = 1;
 	  if (h != NULL)
 	    {
 	      ppc_elf_hash_entry (h)->has_sda_refs = TRUE;
@@ -4166,12 +4150,6 @@ ppc_elf_check_relocs (bfd *abfd,
 	      bad_shared_reloc (abfd, r_type);
 	      return FALSE;
 	    }
-	  if (htab->sdata[0].sym == NULL
-	      && !create_sdata_sym (info, &htab->sdata[0]))
-	    return FALSE;
-	  if (htab->sdata[1].sym == NULL
-	      && !create_sdata_sym (info, &htab->sdata[1]))
-	    return FALSE;
 	  if (h != NULL)
 	    {
 	      ppc_elf_hash_entry (h)->has_sda_refs = TRUE;
@@ -4850,7 +4828,7 @@ ppc_elf_select_plt_layout (bfd *output_bfd ATTRIBUTE_UNUSED,
 	     --secure-plt and we never see REL16 relocs.  */
 	  if (plt_type == PLT_UNSET)
 	    plt_type = PLT_OLD;
-	  for (ibfd = info->input_bfds; ibfd; ibfd = ibfd->link_next)
+	  for (ibfd = info->input_bfds; ibfd; ibfd = ibfd->link.next)
 	    if (is_ppc_elf (ibfd))
 	      {
 		if (ppc_elf_tdata (ibfd)->has_rel16)
@@ -5219,7 +5197,7 @@ ppc_elf_tls_optimize (bfd *obfd ATTRIBUTE_UNUSED,
      notify relocate_section that optimization can be done, and
      adjust got and plt refcounts.  */
   for (pass = 0; pass < 2; ++pass)
-    for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+    for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
       {
 	Elf_Internal_Sym *locsyms = NULL;
 	Elf_Internal_Shdr *symtab_hdr = &elf_symtab_hdr (ibfd);
@@ -6118,7 +6096,7 @@ static const unsigned char glink_eh_frame_cie[] =
 /* Set the sizes of the dynamic sections.  */
 
 static bfd_boolean
-ppc_elf_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
+ppc_elf_size_dynamic_sections (bfd *output_bfd,
 			       struct bfd_link_info *info)
 {
   struct ppc_elf_link_hash_table *htab;
@@ -6152,7 +6130,7 @@ ppc_elf_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
 
   /* Set up .got offsets for local syms, and space for local dynamic
      relocs.  */
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       bfd_signed_vma *local_got;
       bfd_signed_vma *end_local_got;
@@ -6322,14 +6300,19 @@ ppc_elf_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
   if (info->shared)
     {
       struct elf_link_hash_entry *sda = htab->sdata[0].sym;
-      if (sda != NULL
-	  && !(sda->root.type == bfd_link_hash_defined
-	       || sda->root.type == bfd_link_hash_defweak))
-	{
-	  sda->root.type = bfd_link_hash_defined;
-	  sda->root.u.def.section = htab->elf.hgot->root.u.def.section;
-	  sda->root.u.def.value = htab->elf.hgot->root.u.def.value;
-	}
+
+      sda->root.u.def.section = htab->elf.hgot->root.u.def.section;
+      sda->root.u.def.value = htab->elf.hgot->root.u.def.value;
+    }
+  if (info->emitrelocations)
+    {
+      struct elf_link_hash_entry *sda = htab->sdata[0].sym;
+
+      if (sda != NULL && sda->ref_regular)
+	sda->root.u.def.section->flags |= SEC_KEEP;
+      sda = htab->sdata[1].sym;
+      if (sda != NULL && sda->ref_regular)
+	sda->root.u.def.section->flags |= SEC_KEEP;
     }
 
   if (htab->glink != NULL
@@ -6423,11 +6406,14 @@ ppc_elf_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
 	       || s == htab->sgotplt
 	       || s == htab->sbss
 	       || s == htab->dynbss
-	       || s == htab->dynsbss
-	       || s == htab->sdata[0].section
-	       || s == htab->sdata[1].section)
+	       || s == htab->dynsbss)
 	{
 	  /* Strip these too.  */
+	}
+      else if (s == htab->sdata[0].section
+	       || s == htab->sdata[1].section)
+	{
+	  strip_section = (s->flags & SEC_KEEP) == 0;
 	}
       else if (CONST_STRNEQ (bfd_get_section_name (htab->elf.dynobj, s),
 			     ".rela"))
@@ -6597,6 +6583,46 @@ ppc_elf_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
 
   return TRUE;
 }
+
+/* Arrange to have _SDA_BASE_ or _SDA2_BASE_ stripped from the output
+   if it looks like nothing is using them.  */
+
+static void
+maybe_strip_sdasym (bfd *output_bfd, elf_linker_section_t *lsect)
+{
+  struct elf_link_hash_entry *sda = lsect->sym;
+
+  if (sda != NULL && !sda->ref_regular && sda->dynindx == -1)
+    {
+      asection *s;
+
+      s = bfd_get_section_by_name (output_bfd, lsect->name);
+      if (s == NULL || bfd_section_removed_from_list (output_bfd, s))
+	{
+	  s = bfd_get_section_by_name (output_bfd, lsect->bss_name);
+	  if (s == NULL || bfd_section_removed_from_list (output_bfd, s))
+	    {
+	      sda->def_regular = 0;
+	      /* This is somewhat magic.  See elf_link_output_extsym.  */
+	      sda->ref_dynamic = 1;
+	      sda->forced_local = 0;
+	    }
+	}
+    }
+}
+
+void
+ppc_elf_maybe_strip_sdata_syms (struct bfd_link_info *info)
+{
+  struct ppc_elf_link_hash_table *htab = ppc_elf_hash_table (info);
+
+  if (htab != NULL)
+    {
+      maybe_strip_sdasym (info->output_bfd, &htab->sdata[0]);
+      maybe_strip_sdasym (info->output_bfd, &htab->sdata[1]);
+    }
+}
+
 
 /* Return TRUE if symbol should be hashed in the `.gnu.hash' section.  */
 
@@ -7336,7 +7362,7 @@ write_glink_stub (struct plt_entry *ent, asection *plt_sec, unsigned char *p,
 	  p += 4;
 	  bfd_put_32 (output_bfd, BCTR, p);
 	  p += 4;
-	  bfd_put_32 (output_bfd, NOP, p);
+	  bfd_put_32 (output_bfd, htab->params->ppc476_workaround ? BA : NOP, p);
 	  p += 4;
 	}
       else
@@ -8695,10 +8721,8 @@ ppc_elf_relocate_section (bfd *output_bfd,
 	    addend -= SYM_VAL (sda);
 
 	    name = bfd_get_section_name (output_bfd, sec->output_section);
-	    if (! ((CONST_STRNEQ (name, ".sdata")
-		    && (name[6] == 0 || name[6] == '.'))
-		   || (CONST_STRNEQ (name, ".sbss")
-		       && (name[5] == 0 || name[5] == '.'))))
+	    if (!(strcmp (name, ".sdata") == 0
+		  || strcmp (name, ".sbss") == 0))
 	      {
 		info->callbacks->einfo
 		  (_("%P: %B: the target (%s) of a %s relocation is "
@@ -8727,8 +8751,8 @@ ppc_elf_relocate_section (bfd *output_bfd,
 	    addend -= SYM_VAL (sda);
 
 	    name = bfd_get_section_name (output_bfd, sec->output_section);
-	    if (! (CONST_STRNEQ (name, ".sdata2")
-		   || CONST_STRNEQ (name, ".sbss2")))
+	    if (!(strcmp (name, ".sdata2") == 0
+		  || strcmp (name, ".sbss2") == 0))
 	      {
 		info->callbacks->einfo
 		  (_("%P: %B: the target (%s) of a %s relocation is "
@@ -8795,16 +8819,14 @@ ppc_elf_relocate_section (bfd *output_bfd,
 	      }
 
 	    name = bfd_get_section_name (output_bfd, sec->output_section);
-	    if (((CONST_STRNEQ (name, ".sdata")
-		  && (name[6] == 0 || name[6] == '.'))
-		 || (CONST_STRNEQ (name, ".sbss")
-		     && (name[5] == 0 || name[5] == '.'))))
+	    if (strcmp (name, ".sdata") == 0
+		|| strcmp (name, ".sbss") == 0)
 	      {
 		reg = 13;
 		sda = htab->sdata[0].sym;
 	      }
-	    else if (CONST_STRNEQ (name, ".sdata2")
-		     || CONST_STRNEQ (name, ".sbss2"))
+	    else if (strcmp (name, ".sdata2") == 0
+		     || strcmp (name, ".sbss2") == 0)
 	      {
 		reg = 2;
 		sda = htab->sdata[1].sym;
@@ -8896,16 +8918,14 @@ ppc_elf_relocate_section (bfd *output_bfd,
 	      }
 
 	    name = bfd_get_section_name (output_bfd, sec->output_section);
-	    if (((CONST_STRNEQ (name, ".sdata")
-		  && (name[6] == 0 || name[6] == '.'))
-		 || (CONST_STRNEQ (name, ".sbss")
-		     && (name[5] == 0 || name[5] == '.'))))
+	    if (strcmp (name, ".sdata") == 0
+		|| strcmp (name, ".sbss") == 0)
 	      {
 		//reg = 13;
 		sda = htab->sdata[0].sym;
 	      }
-	    else if (CONST_STRNEQ (name, ".sdata2")
-		     || CONST_STRNEQ (name, ".sbss2"))
+	    else if (strcmp (name, ".sdata2") == 0
+		     || strcmp (name, ".sbss2") == 0)
 	      {
 		//reg = 2;
 		sda = htab->sdata[1].sym;
@@ -9140,10 +9160,11 @@ ppc_elf_relocate_section (bfd *output_bfd,
 	      unsigned int insn;
 
 	      insn = bfd_get_32 (input_bfd, contents + (rel->r_offset & ~3));
-	      if ((insn & (0x3f << 26)) == 28u << 26 /* andi */
-		  || (insn & (0x3f << 26)) == 24u << 26 /* ori */
-		  || (insn & (0x3f << 26)) == 26u << 26 /* xori */
-		  || (insn & (0x3f << 26)) == 10u << 26 /* cmpli */)
+	      if ((insn & (0x3f << 26)) == 10u << 26 /* cmpli */)
+		complain = complain_overflow_bitfield;
+	      else if ((insn & (0x3f << 26)) == 28u << 26 /* andi */
+		       || (insn & (0x3f << 26)) == 24u << 26 /* ori */
+		       || (insn & (0x3f << 26)) == 26u << 26 /* xori */)
 		complain = complain_overflow_unsigned;
 	    }
 	  if (howto->complain_on_overflow != complain)
@@ -9224,8 +9245,20 @@ ppc_elf_relocate_section (bfd *output_bfd,
 
       relax_info = elf_section_data (input_section)->sec_info;
       if (relax_info->workaround_size != 0)
-	memset (contents + input_section->size - relax_info->workaround_size,
-		0, relax_info->workaround_size);
+	{
+	  bfd_byte *p;
+	  unsigned int n;
+	  bfd_byte fill[4];
+
+	  bfd_put_32 (input_bfd, BA, fill);
+	  p = contents + input_section->size - relax_info->workaround_size;
+	  n = relax_info->workaround_size >> 2;
+	  while (n--)
+	    {
+	      memcpy (p, fill, 4);
+	      p += 4;
+	    }
+	}
 
       /* The idea is: Replace the last instruction on a page with a
 	 branch to a patch area.  Put the insn there followed by a
@@ -10115,7 +10148,7 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
       p += htab->glink_pltresolve;
       endp = htab->glink->contents;
       endp += htab->glink->size - GLINK_PLTRESOLVE;
-      while (p < endp - 8 * 4)
+      while (p < endp - (htab->params->ppc476_workaround ? 0 : 8 * 4))
 	{
 	  bfd_put_32 (output_bfd, B + endp - p, p);
 	  p += 4;
@@ -10130,6 +10163,39 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
 	      + htab->glink->output_section->vma
 	      + htab->glink->output_offset);
 
+      if (htab->params->ppc476_workaround)
+	{
+	  /* Ensure that a call stub at the end of a page doesn't
+	     result in prefetch over the end of the page into the
+	     glink branch table.  */
+	  bfd_vma pagesize = (bfd_vma) 1 << htab->params->pagesize_p2;
+	  bfd_vma page_addr;
+	  bfd_vma glink_start = (htab->glink->output_section->vma
+				 + htab->glink->output_offset);
+
+	  for (page_addr = res0 & -pagesize;
+	       page_addr > glink_start;
+	       page_addr -= pagesize)
+	    {
+	      /* We have a plt call stub that may need fixing.  */
+	      bfd_byte *loc;
+	      unsigned int insn;
+
+	      loc = htab->glink->contents + page_addr - 4 - glink_start;
+	      insn = bfd_get_32 (output_bfd, loc);
+	      if (insn == BCTR)
+		{
+		  /* By alignment, we know that there must be at least
+		     one other call stub before this one.  */
+		  insn = bfd_get_32 (output_bfd, loc - 16);
+		  if (insn == BCTR)
+		    bfd_put_32 (output_bfd, B | (-16 & 0x3fffffc), loc);
+		  else
+		    bfd_put_32 (output_bfd, B | (-20 & 0x3fffffc), loc);
+		}
+	    }
+	}
+
       /* Last comes the PLTresolve stub.  */
       if (info->shared)
 	{
@@ -10137,7 +10203,11 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
 
 	  for (i = 0; i < ARRAY_SIZE (pic_plt_resolve); i++)
 	    {
-	      bfd_put_32 (output_bfd, pic_plt_resolve[i], p);
+	      unsigned int insn = pic_plt_resolve[i];
+
+	      if (htab->params->ppc476_workaround && insn == NOP)
+		insn = BA + 0;
+	      bfd_put_32 (output_bfd, insn, p);
 	      p += 4;
 	    }
 	  p -= 4 * ARRAY_SIZE (pic_plt_resolve);
@@ -10171,7 +10241,11 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
 	{
 	  for (i = 0; i < ARRAY_SIZE (plt_resolve); i++)
 	    {
-	      bfd_put_32 (output_bfd, plt_resolve[i], p);
+	      unsigned int insn = plt_resolve[i];
+
+	      if (htab->params->ppc476_workaround && insn == NOP)
+		insn = BA + 0;
+	      bfd_put_32 (output_bfd, insn, p);
 	      p += 4;
 	    }
 	  p -= 4 * ARRAY_SIZE (plt_resolve);
@@ -10228,9 +10302,9 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
   return ret;
 }
 
-#define TARGET_LITTLE_SYM	bfd_elf32_powerpcle_vec
+#define TARGET_LITTLE_SYM	powerpc_elf32_le_vec
 #define TARGET_LITTLE_NAME	"elf32-powerpcle"
-#define TARGET_BIG_SYM		bfd_elf32_powerpc_vec
+#define TARGET_BIG_SYM		powerpc_elf32_vec
 #define TARGET_BIG_NAME		"elf32-powerpc"
 #define ELF_ARCH		bfd_arch_powerpc
 #define ELF_TARGET_ID		PPC32_ELF_DATA
@@ -10306,7 +10380,7 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
 #undef  TARGET_LITTLE_NAME
 
 #undef  TARGET_BIG_SYM
-#define TARGET_BIG_SYM  bfd_elf32_powerpc_freebsd_vec
+#define TARGET_BIG_SYM  powerpc_elf32_fbsd_vec
 #undef  TARGET_BIG_NAME
 #define TARGET_BIG_NAME "elf32-powerpc-freebsd"
 
@@ -10324,7 +10398,7 @@ ppc_elf_finish_dynamic_sections (bfd *output_bfd,
 #undef TARGET_LITTLE_NAME
 
 #undef TARGET_BIG_SYM
-#define TARGET_BIG_SYM		bfd_elf32_powerpc_vxworks_vec
+#define TARGET_BIG_SYM		powerpc_elf32_vxworks_vec
 #undef TARGET_BIG_NAME
 #define TARGET_BIG_NAME		"elf32-powerpc-vxworks"
 

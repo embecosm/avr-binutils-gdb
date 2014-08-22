@@ -24,6 +24,7 @@
 #include "arch-utils.h"
 #include "frame.h"
 #include "inferior.h"
+#include "infrun.h"
 #include "symtab.h"
 #include "target.h"
 #include "gdbcore.h"
@@ -380,11 +381,11 @@ s390_pseudo_register_write (struct gdbarch *gdbarch, struct regcache *regcache,
    registers, even though we are otherwise a big-endian platform.  */
 
 static struct value *
-s390_value_from_register (struct type *type, int regnum,
-			  struct frame_info *frame)
+s390_value_from_register (struct gdbarch *gdbarch, struct type *type,
+			  int regnum, struct frame_id frame_id)
 {
-  struct value *value = default_value_from_register (type, regnum, frame);
-
+  struct value *value = default_value_from_register (gdbarch, type,
+						     regnum, frame_id);
   check_typedef (type);
 
   if (regnum >= S390_F0_REGNUM && regnum <= S390_F15_REGNUM

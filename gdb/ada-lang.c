@@ -357,7 +357,8 @@ static struct cmd_list_element *maint_show_ada_cmdlist;
 static void
 maint_set_ada_cmd (char *args, int from_tty)
 {
-  help_list (maint_set_ada_cmdlist, "maintenance set ada ", -1, gdb_stdout);
+  help_list (maint_set_ada_cmdlist, "maintenance set ada ", all_commands,
+	     gdb_stdout);
 }
 
 /* Implement the "maintenance show ada" (prefix) command.  */
@@ -793,6 +794,7 @@ min_of_type (struct type *t)
 LONGEST
 ada_discrete_type_high_bound (struct type *type)
 {
+  type = resolve_dynamic_type (type, 0);
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_RANGE:
@@ -813,6 +815,7 @@ ada_discrete_type_high_bound (struct type *type)
 LONGEST
 ada_discrete_type_low_bound (struct type *type)
 {
+  type = resolve_dynamic_type (type, 0);
   switch (TYPE_CODE (type))
     {
     case TYPE_CODE_RANGE:
@@ -1981,9 +1984,9 @@ ada_type_of_array (struct value *arr, int bounds)
           struct value *high = desc_one_bound (descriptor, arity, 1);
 
           arity -= 1;
-          create_range_type (range_type, value_type (low),
-                             longest_to_int (value_as_long (low)),
-                             longest_to_int (value_as_long (high)));
+          create_static_range_type (range_type, value_type (low),
+				    longest_to_int (value_as_long (low)),
+				    longest_to_int (value_as_long (high)));
           elt_type = create_array_type (array_type, elt_type, range_type);
 
 	  if (ada_is_unconstrained_packed_array_type (value_type (arr)))
@@ -2406,6 +2409,7 @@ ada_value_primitive_packed_val (struct value *obj, const gdb_byte *valaddr,
   else if (VALUE_LVAL (obj) == lval_memory && value_lazy (obj))
     {
       v = value_at (type, value_address (obj));
+      type = value_type (v);
       bytes = (unsigned char *) alloca (len);
       read_memory (value_address (v) + offset, bytes, len);
     }
@@ -2754,9 +2758,10 @@ ada_value_slice_from_ptr (struct value *array_ptr, struct type *type,
   CORE_ADDR base = value_as_address (array_ptr)
     + ((low - ada_discrete_type_low_bound (TYPE_INDEX_TYPE (type0)))
        * TYPE_LENGTH (TYPE_TARGET_TYPE (type0)));
-  struct type *index_type =
-    create_range_type (NULL, TYPE_TARGET_TYPE (TYPE_INDEX_TYPE (type0)),
-                       low, high);
+  struct type *index_type
+    = create_static_range_type (NULL,
+				TYPE_TARGET_TYPE (TYPE_INDEX_TYPE (type0)),
+				low, high);
   struct type *slice_type =
     create_array_type (NULL, TYPE_TARGET_TYPE (type0), index_type);
 
@@ -2768,8 +2773,8 @@ static struct value *
 ada_value_slice (struct value *array, int low, int high)
 {
   struct type *type = ada_check_typedef (value_type (array));
-  struct type *index_type =
-    create_range_type (NULL, TYPE_INDEX_TYPE (type), low, high);
+  struct type *index_type
+    = create_static_range_type (NULL, TYPE_INDEX_TYPE (type), low, high);
   struct type *slice_type =
     create_array_type (NULL, TYPE_TARGET_TYPE (type), index_type);
 
@@ -2980,9 +2985,9 @@ static struct value *
 empty_array (struct type *arr_type, int low)
 {
   struct type *arr_type0 = ada_check_typedef (arr_type);
-  struct type *index_type =
-    create_range_type (NULL, TYPE_TARGET_TYPE (TYPE_INDEX_TYPE (arr_type0)),
-                       low, low - 1);
+  struct type *index_type
+    = create_static_range_type
+        (NULL, TYPE_TARGET_TYPE (TYPE_INDEX_TYPE (arr_type0)),  low, low - 1);
   struct type *elt_type = ada_array_element_type (arr_type0, 1);
 
   return allocate_value (create_array_type (NULL, elt_type, index_type));
@@ -4163,7 +4168,7 @@ parse_old_style_renaming (struct type *type,
 
 static struct value *
 ada_read_renaming_var_value (struct symbol *renaming_sym,
-			     struct block *block)
+			     const struct block *block)
 {
   const char *sym_name;
   struct expression *expr;
@@ -6128,7 +6133,7 @@ ada_make_symbol_completion_list (const char *text0, const char *word,
   struct symtab *s;
   struct minimal_symbol *msymbol;
   struct objfile *objfile;
-  struct block *b, *surrounding_static_block = 0;
+  const struct block *b, *surrounding_static_block = 0;
   int i;
   struct block_iterator iter;
   struct cleanup *old_chain = make_cleanup (null_cleanup, NULL);
@@ -7347,7 +7352,11 @@ ada_which_variant_applies (struct type *var_type, struct type *outer_type,
   struct value *discrim;
   LONGEST discrim_val;
 
-  outer = value_from_contents_and_address (outer_type, outer_valaddr, 0);
+  /* Using plain value_from_contents_and_address here causes problems
+     because we will end up trying to resolve a type that is currently
+     being constructed.  */
+  outer = value_from_contents_and_address_unresolved (outer_type,
+						      outer_valaddr, 0);
   discrim = ada_value_struct_elt (outer, discrim_name, 1);
   if (discrim == NULL)
     return -1;
@@ -7886,7 +7895,14 @@ ada_template_to_fixed_record_type_1 (struct type *type,
 		 GDB may fail to allocate a value for it.  So check the
 		 size first before creating the value.  */
 	      check_size (rtype);
-	      dval = value_from_contents_and_address (rtype, valaddr, address);
+	      /* Using plain value_from_contents_and_address here
+		 causes problems because we will end up trying to
+		 resolve a type that is currently being
+		 constructed.  */
+	      dval = value_from_contents_and_address_unresolved (rtype,
+								 valaddr,
+								 address);
+	      rtype = value_type (dval);
 	    }
           else
             dval = dval0;
@@ -7989,7 +8005,14 @@ ada_template_to_fixed_record_type_1 (struct type *type,
       off = TYPE_FIELD_BITPOS (rtype, variant_field);
 
       if (dval0 == NULL)
-        dval = value_from_contents_and_address (rtype, valaddr, address);
+	{
+	  /* Using plain value_from_contents_and_address here causes
+	     problems because we will end up trying to resolve a type
+	     that is currently being constructed.  */
+	  dval = value_from_contents_and_address_unresolved (rtype, valaddr,
+							     address);
+	  rtype = value_type (dval);
+	}
       else
         dval = dval0;
 
@@ -8130,7 +8153,10 @@ to_record_with_fixed_variant_part (struct type *type, const gdb_byte *valaddr,
     return type;
 
   if (dval0 == NULL)
-    dval = value_from_contents_and_address (type, valaddr, address);
+    {
+      dval = value_from_contents_and_address (type, valaddr, address);
+      type = value_type (dval);
+    }
   else
     dval = dval0;
 
@@ -8428,6 +8454,7 @@ ada_to_fixed_type_1 (struct type *type, const gdb_byte *valaddr,
 	      value_from_contents_and_address (fixed_record_type,
 					       valaddr,
 					       address);
+            fixed_record_type = value_type (obj);
             if (real_type != NULL)
               return to_fixed_record_type
 		(real_type, NULL,
@@ -10160,10 +10187,7 @@ ada_evaluate_subexp (struct type *expect_type, struct expression *exp,
           }
 
           *pos += 4;
-          return value_zero
-            (to_static_fixed_type
-             (static_unwrap_type (SYMBOL_TYPE (exp->elts[pc + 2].symbol))),
-             not_lval);
+          return value_zero (to_static_fixed_type (type), not_lval);
         }
       else
         {
@@ -11120,9 +11144,8 @@ to_fixed_range_type (struct type *raw_type, struct value *dval)
       if (L < INT_MIN || U > INT_MAX)
 	return raw_type;
       else
-	return create_range_type (alloc_type_copy (raw_type), raw_type,
-				  ada_discrete_type_low_bound (raw_type),
-				  ada_discrete_type_high_bound (raw_type));
+	return create_static_range_type (alloc_type_copy (raw_type), raw_type,
+					 L, U);
     }
   else
     {
@@ -11185,7 +11208,8 @@ to_fixed_range_type (struct type *raw_type, struct value *dval)
             }
         }
 
-      type = create_range_type (alloc_type_copy (raw_type), base_type, L, U);
+      type = create_static_range_type (alloc_type_copy (raw_type),
+				       base_type, L, U);
       TYPE_NAME (type) = name;
       return type;
     }
@@ -11249,7 +11273,19 @@ ada_modulus (struct type *type)
    variants of the runtime, we use a sniffer that will determine
    the runtime variant used by the program being debugged.  */
 
-/* Ada's standard exceptions.  */
+/* Ada's standard exceptions.
+
+   The Ada 83 standard also defined Numeric_Error.  But there so many
+   situations where it was unclear from the Ada 83 Reference Manual
+   (RM) whether Constraint_Error or Numeric_Error should be raised,
+   that the ARG (Ada Rapporteur Group) eventually issued a Binding
+   Interpretation saying that anytime the RM says that Numeric_Error
+   should be raised, the implementation may raise Constraint_Error.
+   Ada 95 went one step further and pretty much removed Numeric_Error
+   from the list of standard exceptions (it made it a renaming of
+   Constraint_Error, to help preserve compatibility when compiling
+   an Ada83 compiler). As such, we do not include Numeric_Error from
+   this list of standard exceptions.  */
 
 static char *standard_exc[] = {
   "constraint_error",
@@ -12722,7 +12758,7 @@ static void
 ada_add_exceptions_from_frame (regex_t *preg, struct frame_info *frame,
 			       VEC(ada_exc_info) **exceptions)
 {
-  struct block *block = get_frame_block (frame, 0);
+  const struct block *block = get_frame_block (frame, 0);
 
   while (block != 0)
     {
@@ -12783,7 +12819,7 @@ ada_add_global_exceptions (regex_t *preg, VEC(ada_exc_info) **exceptions)
 
   ALL_PRIMARY_SYMTABS (objfile, s)
     {
-      struct blockvector *bv = BLOCKVECTOR (s);
+      const struct blockvector *bv = BLOCKVECTOR (s);
       int i;
 
       for (i = GLOBAL_BLOCK; i <= STATIC_BLOCK; i++)
@@ -13408,7 +13444,7 @@ ada_get_symbol_name_cmp (const char *lookup_name)
 static struct value *
 ada_read_var_value (struct symbol *var, struct frame_info *frame)
 {
-  struct block *frame_block = NULL;
+  const struct block *frame_block = NULL;
   struct symbol *renaming_sym = NULL;
 
   /* The only case where default_read_var_value is not sufficient
@@ -13482,7 +13518,7 @@ set_ada_command (char *arg, int from_tty)
 {
   printf_unfiltered (_(\
 "\"set ada\" must be followed by the name of a setting.\n"));
-  help_list (set_ada_list, "set ada ", -1, gdb_stdout);
+  help_list (set_ada_list, "set ada ", all_commands, gdb_stdout);
 }
 
 /* Implement the "show ada" prefix command.  */

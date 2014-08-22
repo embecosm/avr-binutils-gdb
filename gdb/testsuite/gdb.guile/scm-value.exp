@@ -71,6 +71,10 @@ proc test_value_in_inferior {} {
     gdb_test_no_output "guile (gc)"
     gdb_test "p \$\$" "= 42"
 
+    # Make sure 'history-append!' rejects non-value objects.
+    gdb_test "gu (history-append! 123)" \
+	"ERROR:.* Wrong type argument.*" "history-append! type error"
+
     # Test dereferencing the argv pointer.
 
     # Just get inferior variable argv the value history, available to guile.
@@ -335,6 +339,8 @@ proc test_subscript_regression {exefile lang} {
 	# Likewise.
 	gdb_test "gu (print (value-dynamic-type (parse-and-eval \"base\")))" \
 	    "= Derived \[*\]"
+	gdb_test "gu (print (value-dynamic-type (parse-and-eval \"base_ref\")))" \
+	    "= Derived \[&\]"
 	# A static type case.
 	gdb_test "gu (print (value-dynamic-type (parse-and-eval \"5\")))" \
 	    "= int"

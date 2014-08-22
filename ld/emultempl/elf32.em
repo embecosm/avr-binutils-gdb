@@ -38,6 +38,7 @@ fragment <<EOF
 #include "sysdep.h"
 #include "bfd.h"
 #include "libiberty.h"
+#include "safe-ctype.h"
 #include "filenames.h"
 #include "getopt.h"
 #include <fcntl.h>
@@ -1013,7 +1014,7 @@ gld${EMULATION_NAME}_after_open (void)
 
       /* Find an ELF input.  */
       for (abfd = link_info.input_bfds;
-	   abfd != (bfd *) NULL; abfd = abfd->link_next)
+	   abfd != (bfd *) NULL; abfd = abfd->link.next)
 	if (bfd_get_flavour (abfd) == bfd_target_elf_flavour)
 	  break;
 
@@ -1050,7 +1051,7 @@ gld${EMULATION_NAME}_after_open (void)
       bfd_boolean warn_eh_frame = FALSE;
       asection *s;
 
-      for (abfd = link_info.input_bfds; abfd; abfd = abfd->link_next)
+      for (abfd = link_info.input_bfds; abfd; abfd = abfd->link.next)
 	{
 	  if (bfd_get_flavour (abfd) == bfd_target_elf_flavour)
 	    elfbfd = abfd;
@@ -1458,7 +1459,7 @@ gld${EMULATION_NAME}_before_allocation (void)
   if (rpath == NULL)
     rpath = (const char *) getenv ("LD_RUN_PATH");
 
-  for (abfd = link_info.input_bfds; abfd; abfd = abfd->link_next)
+  for (abfd = link_info.input_bfds; abfd; abfd = abfd->link.next)
     if (bfd_get_flavour (abfd) == bfd_target_elf_flavour)
       {
 	const char *audit_libs = elf_dt_audit (abfd);
@@ -2497,6 +2498,7 @@ struct ld_emulation_xfer_struct ld_${EMULATION_NAME}_emulation =
   ${LDEMUL_LIST_OPTIONS-gld${EMULATION_NAME}_list_options},
   ${LDEMUL_RECOGNIZED_FILE-gld${EMULATION_NAME}_load_symbols},
   ${LDEMUL_FIND_POTENTIAL_LIBRARIES-NULL},
-  ${LDEMUL_NEW_VERS_PATTERN-NULL}
+  ${LDEMUL_NEW_VERS_PATTERN-NULL},
+  ${LDEMUL_EXTRA_MAP_FILE_TEXT-NULL}
 };
 EOF

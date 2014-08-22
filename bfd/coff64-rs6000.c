@@ -2614,7 +2614,7 @@ static const struct xcoff_backend_data_rec bfd_xcoff_backend_data =
   };
 
 /* The transfer vector that leads the outside world to all of the above.  */
-const bfd_target rs6000coff64_vec =
+const bfd_target rs6000_xcoff64_vec =
   {
     "aixcoff64-rs6000",
     bfd_target_xcoff_flavour,
@@ -2738,7 +2738,6 @@ const bfd_target rs6000coff64_vec =
     bfd_generic_get_relocated_section_contents,
     bfd_generic_relax_section,
     _bfd_xcoff_bfd_link_hash_table_create,
-    _bfd_generic_link_hash_table_free,
     _bfd_xcoff_bfd_link_add_symbols,
     _bfd_generic_link_just_syms,
     _bfd_generic_copy_link_hash_symbol_type,
@@ -2873,7 +2872,7 @@ static const struct xcoff_backend_data_rec bfd_xcoff_aix5_backend_data =
   };
 
 /* The transfer vector that leads the outside world to all of the above.  */
-const bfd_target aix5coff64_vec =
+const bfd_target rs6000_xcoff64_aix_vec =
   {
     "aix5coff64-rs6000",
     bfd_target_xcoff_flavour,
@@ -2997,7 +2996,6 @@ const bfd_target aix5coff64_vec =
     bfd_generic_get_relocated_section_contents,
     bfd_generic_relax_section,
     _bfd_xcoff_bfd_link_hash_table_create,
-    _bfd_generic_link_hash_table_free,
     _bfd_xcoff_bfd_link_add_symbols,
     _bfd_generic_link_just_syms,
     _bfd_generic_copy_link_hash_symbol_type,

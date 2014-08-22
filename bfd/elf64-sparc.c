@@ -821,7 +821,7 @@ const struct elf_size_info elf64_sparc_size_info =
   bfd_elf64_swap_reloca_out
 };
 
-#define TARGET_BIG_SYM	bfd_elf64_sparc_vec
+#define TARGET_BIG_SYM	sparc_elf64_vec
 #define TARGET_BIG_NAME	"elf64-sparc"
 #define ELF_ARCH	bfd_arch_sparc
 #define ELF_MAXPAGESIZE 0x100000
@@ -864,8 +864,6 @@ const struct elf_size_info elf64_sparc_size_info =
   _bfd_sparc_elf_plt_sym_val
 #define bfd_elf64_bfd_link_hash_table_create \
   _bfd_sparc_elf_link_hash_table_create
-#define bfd_elf64_bfd_link_hash_table_free \
-  _bfd_sparc_elf_link_hash_table_free
 #define elf_info_to_howto \
   _bfd_sparc_elf_info_to_howto
 #define elf_backend_copy_indirect_symbol \
@@ -924,7 +922,7 @@ const struct elf_size_info elf64_sparc_size_info =
 
 /* FreeBSD support */
 #undef  TARGET_BIG_SYM
-#define TARGET_BIG_SYM bfd_elf64_sparc_freebsd_vec
+#define TARGET_BIG_SYM sparc_elf64_fbsd_vec
 #undef  TARGET_BIG_NAME
 #define TARGET_BIG_NAME "elf64-sparc-freebsd"
 #undef	ELF_OSABI
@@ -938,7 +936,7 @@ const struct elf_size_info elf64_sparc_size_info =
 /* Solaris 2.  */
 
 #undef	TARGET_BIG_SYM
-#define	TARGET_BIG_SYM				bfd_elf64_sparc_sol2_vec
+#define	TARGET_BIG_SYM				sparc_elf64_sol2_vec
 #undef	TARGET_BIG_NAME
 #define	TARGET_BIG_NAME				"elf64-sparc-sol2"
 

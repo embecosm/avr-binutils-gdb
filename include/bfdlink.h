@@ -167,6 +167,8 @@ struct bfd_link_hash_table
   struct bfd_link_hash_entry *undefs;
   /* Entries are added to the tail of the undefs list.  */
   struct bfd_link_hash_entry *undefs_tail;
+  /* Function to free the hash table on closing BFD.  */
+  void (*hash_table_free) (bfd *);
   /* The type of the link hash table.  */
   enum bfd_link_hash_table_type type;
 };
@@ -185,6 +187,12 @@ extern struct bfd_link_hash_entry *bfd_link_hash_lookup
 extern struct bfd_link_hash_entry *bfd_wrapped_link_hash_lookup
   (bfd *, struct bfd_link_info *, const char *, bfd_boolean,
    bfd_boolean, bfd_boolean);
+
+/* If H is a wrapped symbol, ie. the symbol name starts with "__wrap_"
+   and the remainder is found in wrap_hash, return the real symbol.  */
+
+extern struct bfd_link_hash_entry *unwrap_hash_lookup
+  (struct bfd_link_info *, bfd *, struct bfd_link_hash_entry *);
 
 /* Traverse a link hash table.  */
 extern void bfd_link_hash_traverse
@@ -463,7 +471,7 @@ struct bfd_link_info
   bfd *output_bfd;
 
   /* The list of input BFD's involved in the link.  These are chained
-     together via the link_next field.  */
+     together via the link.next field.  */
   bfd *input_bfds;
   bfd **input_bfds_tail;
 

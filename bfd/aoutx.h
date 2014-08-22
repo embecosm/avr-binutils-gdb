@@ -66,12 +66,12 @@ DESCRIPTION
 	from @file{sunos.c}:
 
 |	#define TARGET_NAME "a.out-sunos-big"
-|	#define VECNAME    sunos_big_vec
+|	#define VECNAME    sparc_aout_sunos_be_vec
 |	#include "aoutf1.h"
 
 	requires all the names from @file{aout32.c}, and produces the jump vector
 
-|	sunos_big_vec
+|	sparc_aout_sunos_be_vec
 
 	The file @file{host-aout.c} is a special case.  It is for a large set
 	of hosts that use ``more or less standard'' a.out files, and
@@ -791,9 +791,13 @@ NAME (aout, machine_type) (enum bfd_architecture arch,
 	case bfd_mach_mips16:
 	case bfd_mach_mipsisa32:
 	case bfd_mach_mipsisa32r2:
+	case bfd_mach_mipsisa32r3:
+	case bfd_mach_mipsisa32r5:
 	case bfd_mach_mips5:
 	case bfd_mach_mipsisa64:
 	case bfd_mach_mipsisa64r2:
+	case bfd_mach_mipsisa64r3:
+	case bfd_mach_mipsisa64r5:
 	case bfd_mach_mips_sb1:
 	case bfd_mach_mips_xlr:
 	  /* FIXME: These should be MIPS3, MIPS4, MIPS16, MIPS32, etc.  */
@@ -5305,7 +5309,7 @@ aout_link_input_bfd (struct aout_final_link_info *flaginfo, bfd *input_bfd)
 
 /* Do the final link step.  This is called on the output BFD.  The
    INFO structure should point to a list of BFDs linked through the
-   link_next field which can be used to find each BFD which takes part
+   link.next field which can be used to find each BFD which takes part
    in the output.  Also, each section in ABFD should point to a list
    of bfd_link_order structures which list all the input sections for
    the output section.  */
@@ -5352,7 +5356,7 @@ NAME (aout, final_link) (bfd *abfd,
   max_contents_size = 0;
   max_relocs_size = 0;
   max_sym_count = 0;
-  for (sub = info->input_bfds; sub != NULL; sub = sub->link_next)
+  for (sub = info->input_bfds; sub != NULL; sub = sub->link.next)
     {
       bfd_size_type sz;
 
@@ -5491,7 +5495,7 @@ NAME (aout, final_link) (bfd *abfd,
 
      We use the output_has_begun field of the input BFDs to see
      whether we have already handled it.  */
-  for (sub = info->input_bfds; sub != NULL; sub = sub->link_next)
+  for (sub = info->input_bfds; sub != NULL; sub = sub->link.next)
     sub->output_has_begun = FALSE;
 
   /* Mark all sections which are to be included in the link.  This

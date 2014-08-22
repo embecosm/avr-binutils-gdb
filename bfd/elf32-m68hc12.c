@@ -638,7 +638,7 @@ static const struct bfd_elf_special_section elf32_m68hc12_special_sections[] =
 #define ELF_MACHINE_CODE	EM_68HC12
 #define ELF_MAXPAGESIZE		0x1000
 
-#define TARGET_BIG_SYM          bfd_elf32_m68hc12_vec
+#define TARGET_BIG_SYM          m68hc12_elf32_vec
 #define TARGET_BIG_NAME		"elf32-m68hc12"
 
 #define elf_info_to_howto	0
@@ -655,8 +655,6 @@ static const struct bfd_elf_special_section elf32_m68hc12_special_sections[] =
 
 #define bfd_elf32_bfd_link_hash_table_create \
                                 m68hc12_elf_bfd_link_hash_table_create
-#define bfd_elf32_bfd_link_hash_table_free \
-				m68hc11_elf_bfd_link_hash_table_free
 #define bfd_elf32_bfd_merge_private_bfd_data \
 					_bfd_m68hc11_elf_merge_private_bfd_data
 #define bfd_elf32_bfd_set_private_flags	_bfd_m68hc11_elf_set_private_flags

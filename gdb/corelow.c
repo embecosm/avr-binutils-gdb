@@ -28,6 +28,7 @@
 #endif
 #include "frame.h"		/* required by inferior.h */
 #include "inferior.h"
+#include "infrun.h"
 #include "symtab.h"
 #include "command.h"
 #include "bfd.h"
@@ -978,7 +979,8 @@ core_has_registers (struct target_ops *ops)
 /* Implement the to_info_proc method.  */
 
 static void
-core_info_proc (struct target_ops *ops, char *args, enum info_proc_what request)
+core_info_proc (struct target_ops *ops, const char *args,
+		enum info_proc_what request)
 {
   struct gdbarch *gdbarch = get_current_arch ();
 

@@ -2096,12 +2096,6 @@ coff_set_arch_mach_hook (bfd *abfd, void * filehdr)
   machine = 0;
   switch (internal_f->f_magic)
     {
-#ifdef OR32_MAGIC_BIG
-    case OR32_MAGIC_BIG:
-    case OR32_MAGIC_LITTLE:
-      arch = bfd_arch_or32;
-      break;
-#endif
 #ifdef PPCMAGIC
     case PPCMAGIC:
       arch = bfd_arch_powerpc;
@@ -3065,15 +3059,6 @@ coff_set_flags (bfd * abfd,
 #ifdef W65MAGIC
     case bfd_arch_w65:
       *magicp = W65MAGIC;
-      return TRUE;
-#endif
-
-#ifdef OR32_MAGIC_BIG
-    case bfd_arch_or32:
-      if (bfd_big_endian (abfd))
-	* magicp = OR32_MAGIC_BIG;
-      else
-	* magicp = OR32_MAGIC_LITTLE;
       return TRUE;
 #endif
 
@@ -4156,11 +4141,6 @@ coff_write_object_contents (bfd * abfd)
 #if defined(MIPS) && defined(COFF_WITH_PE)
 #define __A_MAGIC_SET__
     internal_a.magic = MIPS_PE_MAGIC;
-#endif
-
-#ifdef OR32
-#define __A_MAGIC_SET__
-    internal_a.magic = NMAGIC; /* Assume separate i/d.  */
 #endif
 
 #ifndef __A_MAGIC_SET__
@@ -5373,10 +5353,6 @@ dummy_reloc16_extra_cases (bfd *abfd ATTRIBUTE_UNUSED,
 {
   abort ();
 }
-#endif
-
-#ifndef coff_bfd_link_hash_table_free
-#define coff_bfd_link_hash_table_free _bfd_generic_link_hash_table_free
 #endif
 
 /* If coff_relocate_section is defined, we can use the optimized COFF

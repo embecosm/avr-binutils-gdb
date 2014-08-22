@@ -2045,7 +2045,7 @@ elf_s390_size_dynamic_sections (bfd *output_bfd ATTRIBUTE_UNUSED,
 
   /* Set up .got offsets for local syms, and space for local dynamic
      relocs.  */
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       bfd_signed_vma *local_got;
       bfd_signed_vma *end_local_got;
@@ -3903,7 +3903,7 @@ elf_s390_finish_dynamic_sections (bfd *output_bfd,
 	->this_hdr.sh_entsize = 4;
     }
   /* Finish dynamic symbol for local IFUNC symbols.  */
-  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link_next)
+  for (ibfd = info->input_bfds; ibfd != NULL; ibfd = ibfd->link.next)
     {
       struct plt_entry *local_plt;
       Elf_Internal_Sym *isym;
@@ -3982,7 +3982,7 @@ elf32_s390_merge_private_bfd_data (bfd *ibfd, bfd *obfd)
 }
 
 
-#define TARGET_BIG_SYM	bfd_elf32_s390_vec
+#define TARGET_BIG_SYM	s390_elf32_vec
 #define TARGET_BIG_NAME	"elf32-s390"
 #define ELF_ARCH	bfd_arch_s390
 #define ELF_TARGET_ID	S390_ELF_DATA

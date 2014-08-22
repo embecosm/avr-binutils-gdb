@@ -24,6 +24,7 @@
 #include "defs.h"
 #include "frame.h"		/* required by inferior.h */
 #include "inferior.h"
+#include "infrun.h"
 #include "target.h"
 #include "exceptions.h"
 #include "gdbcore.h"
@@ -309,12 +310,18 @@ thread_rec (DWORD id, int get_context)
 		  {
 		    DWORD err = GetLastError ();
 
-		    warning (_("SuspendThread (tid=0x%x) failed."
-			       " (winerr %u)"),
-			     (unsigned) id, (unsigned) err);
-		    return NULL;
+		    /* We get Access Denied (5) when trying to suspend
+		       threads that Windows started on behalf of the
+		       debuggee, usually when those threads are just
+		       about to exit.  */
+		    if (err != ERROR_ACCESS_DENIED)
+		      warning (_("SuspendThread (tid=0x%x) failed."
+				 " (winerr %u)"),
+			       (unsigned) id, (unsigned) err);
+		    th->suspended = -1;
 		  }
-		th->suspended = 1;
+		else
+		  th->suspended = 1;
 	      }
 	    else if (get_context < 0)
 	      th->suspended = -1;
@@ -444,7 +451,7 @@ do_windows_fetch_inferior_registers (struct regcache *regcache, int r)
 	{
 	  thread_info *th = current_thread;
 	  th->context.ContextFlags = CONTEXT_DEBUGGER_DR;
-	  GetThreadContext (th->h, &th->context);
+	  CHECK (GetThreadContext (th->h, &th->context));
 	  /* Copy dr values from that thread.
 	     But only if there were not modified since last stop.
 	     PR gdb/2388 */
@@ -1181,10 +1188,12 @@ handle_exception (struct target_waitstatus *ourstatus)
   return 1;
 }
 
-/* Resume all artificially suspended threads if we are continuing
-   execution.  */
+/* Resume thread specified by ID, or all artificially suspended
+   threads, if we are continuing execution.  KILLED non-zero means we
+   have killed the inferior, so we should ignore weird errors due to
+   threads shutting down.  */
 static BOOL
-windows_continue (DWORD continue_status, int id)
+windows_continue (DWORD continue_status, int id, int killed)
 {
   int i;
   thread_info *th;
@@ -1212,7 +1221,16 @@ windows_continue (DWORD continue_status, int id)
 	  }
 	if (th->context.ContextFlags)
 	  {
-	    CHECK (SetThreadContext (th->h, &th->context));
+	    DWORD ec = 0;
+
+	    if (GetExitCodeThread (th->h, &ec)
+		&& ec == STILL_ACTIVE)
+	      {
+		BOOL status = SetThreadContext (th->h, &th->context);
+
+		if (!killed)
+		  CHECK (status);
+	      }
 	    th->context.ContextFlags = 0;
 	  }
 	if (th->suspended > 0)
@@ -1340,9 +1358,9 @@ windows_resume (struct target_ops *ops,
      Otherwise complain.  */
 
   if (resume_all)
-    windows_continue (continue_status, -1);
+    windows_continue (continue_status, -1, 0);
   else
-    windows_continue (continue_status, ptid_get_tid (ptid));
+    windows_continue (continue_status, ptid_get_tid (ptid), 0);
 }
 
 /* Ctrl-C handler used when the inferior is not run in the same console.  The
@@ -1560,7 +1578,7 @@ get_windows_debug_event (struct target_ops *ops,
       if (continue_status == -1)
 	windows_resume (ops, minus_one_ptid, 0, 1);
       else
-	CHECK (windows_continue (continue_status, -1));
+	CHECK (windows_continue (continue_status, -1, 0));
     }
   else
     {
@@ -1709,7 +1727,8 @@ do_initial_windows_stuff (struct target_ops *ops, DWORD pid, int attaching)
 #endif
   current_event.dwProcessId = pid;
   memset (&current_event, 0, sizeof (current_event));
-  push_target (ops);
+  if (!target_is_pushed (ops))
+    push_target (ops);
   disable_breakpoints_in_shlibs ();
   windows_clear_solib ();
   clear_proceed_status ();
@@ -1815,7 +1834,7 @@ out:
 
 /* Attach to process PID, then initialize for debugging it.  */
 static void
-windows_attach (struct target_ops *ops, char *args, int from_tty)
+windows_attach (struct target_ops *ops, const char *args, int from_tty)
 {
   BOOL ok;
   DWORD pid;
@@ -1897,7 +1916,7 @@ windows_detach (struct target_ops *ops, const char *args, int from_tty)
   inferior_ptid = null_ptid;
   detach_inferior (current_event.dwProcessId);
 
-  unpush_target (ops);
+  inf_child_maybe_unpush_target (ops);
 }
 
 /* Try to determine the executable filename.
@@ -2337,21 +2356,20 @@ windows_create_inferior (struct target_ops *ops, char *exec_file,
 
   do_initial_windows_stuff (ops, pi.dwProcessId, 0);
 
-  /* windows_continue (DBG_CONTINUE, -1); */
+  /* windows_continue (DBG_CONTINUE, -1, 0); */
 }
 
 static void
 windows_mourn_inferior (struct target_ops *ops)
 {
-  (void) windows_continue (DBG_CONTINUE, -1);
+  (void) windows_continue (DBG_CONTINUE, -1, 0);
   i386_cleanup_dregs();
   if (open_process_used)
     {
       CHECK (CloseHandle (current_process_handle));
       open_process_used = 0;
     }
-  unpush_target (ops);
-  generic_mourn_inferior ();
+  inf_child_mourn_inferior (ops);
 }
 
 /* Send a SIGINT to the process group.  This acts just like the user typed a
@@ -2412,7 +2430,7 @@ windows_kill_inferior (struct target_ops *ops)
 
   for (;;)
     {
-      if (!windows_continue (DBG_CONTINUE, -1))
+      if (!windows_continue (DBG_CONTINUE, -1, 1))
 	break;
       if (!WaitForDebugEvent (&current_event, INFINITE))
 	break;
@@ -2539,9 +2557,6 @@ windows_target (void)
 {
   struct target_ops *t = inf_child_target ();
 
-  t->to_shortname = "child";
-  t->to_longname = "Win32 child process";
-  t->to_doc = "Win32 child process (started by the \"run\" command).";
   t->to_close = windows_close;
   t->to_attach = windows_attach;
   t->to_attach_no_wait = 1;

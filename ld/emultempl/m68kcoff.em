@@ -67,7 +67,7 @@ gld${EMULATION_NAME}_after_open (void)
       || link_info.relocatable)
     return;
 
-  for (abfd = link_info.input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info.input_bfds; abfd != NULL; abfd = abfd->link.next)
     {
       asection *datasec;
 
@@ -133,7 +133,7 @@ gld${EMULATION_NAME}_after_allocation (void)
       || link_info.relocatable)
     return;
 
-  for (abfd = link_info.input_bfds; abfd != NULL; abfd = abfd->link_next)
+  for (abfd = link_info.input_bfds; abfd != NULL; abfd = abfd->link.next)
     {
       asection *datasec, *relsec;
       char *errmsg;
@@ -239,6 +239,7 @@ struct ld_emulation_xfer_struct ld_${EMULATION_NAME}_emulation =
   NULL,	/* list options */
   NULL,	/* recognized file */
   NULL,	/* find_potential_libraries */
-  NULL	/* new_vers_pattern */
+  NULL,	/* new_vers_pattern */
+  NULL	/* extra_map_file_text */
 };
 EOF
