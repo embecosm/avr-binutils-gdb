@@ -601,6 +601,20 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 0x0000,		/* src_mask */
 	 0x00f8,		/* dst_mask */
 	 FALSE),		/* pcrel_offset */
+  /* 7 bit immediate for LDS/STS in Tiny core.  */
+  HOWTO (R_AVR_LDS_STS_16,  /* type */
+	 0,                     /* rightshift */
+	 1,                     /* size (0 = byte, 1 = short, 2 = long) */
+	 7,                     /* bitsize */
+	 FALSE,                 /* pc_relative */
+	 0,                     /* bitpos */
+	 complain_overflow_dont,/* complain_on_overflow */
+	 bfd_elf_generic_reloc, /* special_function */
+	 "R_AVR_LDS_STS_16",    /* name */
+	 FALSE,                 /* partial_inplace */
+	 0xffff,                /* src_mask */
+	 0xffff,                /* dst_mask */
+	 FALSE),		/* pcrel_offset */
   /* A symbol to subtract from the value of the following relocation.  */
   HOWTO (R_AVR_SYM_DIFF,	/* type */
 	 0,			/* rightshift */
@@ -660,6 +674,7 @@ static const struct avr_reloc_map avr_reloc_map[] =
   { BFD_RELOC_AVR_6_IO,             R_AVR_6_IO },
   { BFD_RELOC_AVR_16_LDST,          R_AVR_16_LDST },
   { BFD_RELOC_AVR_5_IO,             R_AVR_5_IO },
+  { BFD_RELOC_AVR_LDS_STS_16,       R_AVR_LDS_STS_16},
   { BFD_RELOC_AVR_SYM_DIFF,         R_AVR_SYM_DIFF },
 };
 
@@ -1240,6 +1255,17 @@ avr_final_link_relocate (reloc_howto_type *                 howto,
       bfd_put_16 (input_bfd, x, contents);
       break;
 
+   case R_AVR_LDS_STS_16:
+      contents += rel->r_offset;
+      srel = (bfd_signed_vma) relocation + rel->r_addend;
+      if ((srel & 0xFFFF) < 0x40 || (srel & 0xFFFF) > 0xbf)
+        return bfd_reloc_outofrange;
+      srel = srel & 0x7f;
+      x = bfd_get_16 (input_bfd, contents);
+      x |= (srel & 0x0f) | ((srel & 0x30) << 5) | ((srel & 0x40) << 2);
+      bfd_put_16 (input_bfd, x, contents);
+      break;
+
     default:
       r = _bfd_final_link_relocate (howto, input_bfd, input_section,
 				    contents, rel->r_offset,
@@ -1452,6 +1478,10 @@ bfd_elf_avr_final_write_processing (bfd *abfd,
     case bfd_mach_avrxmega7:
       val = E_AVR_MACH_XMEGA7;
       break;
+
+   case bfd_mach_avrtiny:
+      val = E_AVR_MACH_AVRTINY;
+      break;
     }
 
   elf_elfheader (abfd)->e_machine = EM_AVR;
@@ -1542,6 +1572,10 @@ elf32_avr_object_p (bfd *abfd)
 	case E_AVR_MACH_XMEGA7:
 	  e_set = bfd_mach_avrxmega7;
 	  break;
+
+    case E_AVR_MACH_AVRTINY:
+      e_set = bfd_mach_avrtiny;
+      break;
 	}
     }
   return bfd_default_set_arch_mach (abfd, bfd_arch_avr,
@@ -2384,7 +2418,7 @@ elf32_avr_relax_section (bfd *abfd,
 			  {
 			    Elf_Internal_Rela *rel;
 			    Elf_Internal_Rela *relend;
-              
+
 			    rel = elf_section_data (isec)->relocs;
 			    if (rel == NULL)
 			      rel = _bfd_elf_link_read_relocs (abfd, isec, NULL, NULL, TRUE);

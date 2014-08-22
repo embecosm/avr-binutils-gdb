@@ -4792,6 +4792,11 @@ ENUMDOC
   This is a 5 bit reloc for the AVR that stores an address for an cbi, sbi,
   sbic or sbis instruction.
 ENUM
+  BFD_RELOC_AVR_LDS_STS_16
+ENUMDOC
+  This is a 7 bit reloc for the AVR that stores SRAM address for 16bit
+  lds and sts instructions supported only tiny core.
+ENUM
   BFD_RELOC_AVR_SYM_DIFF
 ENUMDOC
   This is a reloc of indeterminate size to subtract a symbol from the value

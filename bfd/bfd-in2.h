@@ -2195,6 +2195,7 @@ enum bfd_architecture
 #define bfd_mach_avr5          5
 #define bfd_mach_avr51         51
 #define bfd_mach_avr6          6
+#define bfd_mach_avrtiny   100
 #define bfd_mach_avrxmega1 101
 #define bfd_mach_avrxmega2 102
 #define bfd_mach_avrxmega3 103
@@ -4476,6 +4477,10 @@ out instruction.  */
 /* This is a 5 bit reloc for the AVR that stores an address for an cbi, sbi,
 sbic or sbis instruction.  */
   BFD_RELOC_AVR_5_IO,
+
+/* This is a 7 bit reloc for the AVR that stores SRAM address for 16bit
+lds and sts instructions supported only tiny core.  */
+  BFD_RELOC_AVR_LDS_STS_16,
 
 /* This is a reloc of indeterminate size to subtract a symbol from the value
 that the subsequent relocation will install.  */
