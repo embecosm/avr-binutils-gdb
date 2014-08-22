@@ -1,3 +1,9 @@
+2014-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* elf32-avr.c (elf32_avr_relax_section): Move R_AVR_16_LDST
+	handling above R_AVR_CALL to let the latter merge into default:
+	again; add "Fall through" comment.
+
 2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* reloc.c (BFD_RELOC_AVR_SYM_DIFF): New relocation.

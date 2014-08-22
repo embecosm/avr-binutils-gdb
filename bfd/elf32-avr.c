@@ -1970,6 +1970,65 @@ elf32_avr_relax_section (bfd *abfd,
          the linker is run.  */
       switch (ELF32_R_TYPE (irel->r_info))
         {
+	case R_AVR_16_LDST:
+	  {
+	    unsigned char code_msb;
+	    unsigned char code_lsb;
+	    static bfd_vma sfr_offset = -1;
+
+	    BFD_ASSERT (irel->r_offset >= 2);
+	    code_msb = bfd_get_8 (abfd, contents + irel->r_offset - 1);
+	    code_lsb = bfd_get_8 (abfd, contents + irel->r_offset - 2);
+
+	    /* This insn must be a 32 bit lds or sts.  */
+	    BFD_ASSERT (0x90 == (code_msb & 0xfc) && 0x00 == (code_lsb & 0x0f));
+
+	    bfd_vma k = symval + irel->r_addend;
+	    if (sfr_offset == (bfd_vma) -1)
+	      sfr_offset = get_sfr_offset (abfd);
+
+	    if (0 /* ??? need to test if 16 bit lds/sts is available.  */
+		&& (code_msb & 1) /* High register.  */ && k <= 127)
+	      {
+		/* Transform 32 bit lds/sts to 16 bit version.  */
+		code_msb = (code_msb << 2) - (0x91 << 2) + 0xa0 + (k >> 4);
+		code_lsb = (code_lsb & 0xf0) | (k & 0xf);
+		/* Fix the relocation's type.  */
+		irel->r_info = ELF32_R_INFO (ELF32_R_SYM (irel->r_info),
+					     R_AVR_NONE);
+	      }
+	    else if (k >= sfr_offset && k - sfr_offset <= 63)
+	      {
+		k -= sfr_offset;
+		code_msb
+		  = ((code_msb << 2) - (0x91 << 2) + 0xb0 /* -> in/out */
+		     + ((k >> 3) & 6)
+		     + (code_msb & 1)); /* High bit of register number.  */
+		code_lsb = (code_lsb & 0xf0) | (k & 0xf);
+		/* Fix the relocation's type.  */
+		irel->r_info = ELF32_R_INFO (ELF32_R_SYM (irel->r_info),
+					     R_AVR_6_IO);
+	      }
+	    else
+	      break;
+	    /* Fix the relocation's offset.  */
+	    irel->r_offset -= 2;
+	    /* Install new instruction.  */
+	    bfd_put_8 (abfd, code_lsb, contents + irel->r_offset + 0);
+	    bfd_put_8 (abfd, code_msb, contents + irel->r_offset + 1);
+	    if (debug_relax)
+	      printf ("converted 32 bit lds/sts at address 0x%x"
+		      " into 16 bit lds/sts/in/out. Section is %s\n\n",
+		      (int) (sec->output_section->vma
+			     + sec->output_offset + irel->r_offset - 2),
+		      sec->name);
+	    /* Delete two bytes of data.  */
+	    if (!elf32_avr_relax_delete_bytes (abfd, sec,
+					       irel->r_offset + 2, 2))
+	      goto error_return;
+	    *again = TRUE;
+	    break;
+	  }
 	  /* Try to turn a 22-bit absolute call/jump into an 13-bit
 	     pc-relative rcall/rjmp.  */
 	case R_AVR_CALL:
@@ -2089,66 +2148,7 @@ elf32_avr_relax_section (bfd *abfd,
                   }
               }
           }
-
-	case R_AVR_16_LDST:
-	  {
-	    unsigned char code_msb;
-	    unsigned char code_lsb;
-	    static bfd_vma sfr_offset = -1;
-
-	    BFD_ASSERT (irel->r_offset >= 2);
-	    code_msb = bfd_get_8 (abfd, contents + irel->r_offset - 1);
-	    code_lsb = bfd_get_8 (abfd, contents + irel->r_offset - 2);
-
-	    /* This insn must be a 32 bit lds or sts.  */
-	    BFD_ASSERT (0x90 == (code_msb & 0xfc) && 0x00 == (code_lsb & 0x0f));
-
-	    bfd_vma k = symval + irel->r_addend;
-	    if (sfr_offset == (bfd_vma) -1)
-	      sfr_offset = get_sfr_offset (abfd);
-
-	    if (0 /* ??? need to test if 16 bit lds/sts is available.  */
-		&& (code_msb & 1) /* High register.  */ && k <= 127)
-	      {
-		/* Transform 32 bit lds/sts to 16 bit version.  */
-		code_msb = (code_msb << 2) - (0x91 << 2) + 0xa0 + (k >> 4);
-		code_lsb = (code_lsb & 0xf0) | (k & 0xf);
-		/* Fix the relocation's type.  */
-		irel->r_info = ELF32_R_INFO (ELF32_R_SYM (irel->r_info),
-					     R_AVR_NONE);
-	      }
-	    else if (k >= sfr_offset && k - sfr_offset <= 63)
-	      {
-		k -= sfr_offset;
-		code_msb
-		  = ((code_msb << 2) - (0x91 << 2) + 0xb0 /* -> in/out */
-		     + ((k >> 3) & 6)
-		     + (code_msb & 1)); /* High bit of register number.  */
-		code_lsb = (code_lsb & 0xf0) | (k & 0xf);
-		/* Fix the relocation's type.  */
-		irel->r_info = ELF32_R_INFO (ELF32_R_SYM (irel->r_info),
-					     R_AVR_6_IO);
-	      }
-	    else
-	      break;
-	    /* Fix the relocation's offset.  */
-	    irel->r_offset -= 2;
-	    /* Install new instruction.  */
-	    bfd_put_8 (abfd, code_lsb, contents + irel->r_offset + 0);
-	    bfd_put_8 (abfd, code_msb, contents + irel->r_offset + 1);
-	    if (debug_relax)
-	      printf ("converted 32 bit lds/sts at address 0x%x"
-		      " into 16 bit lds/sts/in/out. Section is %s\n\n",
-		      (int) (sec->output_section->vma
-			     + sec->output_offset + irel->r_offset - 2),
-		      sec->name);
-	    /* Delete two bytes of data.  */
-	    if (!elf32_avr_relax_delete_bytes (abfd, sec,
-					       irel->r_offset + 2, 2))
-	      goto error_return;
-	    *again = TRUE;
-	    break;
-	  }
+	/* Fall through.  */
         default:
           {
             unsigned char code_msb;

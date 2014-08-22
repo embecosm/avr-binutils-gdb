@@ -8,6 +8,9 @@
 	* testsuite/gas/testsuite/gas/all/gas.exp
 	(difference of two undefined symbol): Does not apply any more.
 
+	* config/tc-avr.c (tc_gen_reloc): Zero addend for
+	BFD_RELOC_AVR_SYM_DIFF.
+
 2014-07-12  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/tc-avr.h (TC_VALIDATE_FIX_SUB, DIFF_EXPR_OK): Define.

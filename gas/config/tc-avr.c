@@ -1521,7 +1521,7 @@ tc_gen_reloc (asection *seg ATTRIBUTE_UNUSED,
   if (fixp->fx_subsy != NULL)
     {
       reloc->howto = bfd_reloc_type_lookup (stdoutput, BFD_RELOC_AVR_SYM_DIFF);
-      reloc->addend = - S_GET_VALUE (fixp->fx_subsy);
+      reloc->addend = 0;
       reloc->sym_ptr_ptr = xmalloc (sizeof (asymbol *));
       *reloc->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_subsy);
 
