@@ -4470,21 +4470,21 @@ in .byte hi8(symbol)  */
 in .byte hlo8(symbol)  */
   BFD_RELOC_AVR_8_HLO,
 
-/* This is a 6 bit reloc for the AVR that stores an address for an in or
-out instruction.  */
-  BFD_RELOC_AVR_6_IO,
-
-/* This is a 5 bit reloc for the AVR that stores an address for an cbi, sbi,
-sbic or sbis instruction.  */
-  BFD_RELOC_AVR_5_IO,
+/* This is a reloc of indeterminate size to subtract a symbol from the value
+that the subsequent relocation will install.  */
+  BFD_RELOC_AVR_SYM_DIFF,
 
 /* This is a 7 bit reloc for the AVR that stores SRAM address for 16bit
 lds and sts instructions supported only tiny core.  */
   BFD_RELOC_AVR_LDS_STS_16,
 
-/* This is a reloc of indeterminate size to subtract a symbol from the value
-that the subsequent relocation will install.  */
-  BFD_RELOC_AVR_SYM_DIFF,
+/* This is a 6 bit reloc for the AVR that stores an I/O register
+number for the IN and OUT instructions  */
+  BFD_RELOC_AVR_PORT6,
+
+/* This is a 5 bit reloc for the AVR that stores an I/O register
+number for the SBIC, SBIS, SBI and CBI instructions  */
+  BFD_RELOC_AVR_PORT5,
 
 /* Renesas RL78 Relocations.  */
   BFD_RELOC_RL78_NEG8,
