@@ -1747,6 +1747,30 @@ avr_cons_fix_new (fragS *frag,
     as_bad (_("illegal %srelocation size: %d"), pexp_mod_data->error, nbytes);
 }
 
+/* When relaxing, we need to output a reloc for any .align directive
+   that requests an alignment for a loop.   */
+void
+avr_handle_align (fragS * frag)
+{
+  int bytes = frag->fr_next->fr_address - frag->fr_address - frag->fr_fix;
+  offsetT add_number;
+
+  if (frag->fr_type != rs_align_code)
+    return;
+  /* The fr_offset field holds the power of 2 to which to align.
+     The fr_subtype field holds the maximum number of bytes to skip when
+     aligning, or 0 if there is no maximum.  */
+  if (frag->fr_subtype == 0)
+    return;
+  gas_assert (linkrelax);
+  gas_assert (frag->fr_offset < 1 << 8);
+  gas_assert (frag->fr_subtype < 1 << 12);
+  gas_assert (bytes < 1 << 12);
+  add_number = frag->fr_offset + (frag->fr_subtype << 8) + (bytes << 20);
+  fix_new (frag, frag->fr_fix, 2, &abs_symbol, add_number, 0,
+           BFD_RELOC_AVR_ALIGN);
+}
+
 static bfd_boolean
 mcu_has_3_byte_pc (void)
 {

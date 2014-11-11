@@ -4474,6 +4474,9 @@ in .byte hlo8(symbol)  */
 that the subsequent relocation will install.  */
   BFD_RELOC_AVR_SYM_DIFF,
 
+/* Used to record desired loop alignment, needs relaxing to work  */
+  BFD_RELOC_AVR_ALIGN,
+
 /* This is a 7 bit reloc for the AVR that stores SRAM address for 16bit
 lds and sts instructions supported only tiny core.  */
   BFD_RELOC_AVR_LDS_STS_16,

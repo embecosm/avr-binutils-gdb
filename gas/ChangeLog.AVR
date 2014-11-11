@@ -1,3 +1,9 @@
+2014-11-11  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/tc-avr.c (avr_handle_align): New function.
+	* config/tc-avr.h (HANDLE_ALIGN): Define.
+	(avr_handle_align): Declare.
+
 2014-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	Adjust tests to our testsuite harness that provides -mmcu flags to

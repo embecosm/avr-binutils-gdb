@@ -113,6 +113,9 @@ struct elf32_avr_link_hash_table
   ((struct elf32_avr_stub_hash_entry *) \
    bfd_hash_lookup ((table), (string), (create), (copy)))
 
+static bfd_reloc_status_type avr_ignore_reloc
+  (bfd *, arelent *, asymbol *, void *, asection *, bfd *, char **);
+
 static reloc_howto_type elf_avr_howto_table[] =
 {
   HOWTO (R_AVR_NONE,		/* type */
@@ -586,7 +589,19 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 0xffff,		/* dst_mask */
 	 FALSE),		/* pcrel_offset */
 
-  EMPTY_HOWTO (32),
+  HOWTO (R_AVR_ALIGN,
+	 0,			/* rightshift */
+	 2,			/* size (0 = byte, 1 = short, 2 = long) */
+	 32,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_bitfield, /* complain_on_overflow */
+	 avr_ignore_reloc,	/* special_function */
+	 "R_AVR_ALIGN",		/* name */
+	 TRUE,			/* partial_inplace */
+	 0x0,			/* src_mask */
+	 0x0,			/* dst_mask */
+	 FALSE),		/* pcrel_offset */
 
   /* 7 bit immediate for LDS/STS in Tiny core.  */
   HOWTO (R_AVR_LDS_STS_16,  /* type */
@@ -635,6 +650,21 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 FALSE),		/* pcrel_offset */
 };
 
+/* This function is used for relocs which are only used for relaxing,
+   which the linker should otherwise ignore.  */
+
+static bfd_reloc_status_type
+avr_ignore_reloc (bfd *abfd ATTRIBUTE_UNUSED, arelent *reloc_entry,
+		  asymbol *symbol ATTRIBUTE_UNUSED,
+		  void *data ATTRIBUTE_UNUSED, asection *input_section,
+		  bfd *output_bfd,
+		  char **error_message ATTRIBUTE_UNUSED)
+{
+  if (output_bfd != NULL)
+    reloc_entry->address += input_section->output_offset;
+  return bfd_reloc_ok;
+}
+
 /* Map BFD reloc types to AVR ELF reloc types.  */
 
 struct avr_reloc_map
@@ -677,6 +707,7 @@ static const struct avr_reloc_map avr_reloc_map[] =
   { BFD_RELOC_AVR_8_HLO,            R_AVR_8_HLO8 },
   { BFD_RELOC_AVR_SYM_DIFF,         R_AVR_SYM_DIFF },
   { BFD_RELOC_AVR_16_LDST,          R_AVR_16_LDST },
+  { BFD_RELOC_AVR_ALIGN,            R_AVR_ALIGN },
   { BFD_RELOC_AVR_LDS_STS_16,       R_AVR_LDS_STS_16},
   { BFD_RELOC_AVR_PORT6,            R_AVR_PORT6},
   { BFD_RELOC_AVR_PORT5,            R_AVR_PORT5}
@@ -1629,7 +1660,12 @@ get_sfr_offset (bfd *abfd)
 /* Delete some bytes from a section while changing the size of an instruction.
    The parameter "addr" denotes the section-relative offset pointing just
    behind the shrinked instruction. "addr+count" point at the first
-   byte just behind the original unshrinked instruction.  */
+   byte just behind the original unshrinked instruction.
+   If COUNT is negative, we are actually inserting extra space.
+   FIXME: in that case, we should check if we cause any relocations to
+   get out-of-range, and then either undo the change and return FALSE,
+   or either here or in elf32_avr_relax_section make further adjustments
+   to the code thus that all relocations fit again.  */
 
 static bfd_boolean
 elf32_avr_relax_delete_bytes (bfd *abfd,
@@ -1657,8 +1693,17 @@ elf32_avr_relax_delete_bytes (bfd *abfd,
   irel = elf_section_data (sec)->relocs;
   irelend = irel + sec->reloc_count;
 
+  /* If we are actually increasing the size, make sure we have sufficient
+     space allocated.  */
+  if (count < 0)
+    {
+      contents = realloc (contents, sec->size - count);
+      elf_section_data (sec)->this_hdr.contents = contents;
+      memmove (contents + addr - count, contents + addr,
+	       (size_t) (toaddr - addr));
+    }
   /* Actually delete the bytes.  */
-  if (toaddr - addr - count > 0)
+  else if (toaddr - addr - count > 0)
     memmove (contents + addr, contents + addr + count,
              (size_t) (toaddr - addr - count));
   sec->size -= count;
@@ -1698,19 +1743,27 @@ elf32_avr_relax_delete_bytes (bfd *abfd,
 
       This step needs to be done for all of the sections of the bfd.  */
 
+   /* ??? This logic might get the wrong result when the symbol+addend
+      don't denote a place, but are a mere arithmentic result of optimization,
+      like strength reduction.  */
+
   {
     struct bfd_section *isec;
 
     for (isec = abfd->sections; isec; isec = isec->next)
      {
        bfd_vma symval;
-       bfd_vma shrinked_insn_address;
+       bfd_vma moved_insn_address;
 
        if (isec->reloc_count == 0)
 	 continue;
 
-       shrinked_insn_address = (sec->output_section->vma
-                                + sec->output_offset + addr - count);
+#if 0
+       moved_insn_address = ( sec->output_section->vma
+                             + sec->output_offset +  addr);
+#else
+       moved_insn_address = addr;
+#endif
 
        irel = elf_section_data (isec)->relocs;
        /* PR 12161: Read in the relocs for this section if necessary.  */
@@ -1747,21 +1800,23 @@ elf32_avr_relax_delete_bytes (bfd *abfd,
                   a symbol or section associated with it.  */
                if (sym_sec == sec)
                  {
+#if 0
                    symval += sym_sec->output_section->vma
                              + sym_sec->output_offset;
+#endif
 
                    if (debug_relax)
                      printf ("Checking if the relocation's "
                              "addend needs corrections.\n"
                              "Address of anchor symbol: 0x%x \n"
                              "Address of relocation target: 0x%x \n"
-                             "Address of relaxed insn: 0x%x \n",
+                             "Address past relaxed insn: 0x%x \n",
                              (unsigned int) symval,
                              (unsigned int) (symval + irel->r_addend),
-                             (unsigned int) shrinked_insn_address);
+                             (unsigned int) moved_insn_address);
 
-                   if (symval <= shrinked_insn_address
-                       && (symval + irel->r_addend) > shrinked_insn_address)
+                   if (symval < moved_insn_address
+                       && (symval + irel->r_addend) >= moved_insn_address)
                      {
                        irel->r_addend -= count;
 
@@ -1935,7 +1990,8 @@ elf32_avr_relax_section (bfd *abfd,
       if (ELF32_R_TYPE (irel->r_info) != R_AVR_13_PCREL
 	  && ELF32_R_TYPE (irel->r_info) != R_AVR_7_PCREL
 	  && ELF32_R_TYPE (irel->r_info) != R_AVR_CALL
-	  && ELF32_R_TYPE (irel->r_info) != R_AVR_16_LDST)
+	  && ELF32_R_TYPE (irel->r_info) != R_AVR_16_LDST
+	  && ELF32_R_TYPE (irel->r_info) != R_AVR_ALIGN)
         continue;
 
       /* Get the section contents if we haven't done so already.  */
@@ -2069,6 +2125,48 @@ elf32_avr_relax_section (bfd *abfd,
 					       irel->r_offset + 2, 2))
 	      goto error_return;
 	    *again = TRUE;
+	    break;
+	  }
+	  /* Try to insert the alignment padding to reduce power usage
+	     in a frequently executed loop / basic block.  */
+	case R_AVR_ALIGN:
+	  {
+	    int align_addr, align_log, align_max;
+	    int old_pad_size, full_pad_size, new_pad_size, i;
+	    bfd_byte *p;
+
+	    BFD_ASSERT ((irel->r_offset & 1) == 0);
+
+	    /* Find out if we already have padding.  */
+	    old_pad_size = irel->r_addend >> 20;
+
+	    align_addr
+	      = sec->output_section->vma + sec->output_offset + irel->r_offset;
+	    align_log = irel->r_addend & 0xff;
+	    align_max = irel->r_addend >> 8 & 0xfff;
+	    full_pad_size = -align_addr & ((1 << align_log) - 1);
+	    if (full_pad_size > align_max)
+	      full_pad_size = 0;
+	    new_pad_size = full_pad_size - old_pad_size;
+
+#if 0
+	    printf ("%x, %d, %d, %d %d\n", align_addr, align_log, old_pad_size, full_pad_size, new_pad_size);
+#endif
+	    if (new_pad_size == 0)
+	      break;
+	    if (!elf32_avr_relax_delete_bytes (abfd, sec,
+					       irel->r_offset + old_pad_size,
+					       -new_pad_size))
+	      continue;
+
+	    /* Write padding.  */
+	    /* ??? Should consider multi-byte insns and branches.  */
+	    /* Fill with NOPs.  */
+	    p = contents + irel->r_offset;
+	    for (i = 0; i < full_pad_size; i += 2)
+	      bfd_put_16 (abfd, 0x0000, p);
+	    irel->r_addend += new_pad_size << 20;
+
 	    break;
 	  }
 	  /* Try to turn a 22-bit absolute call/jump into an 13-bit

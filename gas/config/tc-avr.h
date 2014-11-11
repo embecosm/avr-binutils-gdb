@@ -83,6 +83,9 @@ extern const exp_mod_data_t *avr_parse_cons_expression (expressionS *, int);
 extern void avr_cons_fix_new (fragS *,int, int, expressionS *,
 			      const exp_mod_data_t *);
 
+#define HANDLE_ALIGN(fragp) avr_handle_align (fragp)
+extern void avr_handle_align (struct frag *);
+
 /* This should just call either `number_to_chars_bigendian' or
    `number_to_chars_littleendian', whichever is appropriate.  On
    targets like the MIPS which support options to change the

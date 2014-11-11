@@ -1,3 +1,13 @@
+2014-11-11  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* reloc.c (BFD_RELOC_AVR_ALIGN_: New reloation.
+	* elf32-avr.c (avr_ignore_reloc): New function.
+	(R_AVR_ALIGN): New HOWTO.
+	(avr_reloc_map): Add entry for {BFD_RELOC,R}_AVR_ALIGN
+	(elf32_avr_relax_delete_bytes): Support negative deletions.
+	(elf32_avr_relax_section): Handle R_AVR_ALIGN.
+	* bfd-in2.h, libbfd.h: Regenerate.
+
 2014-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* elf32-avr.c (elf32_avr_relax_section): Move R_AVR_16_LDST

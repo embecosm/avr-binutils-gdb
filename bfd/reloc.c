@@ -4787,6 +4787,10 @@ ENUMDOC
   This is a reloc of indeterminate size to subtract a symbol from the value
   that the subsequent relocation will install.
 ENUM
+  BFD_RELOC_AVR_ALIGN
+ENUMDOC
+  Used to record desired loop alignment, needs relaxing to work
+ENUM
   BFD_RELOC_AVR_LDS_STS_16
 ENUMDOC
   This is a 7 bit reloc for the AVR that stores SRAM address for 16bit
