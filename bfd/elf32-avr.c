@@ -1717,8 +1717,11 @@ elf32_avr_relax_delete_bytes (bfd *abfd,
                            + sec->output_offset + irel->r_offset);
 
       /* Get the new reloc address.  */
-      if ((irel->r_offset > addr
-           && irel->r_offset < toaddr))
+      if (irel->r_offset >= addr
+          && irel->r_offset < toaddr
+	  /* Don't move an alignemnt on its own behalf.  */
+          && (irel->r_offset > addr || count > 0
+	      || ELF32_R_TYPE (irel->r_info) != R_AVR_ALIGN))
         {
           if (debug_relax)
             printf ("Relocation at address 0x%x needs to be moved.\n"
@@ -1822,6 +1825,14 @@ elf32_avr_relax_delete_bytes (bfd *abfd,
 
                        if (debug_relax)
                          printf ("Relocation's addend needed to be fixed \n");
+                     }
+		  else if (symval >= moved_insn_address
+			   && (symval + irel->r_addend) < moved_insn_address)
+                     {
+                       irel->r_addend += count;
+
+                       if (debug_relax)
+                         printf ("Relocation's addend needed to be fixed.\n");
                      }
                  }
 	       /* else...Reference symbol is absolute.  No adjustment needed.  */
@@ -2164,7 +2175,7 @@ elf32_avr_relax_section (bfd *abfd,
 	    /* Fill with NOPs.  */
 	    p = contents + irel->r_offset;
 	    for (i = 0; i < full_pad_size; i += 2)
-	      bfd_put_16 (abfd, 0x0000, p);
+	      bfd_put_16 (abfd, 0x0000, p + i);
 	    irel->r_addend += new_pad_size << 20;
 
 	    break;
