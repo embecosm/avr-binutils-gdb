@@ -1,10 +1,16 @@
+2014-11-13  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* elf32-avr.c (elf32_avr_relax_section <R_AVR_ALIGN>):
+	When writing more than two nops, overwrite first one with an
+	rjmp.
+
 2014-11-11  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* elf32-avr.c (elf32_avr_relax_delete_bytes): Be prepared to
 	moev relocation right at ADDR, unless it's the very R_AVR_ALIGN
 	for which we do the code movement.
 	Also do reverse addend adjustment.
-	(avr_relax_section): Fix R_AVR_ALIGN nop writing loop
+	(elf32_avr_relax_section): Fix R_AVR_ALIGN nop writing loop
 	to write more than one nop.
 
 2014-11-11  Joern Rennecke  <joern.rennecke@embecosm.com>

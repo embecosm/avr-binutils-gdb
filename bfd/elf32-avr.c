@@ -2171,13 +2171,17 @@ elf32_avr_relax_section (bfd *abfd,
 	      continue;
 
 	    /* Write padding.  */
-	    /* ??? Should consider multi-byte insns and branches.  */
 	    /* Fill with NOPs.  */
 	    p = contents + irel->r_offset;
 	    for (i = 0; i < full_pad_size; i += 2)
 	      bfd_put_16 (abfd, 0x0000, p + i);
 	    irel->r_addend += new_pad_size << 20;
 
+	    /* An rjmp uses two cycles, each nop one.  Also, two nops use
+	       slightly less, but three nops use more power than one rjmp.
+	       Each nop/rjmp uses two bytes.  */
+	    if (full_pad_size > 2 * 2)
+	      bfd_put_16 (abfd, 0xC000 + (full_pad_size >> 1) - 1, p);
 	    break;
 	  }
 	  /* Try to turn a 22-bit absolute call/jump into an 13-bit
