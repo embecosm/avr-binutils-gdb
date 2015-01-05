@@ -1302,6 +1302,12 @@ md_apply_fix (fixS *fixP, valueT * valP, segT seg)
     case BFD_RELOC_AVR_CALL:
     case BFD_RELOC_AVR_PORT6:
     case BFD_RELOC_AVR_PORT5:
+      if (fixP->fx_addsy != (symbolS *) NULL
+          && fixP->fx_subsy != (symbolS *) NULL)
+        /* This fixup will become a difference reloc, the value computed so
+           var (in *VALP) is not the difference value, and so performing an
+           overflow check on it is the wrong thing to do.  */
+        fixP->fx_no_overflow = 1;
       break;
     }
 

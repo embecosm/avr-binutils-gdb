@@ -1,3 +1,8 @@
+2015-01-05  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/tc-avr.c (md_apply_fix): Prevent overflow check for
+	fixups that are destined to become difference relocations.
+
 2014-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	Adjust tests to our testsuite harness that provides -mmcu flags to
